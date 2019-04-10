@@ -46,6 +46,14 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
+class PulseWidthModulator extends AudioWorkletNode {
+  constructor(context) {
+    super(context, 'pulse-width-modulation-processor');
+  }
+}
+
+audioContext.audioWorklet.addModule('audioworkletprocessors.js');
+
 class SynthChannel {
 	constructor() {
 		this.parameters = [
@@ -67,10 +75,16 @@ class SynthChannel {
 		oscillator.start();
 		this.oscillator = oscillator;
 
+		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
+		this.pwm = pwm;
+		oscillator.type = 'sawtooth';
+		oscillator.connect(pwm);
+
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-		oscillator.connect(envelope);
+		//oscillator.connect(envelope);
+		pwm.connect(envelope);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -230,10 +244,11 @@ class SynthChannel {
 
 }
 
-const channel1 = new SynthChannel();
+let channel1;
 
 function initialize() {
 	audioContext.resume();
+	channel1 = new SynthChannel();
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
 }
