@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<title>Web Audio Experiment</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, shrink-to-fit=no">
+		<link rel="stylesheet" href="site.css">
+		<script src="synth.js" defer></script>
+	</head>
+	<body>
+		<div id="intro">
+			<button onclick="initialize()">Initialize</button>
+		</div>
+		<div id="controls">
+			<div>
+				<button onclick="set(Parameter.GATE, Gate.TRIGGER)">Play Once</button>
+				<button onmousedown="set(Parameter.GATE, Gate.OPEN)" onmouseup="set(Parameter.GATE, Gate.CLOSED)">Play Held Down</button>
+				<button onclick="set(Parameter.GATE, channel1.parameters[Parameter.GATE] !== Gate.OPEN? Gate.OPEN : Gate.CLOSED)">Sound On/Off</button>
+			</div>
+			<div>
+				<button onclick="set(Parameter.WAVEFORM, 'sine')">Sine</button>
+				<button onclick="set(Parameter.WAVEFORM, 'square')">Square</button>
+				<button onclick="set(Parameter.WAVEFORM, 'sawtooth')">Sawtooth</button>
+				<button onclick="set(Parameter.WAVEFORM, 'triangle')">Triangle</button>
+			</div>
+			<div>
+				<input type="range" oninput="set(Parameter.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
+				<input type="range" oninput="set(Parameter.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay<br>
+				<input type="range" oninput="set(Parameter.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
+				<input type="range" oninput="set(Parameter.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
+				<input type="range" oninput="set(Parameter.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
+				<input type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="80" max="4186" value="440" step="2">Base Frequency<br>
+				<input type="range" oninput="set(Parameter.NOTE, parseInt(this.value))" min="0" max="127" value="69" step="1">Note<br>
+				<input type="range" oninput="set(Parameter.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
+				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value))" min="0" max="100" value="100" step="1">Volume<br>
+				<input type="range" oninput="set(Parameter.PAN, parseFloat(this.value))" min="-1" max="1" value="0" step="0.001">Pan<br>
+		</div>
+	</body>
+</html>
