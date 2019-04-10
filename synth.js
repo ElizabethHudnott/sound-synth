@@ -77,14 +77,12 @@ class SynthChannel {
 
 		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
 		this.pwm = pwm;
-		oscillator.type = 'sawtooth';
 		oscillator.connect(pwm);
 
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-		//oscillator.connect(envelope);
-		pwm.connect(envelope);
+		oscillator.connect(envelope);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
