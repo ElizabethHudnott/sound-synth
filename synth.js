@@ -17,8 +17,8 @@ const Parameter = Object.freeze({
 	NOTE: 8,		// MIDI note number
 	DETUNE: 9,		// in cents
 	VOLUME: 10,		// percentage
-	PAN: 11,		// -1 to 1
-	VOICE: 12,		// Combinations for Voice enum
+	PANNED: 11,		// 0 or 1
+	VOICE: 12,		// Combinations of Voice enum values
 	MIX: 13,		// Relative volumes
 	PULSE_WIDTH: 14,// 0 to 1
 });
@@ -72,7 +72,7 @@ class NoiseGenerator extends AudioWorkletNode {
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 class SynthChannel {
-	constructor() {
+	constructor(pannedLeft) {
 		this.parameters = [
 			2,		// attack (ms)
 			50,		//decay (ms)
@@ -87,7 +87,7 @@ class SynthChannel {
 			100,	//	volume
 			0,		// pan
 			Voice.OSCILLATOR,
-			[1, 1, 1], // relative proportions of the different sources
+			[100, 100, 100], // relative proportions of the different sources
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -121,13 +121,14 @@ class SynthChannel {
 		noiseGain.connect(envelope);
 		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
-		const pan = audioContext.createStereoPanner();
-		this.pan = pan;
-		envelope.connect(pan);
+		const panner = audioContext.createStereoPanner();
+		this.panner = panner;
+		this.panValue = pannedLeft? -1 : 1;
+		envelope.connect(panner);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
-		pan.connect(volume);
+		panner.connect(volume);
 
 		volume.connect(audioContext.destination);
 	}
@@ -166,7 +167,10 @@ class SynthChannel {
 				}
 				voices = voices>>1;
 			}
-			const unit = total > 0? 1 / total : 0;
+			if (total < 100) {
+				total = 100;
+			}
+			const unit = 1 / total;
 			voices = this.parameters[Parameter.VOICE];
 			for (let i = 0; i < mix.length; i++) {
 				if ((voices & 1) === 1) {
@@ -302,12 +306,10 @@ class SynthChannel {
 				}
 				break;
 
-			case Parameter.PAN:
-				if (changeType === ChangeType.HOLD) {
-					this.pan.pan.cancelAndHoldAtTime(time);
-				} else {
-					this.pan.pan[changeType](value, time);
-				}
+			case Parameter.PANNED:
+				value = Math.trunc(value) % 2;
+				this.panner.pan.setValueAtTime(value === 0? 0 : this.panValue, time);
+				this.parameters[Parameter.PANNED] = value;
 				break;
 
 			case Parameter.VOICE:
@@ -342,7 +344,7 @@ let channel1;
 
 function initialize() {
 	audioContext.resume();
-	channel1 = new SynthChannel();
+	channel1 = new SynthChannel(true);
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
 }
