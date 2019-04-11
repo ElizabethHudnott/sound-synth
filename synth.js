@@ -28,7 +28,6 @@ const ChangeType = Object.freeze({
 	DELTA: 'delta',
 	LINEAR: 'linearRampToValueAtTime',
 	EXPONENTIAL: 'exponentialRampToValueAtTime',
-	HOLD: 'cancelAndHoldAtTime',
 });
 
 class Change {
@@ -158,28 +157,26 @@ class SynthChannel {
 		for (let gain of gains) {
 			gain.gain.cancelAndHoldAtTime(when);
 		}
-		if (changeType !== ChangeType.HOLD) {
-			const mix = this.parameters[Parameter.MIX];
-			let total = 0;
-			for (let level of mix) {
-				if ((voices & 1) == 1) {
-					total += level;
-				}
-				voices = voices>>1;
+		const mix = this.parameters[Parameter.MIX];
+		let total = 0;
+		for (let level of mix) {
+			if ((voices & 1) == 1) {
+				total += level;
 			}
-			if (total < 100) {
-				total = 100;
+			voices = voices>>1;
+		}
+		if (total < 100) {
+			total = 100;
+		}
+		const unit = 1 / total;
+		voices = this.parameters[Parameter.VOICE];
+		for (let i = 0; i < mix.length; i++) {
+			if ((voices & 1) === 1) {
+				gains[i].gain[changeType](unit * mix[i], when);
+			} else {
+				gains[i].gain[changeType](0, when);
 			}
-			const unit = 1 / total;
-			voices = this.parameters[Parameter.VOICE];
-			for (let i = 0; i < mix.length; i++) {
-				if ((voices & 1) === 1) {
-					gains[i].gain[changeType](unit * mix[i], when);
-				} else {
-					gains[i].gain[changeType](0, when);
-				}
-				voices = voices>>1;
-			}
+			voices = voices>>1;
 		}
 	}
 
@@ -212,19 +209,15 @@ class SynthChannel {
 	}
 
 	setFrequency(changeType, frequency, when) {
-		if (changeType === ChangeType.HOLD) {
-			this.oscillator.frequency.cancelAndHoldAtTime(when);
-		} else {
-			this.oscillator.frequency[changeType](frequency, when);
-		}
+		let param = this.oscillator.frequency;
+		param.cancelAndHoldAtTime(when);
+		param[changeType](frequency, when);
 	}
 
 	setDetune(changeType, cents, when) {
-		if (changeType === ChangeType.HOLD) {
-			this.oscillator.detune.cancelAndHoldAtTime(when);
-		} else {
-			this.oscillator.detune[changeType](cents, when);
-		}
+		let param = this.oscillator.detune;
+		param.cancelAndHoldAtTime(when);
+		param[changeType](cents, when);
 	}
 
 	setParameters(parameterMap, time, now) {
@@ -237,6 +230,7 @@ class SynthChannel {
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
 			let value = change.value;
+			let param;
 			if (paramNumber === Parameter.MIX) {
 				const mix = this.parameters[Parameter.MIX]
 				if (changeType === ChangeType.DELTA) {
@@ -254,9 +248,7 @@ class SynthChannel {
 					changeType = ChangeType.SET;
 					value += this.parameters[paramNumber];
 				}
-				if (changeType !== ChangeType.HOLD) {
-					this.parameters[paramNumber] = value;
-				}
+				this.parameters[paramNumber] = value;
 			}
 
 			if (paramNumber <= Parameter.DURATION) {
@@ -299,16 +291,16 @@ class SynthChannel {
 				break;
 
 			case Parameter.VOLUME:
-				if (changeType === ChangeType.HOLD) {
-					this.volume.gain.cancelAndHoldAtTime(time);
-				} else {
-					this.volume.gain[changeType](LOG_BASE**-(100 - value), time);
-				}
+				param = this.volume.gain;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](LOG_BASE**-(100 - value), time);
 				break;
 
 			case Parameter.PANNED:
 				value = Math.trunc(value) % 2;
-				this.panner.pan.setValueAtTime(value === 0? 0 : this.panValue, time);
+				param = this.panner.pan;
+				param.cancelAndHoldAtTime(time);
+				param.setValueAtTime(value === 0? 0 : this.panValue, time);
 				this.parameters[Parameter.PANNED] = value;
 				break;
 
@@ -318,11 +310,9 @@ class SynthChannel {
 				break;
 
 			case Parameter.PULSE_WIDTH:
-				if (changeType === ChangeType.HOLD) {
-					this.pwm.parameters.get('width').cancelAndHoldAtTime(time);
-				} else {
-					this.pwm.parameters.get('width')[changeType](value, time);
-				}
+				param = this.pwm.parameters.get('width');
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
 				break;
 
 			}
