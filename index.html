@@ -18,12 +18,17 @@
 				<button onclick="set(Parameter.GATE, channel1.parameters[Parameter.GATE] !== Gate.OPEN? Gate.OPEN : Gate.CLOSED)">Sound On/Off</button>
 			</div>
 			<div>
-				<button onclick="set(Parameter.WAVEFORM, 'sine')">Sine</button>
-				<button onclick="set(Parameter.WAVEFORM, 'square')">Square</button>
-				<button onclick="set(Parameter.WAVEFORM, 'sawtooth')">Sawtooth</button>
-				<button onclick="set(Parameter.WAVEFORM, 'triangle')">Triangle</button>
+				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'sine')" checked>Sine</label>
+				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'square')">Square</label>
+				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'sawtooth')">Sawtooth</label>
+				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'triangle')">Triangle</label>
 			</div>
 			<div>
+				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
+				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
+			</div>
+			<div>
+				<input type="range" oninput="set(Parameter.PULSE_WIDTH, parseFloat(this.value))" min="0.0001" max="0.9999" value="0.5" step="0.0001">Pulse Width<br>
 				<input type="range" oninput="set(Parameter.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
 				<input type="range" oninput="set(Parameter.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay<br>
 				<input type="range" oninput="set(Parameter.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>

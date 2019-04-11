@@ -3,6 +3,7 @@ const audioContext = new AudioContext({sampleRate: 96000});
 
 const LOWEST_LEVEL = 1 / 65535;
 const SHORTEST_TIME = 1 / 96000;
+const LOG_BASE = 10**(Math.log10(1/65535) / -100);
 
 const Parameter = Object.freeze({
 	ATTACK: 0,		// in milliseconds
@@ -17,6 +18,9 @@ const Parameter = Object.freeze({
 	DETUNE: 9,		// in cents
 	VOLUME: 10,		// percentage
 	PAN: 11,		// -1 to 1
+	VOICE: 12,		// Combinations for Voice enum
+	MIX: 13,		// Relative volumes
+	PULSE_WIDTH: 14,// 0 to 1
 });
 
 const ChangeType = Object.freeze({
@@ -40,6 +44,13 @@ const Gate = Object.freeze({
 	TRIGGER: 2,
 });
 
+const Voice = Object.freeze({
+	OSCILLATOR: 1,
+	PULSE: 2,
+	NOISE: 4,
+	SAMPLE: 8
+});
+
 const noteFrequencies = [];
 
 for (let i = 0; i <= 127; i++) {
@@ -59,14 +70,18 @@ class SynthChannel {
 		this.parameters = [
 			2,		// attack (ms)
 			50,		//decay (ms)
-			50,		// sustain (%)
 			300,	// release (ms)
 			200,	// duration (ms)
+			50,		// sustain (%)
 			Gate.CLOSED, // gate
+			'sine',	// waveform
 			440,	// frequency
 			69,		// MIDI note number
 			0,		// detune
+			100,	//	volume
 			0,		// pan
+			Voice.OSCILLATOR,
+			[1, 1],	// relative proportions of the different sources
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -74,25 +89,33 @@ class SynthChannel {
 		const oscillator = audioContext.createOscillator();
 		oscillator.start();
 		this.oscillator = oscillator;
+		const oscillatorGain = audioContext.createGain();
+		oscillator.connect(oscillatorGain);
 
 		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
 		this.pwm = pwm;
 		oscillator.connect(pwm);
+		const pwmGain = audioContext.createGain();
+		pwmGain.gain.value = 0;
+		pwm.connect(pwmGain);
 
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-		oscillator.connect(envelope);
+		oscillatorGain.connect(envelope);
+		pwmGain.connect(envelope);
 
-		const volume = audioContext.createGain();
-		this.volume = volume;
-		envelope.connect(volume);
+		this.gains = [oscillatorGain, pwmGain];
 
 		const pan = audioContext.createStereoPanner();
 		this.pan = pan;
-		volume.connect(pan);
+		envelope.connect(pan);
 
-		pan.connect(audioContext.destination);
+		const volume = audioContext.createGain();
+		this.volume = volume;
+		pan.connect(volume);
+
+		volume.connect(audioContext.destination);
 	}
 
 	calcEnvelope(dirty) {
@@ -111,6 +134,34 @@ class SynthChannel {
 			this.release = release / 1000;
 			this.beginRelease = duration / 1000;
 			this.endRelease = endRelease / 1000;
+		}
+	}
+
+	calcGains(changeType, when) {
+		let voices = this.parameters[Parameter.VOICE];
+		const gains = this.gains;
+		for (let gain of gains) {
+			gain.gain.cancelAndHoldAtTime(when);
+		}
+		if (changeType !== ChangeType.HOLD) {
+			const mix = this.parameters[Parameter.MIX];
+			let total = 0;
+			for (let level of mix) {
+				if ((voices & 1) == 1) {
+					total += level;
+				}
+				voices = voices>>1;
+			}
+			const unit = total > 0? 1 / total : 0;
+			voices = this.parameters[Parameter.VOICE];
+			for (let i = 0; i < mix.length; i++) {
+				if ((voices & 1) === 1) {
+					gains[i].gain[changeType](unit * mix[i], when);
+				} else {
+					gains[i].gain[changeType](0, when);
+				}
+				voices = voices>>1;
+			}
 		}
 	}
 
@@ -162,17 +213,32 @@ class SynthChannel {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
+		let gainChangeType;
 		let timeDifference;
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
 			let value = change.value;
-			if (changeType === ChangeType.DELTA) {
-				changeType = ChangeType.SET;
-				value += this.parameters[paramNumber];
-			}
-			if (changeType !== ChangeType.HOLD) {
-				this.parameters[paramNumber] = value;
+			if (paramNumber === Parameter.MIX) {
+				const mix = this.parameters[Parameter.MIX]
+				if (changeType === ChangeType.DELTA) {
+					changeType = ChangeType.SET;
+					for (let i = 0; i < value.length; i++) {
+						mix[i] = mix[i] + value[i];
+					}
+				} else {
+					for (let i = 0; i < value.length; i++) {
+						mix[i] = value[i];
+					}
+				}
+			} else {
+				if (changeType === ChangeType.DELTA) {
+					changeType = ChangeType.SET;
+					value += this.parameters[paramNumber];
+				}
+				if (changeType !== ChangeType.HOLD) {
+					this.parameters[paramNumber] = value;
+				}
 			}
 
 			if (paramNumber <= Parameter.DURATION) {
@@ -218,7 +284,7 @@ class SynthChannel {
 				if (changeType === ChangeType.HOLD) {
 					this.volume.gain.cancelAndHoldAtTime(time);
 				} else {
-					this.volume.gain[changeType](value / 100, time);
+					this.volume.gain[changeType](LOG_BASE**-(100 - value), time);
 				}
 				break;
 
@@ -230,7 +296,23 @@ class SynthChannel {
 				}
 				break;
 
+			case Parameter.VOICE:
+			case Parameter.MIX:
+				gainChangeType = changeType;
+				break;
+
+			case Parameter.PULSE_WIDTH:
+				if (changeType === ChangeType.HOLD) {
+					this.pwm.parameters.get('width').cancelAndHoldAtTime(time);
+				} else {
+					this.pwm.parameters.get('width')[changeType](value, time);
+				}
+				break;
+
 			}
+		}
+		if (gainChangeType !== undefined) {
+			this.calcGains(gainChangeType, time);
 		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
