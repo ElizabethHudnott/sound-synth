@@ -56,18 +56,6 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
-class PulseWidthModulator extends AudioWorkletNode {
-  constructor(context) {
-    super(context, 'pulse-width-modulation-processor');
-  }
-}
-
-class NoiseGenerator extends AudioWorkletNode {
-  constructor(context) {
-    super(context, 'noise-generation-processor');
-  }
-}
-
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 class SynthChannel {
