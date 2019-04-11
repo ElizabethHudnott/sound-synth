@@ -26,6 +26,7 @@
 			<div>
 				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
 				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
+				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 11) + (this.checked? 4 : 0))">Noise</label>
 			</div>
 			<div>
 				<input type="range" oninput="set(Parameter.PULSE_WIDTH, parseFloat(this.value))" min="0.0001" max="0.9999" value="0.5" step="0.0001">Pulse Width<br>
@@ -34,7 +35,7 @@
 				<input type="range" oninput="set(Parameter.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
 				<input type="range" oninput="set(Parameter.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
 				<input type="range" oninput="set(Parameter.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
-				<input type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="80" max="4186" value="440" step="2">Base Frequency<br>
+				<input type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="20" max="12544" value="440" step="1">Base Frequency<br>
 				<input type="range" oninput="set(Parameter.NOTE, parseInt(this.value))" min="0" max="127" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Parameter.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value))" min="0" max="100" value="100" step="1">Volume<br>

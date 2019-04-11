@@ -63,6 +63,12 @@ class PulseWidthModulator extends AudioWorkletNode {
   }
 }
 
+class NoiseGenerator extends AudioWorkletNode {
+  constructor(context) {
+    super(context, 'noise-generation-processor');
+  }
+}
+
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 class SynthChannel {
@@ -81,7 +87,7 @@ class SynthChannel {
 			100,	//	volume
 			0,		// pan
 			Voice.OSCILLATOR,
-			[1, 1],	// relative proportions of the different sources
+			[1, 1, 1], // relative proportions of the different sources
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -99,13 +105,21 @@ class SynthChannel {
 		pwmGain.gain.value = 0;
 		pwm.connect(pwmGain);
 
+		const noise = new AudioWorkletNode(audioContext, 'noise-generation-processor');
+		this.noise = noise;
+		oscillator.connect(noise);
+		const noiseGain = audioContext.createGain();
+		noiseGain.gain.value = 0;
+		noise.connect(noiseGain);
+
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
+
 		oscillatorGain.connect(envelope);
 		pwmGain.connect(envelope);
-
-		this.gains = [oscillatorGain, pwmGain];
+		noiseGain.connect(envelope);
+		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
 		const pan = audioContext.createStereoPanner();
 		this.pan = pan;
