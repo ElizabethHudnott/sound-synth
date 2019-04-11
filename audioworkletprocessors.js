@@ -81,3 +81,60 @@ class NoiseGenerationProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor('noise-generation-processor', NoiseGenerationProcessor);
+
+
+class MultiplierProcessor extends AudioWorkletProcessor {
+	static get parameterDescriptors() {
+		return [{
+			name: 'mask',
+			defaultValue: 1
+		}];
+	}
+
+	constructor() {
+		super();
+	}
+
+	process(inputs, outputs, parameters) {
+		const masks = parameters.mask;
+		const numInputs = inputs.length;
+		const output = outputs[0][0];
+		let length = 0;
+		for (let input of inputs) {
+			if (input.length > length) {
+				length = input[0].length;
+			}
+		}
+		let mask, value;
+
+		if (masks.length === 1) {
+			for (let i = 0; i < length; i++) {
+				mask = masks[0];
+				value = 1;
+				for (let j = 0; j < numInputs; j++) {
+					if ((mask & 1) === 1) {
+						value = value * inputs[j][0][i];
+					}
+					mask = mask>>1;
+				}
+				output[i] = value;
+			}
+		} else {
+			for (let i = 0; i < length; i++) {
+				mask = masks[i];
+				value = 1;
+				for (let j = 0; j < numInputs; j++) {
+					if ((mask & 1) === 1) {
+						value = value * inputs[j][0][i];
+					}
+					mask = mask>>1;
+				}
+				output[i] = value;
+			}
+		}
+		return true;
+	}
+
+}
+
+registerProcessor('multiplier-processor', MultiplierProcessor);

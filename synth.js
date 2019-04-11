@@ -1,5 +1,6 @@
 'use strict';
 const audioContext = new AudioContext({sampleRate: 96000});
+audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const LOWEST_LEVEL = 1 / 65535;
 const SHORTEST_TIME = 1 / 96000;
@@ -19,7 +20,6 @@ const Parameter = Object.freeze({
 	VOLUME: 10,		// percentage
 	PANNED: 11,		// 0 or 1
 	VOICE: 12,		// Combinations of Voice enum values
-	MIX: 13,		// Relative volumes
 	PULSE_WIDTH: 14,// 0 to 1
 });
 
@@ -56,19 +56,11 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
-class PulseWidthModulator extends AudioWorkletNode {
-  constructor(context) {
-    super(context, 'pulse-width-modulation-processor');
+class MultiplierProcessor extends AudioWorkletNode {
+  constructor(context, numInputs) {
+    super(audioContext, 'multiplier-processor', {numberOfInputs: numInputs});
   }
 }
-
-class NoiseGenerator extends AudioWorkletNode {
-  constructor(context) {
-    super(context, 'noise-generation-processor');
-  }
-}
-
-audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 class SynthChannel {
 	constructor(pannedLeft) {
@@ -86,39 +78,33 @@ class SynthChannel {
 			100,	//	volume
 			0,		// pan
 			Voice.OSCILLATOR,
-			[100, 100, 100], // relative proportions of the different sources
+			0.5		// pulse width
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
 
+		const multiplexer = new MultiplierProcessor(audioContext, 3);
+		this.multiplexer = multiplexer;
+
 		const oscillator = audioContext.createOscillator();
 		oscillator.start();
 		this.oscillator = oscillator;
-		const oscillatorGain = audioContext.createGain();
-		oscillator.connect(oscillatorGain);
+		oscillator.connect(multiplexer, 0, 0);
 
 		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
 		this.pwm = pwm;
 		oscillator.connect(pwm);
-		const pwmGain = audioContext.createGain();
-		pwmGain.gain.value = 0;
-		pwm.connect(pwmGain);
+		pwm.connect(multiplexer, 0, 1);
 
 		const noise = new AudioWorkletNode(audioContext, 'noise-generation-processor');
 		this.noise = noise;
 		oscillator.connect(noise);
-		const noiseGain = audioContext.createGain();
-		noiseGain.gain.value = 0;
-		noise.connect(noiseGain);
+		noise.connect(multiplexer,0, 2);
 
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-
-		oscillatorGain.connect(envelope);
-		pwmGain.connect(envelope);
-		noiseGain.connect(envelope);
-		this.gains = [oscillatorGain, pwmGain, noiseGain];
+		multiplexer.connect(envelope);
 
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
@@ -148,35 +134,6 @@ class SynthChannel {
 			this.release = release / 1000;
 			this.beginRelease = duration / 1000;
 			this.endRelease = endRelease / 1000;
-		}
-	}
-
-	calcGains(changeType, when) {
-		let voices = this.parameters[Parameter.VOICE];
-		const gains = this.gains;
-		for (let gain of gains) {
-			gain.gain.cancelAndHoldAtTime(when);
-		}
-		const mix = this.parameters[Parameter.MIX];
-		let total = 0;
-		for (let level of mix) {
-			if ((voices & 1) == 1) {
-				total += level;
-			}
-			voices = voices>>1;
-		}
-		if (total < 100) {
-			total = 100;
-		}
-		const unit = 1 / total;
-		voices = this.parameters[Parameter.VOICE];
-		for (let i = 0; i < mix.length; i++) {
-			if ((voices & 1) === 1) {
-				gains[i].gain[changeType](unit * mix[i], when);
-			} else {
-				gains[i].gain[changeType](0, when);
-			}
-			voices = voices>>1;
 		}
 	}
 
@@ -224,32 +181,17 @@ class SynthChannel {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
-		let gainChangeType;
 		let timeDifference;
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
 			let value = change.value;
 			let param;
-			if (paramNumber === Parameter.MIX) {
-				const mix = this.parameters[Parameter.MIX]
-				if (changeType === ChangeType.DELTA) {
-					changeType = ChangeType.SET;
-					for (let i = 0; i < value.length; i++) {
-						mix[i] = mix[i] + value[i];
-					}
-				} else {
-					for (let i = 0; i < value.length; i++) {
-						mix[i] = value[i];
-					}
-				}
-			} else {
-				if (changeType === ChangeType.DELTA) {
-					changeType = ChangeType.SET;
-					value += this.parameters[paramNumber];
-				}
-				this.parameters[paramNumber] = value;
+			if (changeType === ChangeType.DELTA) {
+				changeType = ChangeType.SET;
+				value += this.parameters[paramNumber];
 			}
+			this.parameters[paramNumber] = value;
 
 			if (paramNumber <= Parameter.DURATION) {
 				if (paramNumber < Parameter.RELEASE) {
@@ -305,8 +247,9 @@ class SynthChannel {
 				break;
 
 			case Parameter.VOICE:
-			case Parameter.MIX:
-				gainChangeType = changeType;
+				param = this.multiplexer.parameters.get('mask');
+				param.cancelAndHoldAtTime(time);
+				param.setValueAtTime(value, time);
 				break;
 
 			case Parameter.PULSE_WIDTH:
@@ -316,9 +259,6 @@ class SynthChannel {
 				break;
 
 			}
-		}
-		if (gainChangeType !== undefined) {
-			this.calcGains(gainChangeType, time);
 		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
