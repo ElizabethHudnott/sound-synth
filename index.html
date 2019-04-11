@@ -5,7 +5,6 @@
 		<title>Web Audio Experiment</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, shrink-to-fit=no">
 		<link rel="stylesheet" href="site.css">
-		<script src="synth.js" defer></script>
 	</head>
 	<body>
 		<div id="intro">
@@ -28,6 +27,12 @@
 				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
 				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 11) + (this.checked? 4 : 0))">Noise</label>
 			</div>
+			<fieldset>
+				<legend>Mixer</legend>
+				<input type="range" oninput="mix(0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
+				<input type="range" oninput="mix(1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
+				<input type="range" oninput="mix(2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
+			</fieldset>
 			<div>
 				<input type="range" oninput="set(Parameter.PULSE_WIDTH, parseFloat(this.value))" min="0.0001" max="0.9999" value="0.5" step="0.0001">Pulse Width<br>
 				<input type="range" oninput="set(Parameter.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
@@ -41,5 +46,30 @@
 				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value))" min="0" max="100" value="100" step="1">Volume<br>
 				<label><input type="checkbox" onclick="set(Parameter.PANNED, this.checked? 1 : 0)">Pan Left</label>
 		</div>
+
+		<script src="synth.js"></script>
+		<script>
+			let channel1;
+
+			function initialize() {
+				audioContext.resume();
+				channel1 = new SynthChannel(true);
+				document.getElementById('intro').style.display = 'none';
+				document.getElementById('controls').style.display = 'block';
+			}
+
+			function set(parameterNumber, value) {
+				const parameterMap = new Map();
+				parameterMap.set(parameterNumber, new Change(ChangeType.SET, value));
+				const time = audioContext.currentTime;
+				channel1.setParameters(parameterMap, time, time);
+			}
+
+			function mix(source, amount) {
+				const levels = channel1.parameters[Parameter.MIX].slice();
+				levels.splice(source, 1, amount);
+				set(Parameter.MIX, levels);
+			}
+		</script>
 	</body>
 </html>

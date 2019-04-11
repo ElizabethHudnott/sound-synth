@@ -1,3 +1,7 @@
+body {
+	width: fit-content;
+}
+
 #controls {
 	display: none;
 }

@@ -317,19 +317,3 @@ class SynthChannel {
 	}
 
 }
-
-let channel1;
-
-function initialize() {
-	audioContext.resume();
-	channel1 = new SynthChannel(true);
-	document.getElementById('intro').style.display = 'none';
-	document.getElementById('controls').style.display = 'block';
-}
-
-function set(parameterNumber, value) {
-	const parameterMap = new Map();
-	parameterMap.set(parameterNumber, new Change(ChangeType.SET, value));
-	const time = audioContext.currentTime;
-	channel1.setParameters(parameterMap, time, time);
-}
