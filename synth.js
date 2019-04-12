@@ -18,11 +18,14 @@ const Parameter = Object.freeze({
 	NOTE: 8,		// MIDI note number
 	DETUNE: 9,		// in cents
 	VOLUME: 10,		// percentage
-	PANNED: 11,		// 0 or 1
-	VOICE: 12,		// Combinations of Voice enum values
-	MIX: 13,		// Relative volumes
-	PULSE_WIDTH: 14,// 0 to 1
-	FILTERED: 15,	// 0 or 1
+	TREMOLO_SHAPE: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_FREQUENCY: 12,	// in hertz
+	TREMOLO_AMOUNT: 13,		// 0 to 100
+	PANNED: 14,		// 0 or 1
+	VOICE: 15,		// Combinations of Voice enum values
+	MIX: 16,		// Relative volumes
+	PULSE_WIDTH: 17,// 0 to 1
+	FILTERED: 18,	// 0 or 1
 	FILTER_TYPE: -1, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: -2, // in hertz
 	FILTER_Q: -3,	// 0.0001 to 1000
@@ -61,8 +64,46 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
+class Modulator {
+	constructor(audioContext, carrier) {
+		this.min = 1;
+		this.max = 1;
+
+		const oscillator = audioContext.createOscillator();
+		this.oscillator = oscillator;
+		oscillator.frequency.value = 5;
+		oscillator.start();
+
+		const gain = audioContext.createGain();
+		this.gain = gain;
+		gain.gain.value = 0;
+		oscillator.connect(gain);
+
+		const offset = audioContext.createConstantSource();
+		this.offset = offset;
+
+		gain.connect(carrier);
+		offset.connect(carrier);
+	}
+
+	setRange(changeType, min, max, time) {
+		const multiplier = (max - min) / 2;
+		const gain = this.gain.gain;
+		gain.cancelAndHoldAtTime(time);
+		gain[changeType](multiplier, time);
+
+		const offset = this.offset.offset;
+		offset.cancelAndHoldAtTime(time);
+		offset[changeType](min + multiplier, time);
+		this.min = min;
+		this.max = max;
+	}
+
+}
+
 class SynthSystem {
-	constructor(filterGain) {
+	constructor(audioContext, filterGain) {
+		this.audioContext = audioContext;
 		this.parameters = [
 			'lowpass',	// filter type
 			4400,		// filter frequency
@@ -82,6 +123,7 @@ class SynthSystem {
 
 class SynthChannel {
 	constructor(system, pannedLeft) {
+		const audioContext = system.audioContext;
 		this.system = system;
 		this.parameters = [
 			2,		// attack (ms)
@@ -95,6 +137,9 @@ class SynthChannel {
 			69,		// MIDI note number
 			0,		// detune
 			100,	//	volume
+			'sine', // tremolo shape
+			5,		// tremolo frequency
+			0,		// tremolo amount
 			0,		// pan
 			Voice.OSCILLATOR,
 			[100, 100, 100], // relative proportions of the different sources
@@ -132,10 +177,16 @@ class SynthChannel {
 		noiseGain.connect(envelope);
 		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
+		const tremoloGain = audioContext.createGain();
+		envelope.connect(tremoloGain);
+		const tremoloModulator = new Modulator(audioContext, tremoloGain.gain);
+		this.tremolo = tremoloModulator;
+		tremoloModulator.oscillator.frequency.value = 5;
+
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		this.panValue = pannedLeft? -1 : 1;
-		envelope.connect(panner);
+		tremoloGain.connect(panner);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;

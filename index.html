@@ -69,7 +69,7 @@
 
 			function initialize() {
 				audioContext.resume();
-				system = new SynthSystem(6);
+				system = new SynthSystem(audioContext, 6);
 				channel1 = new SynthChannel(system, true);
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
