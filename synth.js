@@ -1,9 +1,10 @@
 'use strict';
 const audioContext = new AudioContext({sampleRate: 96000});
+audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const LOWEST_LEVEL = 1 / 65535;
 const SHORTEST_TIME = 1 / 96000;
-const LOG_BASE = 10**(Math.log10(1/65535) / -100);
+const LOG_BASE = 2**(16 / 100);
 
 const Parameter = Object.freeze({
 	ATTACK: 0,		// in milliseconds
@@ -21,6 +22,10 @@ const Parameter = Object.freeze({
 	VOICE: 12,		// Combinations of Voice enum values
 	MIX: 13,		// Relative volumes
 	PULSE_WIDTH: 14,// 0 to 1
+	FILTERED: 15,	// 0 or 1
+	FILTER_TYPE: -1, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: -2, // in hertz
+	FILTER_Q: -3,	// 0.0001 to 1000
 });
 
 const ChangeType = Object.freeze({
@@ -56,13 +61,31 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
-audioContext.audioWorklet.addModule('audioworkletprocessors.js');
+class SynthSystem {
+	constructor(filterGain) {
+		this.parameters = [
+			'lowpass',	// filter type
+			4400,		// filter frequency
+			1,			// filter Q
+		];
+		const filter = audioContext.createBiquadFilter();
+		this.filter = filter;
+		filter.frequency.value = 4400;
+		filter.gain.value = filterGain;
+
+		const volume = audioContext.createGain();
+		this.volume = volume;
+		filter.connect(volume);
+		volume.connect(audioContext.destination);
+	}
+}
 
 class SynthChannel {
-	constructor(pannedLeft) {
+	constructor(system, pannedLeft) {
+		this.system = system;
 		this.parameters = [
 			2,		// attack (ms)
-			50,		//decay (ms)
+			50,		// decay (ms)
 			300,	// release (ms)
 			200,	// duration (ms)
 			50,		// sustain (%)
@@ -75,6 +98,7 @@ class SynthChannel {
 			0,		// pan
 			Voice.OSCILLATOR,
 			[100, 100, 100], // relative proportions of the different sources
+			1,		// filter enabled
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -117,7 +141,16 @@ class SynthChannel {
 		this.volume = volume;
 		panner.connect(volume);
 
-		volume.connect(audioContext.destination);
+		const filteredPath = audioContext.createGain();
+		this.filteredPath = filteredPath;
+		volume.connect(filteredPath);
+		filteredPath.connect(system.filter);
+
+		const unfilteredPath = audioContext.createGain();
+		this.unfilteredPath = unfilteredPath;
+		unfilteredPath.gain.value = 0;
+		volume.connect(unfilteredPath);
+		unfilteredPath.connect(system.volume);
 	}
 
 	calcEnvelope(dirty) {
@@ -139,12 +172,8 @@ class SynthChannel {
 		}
 	}
 
-	calcGains(changeType, when) {
+	calcGains(when) {
 		let voices = this.parameters[Parameter.VOICE];
-		const gains = this.gains;
-		for (let gain of gains) {
-			gain.gain.cancelAndHoldAtTime(when);
-		}
 		const mix = this.parameters[Parameter.MIX];
 		let total = 0;
 		for (let level of mix) {
@@ -157,12 +186,15 @@ class SynthChannel {
 			total = 100;
 		}
 		const unit = 1 / total;
+		const gains = this.gains;
 		voices = this.parameters[Parameter.VOICE];
 		for (let i = 0; i < mix.length; i++) {
+			let param = gains[i].gain;
+			param.cancelAndHoldAtTime(when);
 			if ((voices & 1) === 1) {
-				gains[i].gain[changeType](unit * mix[i], when);
+				param.setValueAtTime(unit * mix[i], when);
 			} else {
-				gains[i].gain[changeType](0, when);
+				param.setValueAtTime(0, when);
 			}
 			voices = voices>>1;
 		}
@@ -212,7 +244,7 @@ class SynthChannel {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
-		let gainChangeType;
+		let gainChange = false;
 		let timeDifference;
 
 		for (let [paramNumber, change] of parameterMap) {
@@ -231,21 +263,27 @@ class SynthChannel {
 						mix[i] = value[i];
 					}
 				}
+			} else if (paramNumber < 0) {
+				if (changeType === ChangeType.DELTA) {
+					changeType = ChangeType.SET;
+					value += this.system.parameters[-paramNumber - 1];
+				}
+				this.system.parameters[-paramNumber - 1] = value;
 			} else {
 				if (changeType === ChangeType.DELTA) {
 					changeType = ChangeType.SET;
 					value += this.parameters[paramNumber];
 				}
 				this.parameters[paramNumber] = value;
-			}
 
-			if (paramNumber <= Parameter.DURATION) {
-				if (paramNumber < Parameter.RELEASE) {
-					dirtyEnvelope = dirtyEnvelope | 1;
-				} else {
-					dirtyEnvelope = dirtyEnvelope | 2;
+				if (paramNumber <= Parameter.DURATION) {
+					if (paramNumber < Parameter.RELEASE) {
+						dirtyEnvelope = dirtyEnvelope | 1;
+					} else {
+						dirtyEnvelope = dirtyEnvelope | 2;
+					}
+					continue;
 				}
-				continue;
 			}
 
 			switch (paramNumber) {
@@ -285,7 +323,7 @@ class SynthChannel {
 				break;
 
 			case Parameter.PANNED:
-				value = Math.trunc(value) % 2;
+				value = Math.trunc(Math.abs(value)) % 2;
 				param = this.panner.pan;
 				param.cancelAndHoldAtTime(time);
 				param.setValueAtTime(value === 0? 0 : this.panValue, time);
@@ -294,7 +332,7 @@ class SynthChannel {
 
 			case Parameter.VOICE:
 			case Parameter.MIX:
-				gainChangeType = changeType;
+				gainChange = true;
 				break;
 
 			case Parameter.PULSE_WIDTH:
@@ -303,10 +341,44 @@ class SynthChannel {
 				param[changeType](value, time);
 				break;
 
+			case Parameter.FILTERED:
+				value = Math.trunc(Math.abs(value)) % 2;
+				param = this.filteredPath.gain;
+				const param2 = this.unfilteredPath.gain;
+				param.cancelAndHoldAtTime(time);
+				param2.cancelAndHoldAtTime(time);
+				param.setValueAtTime(value, time);
+				param2.setValueAtTime(1 - value, time);
+				this.parameters[Parameter.FILTERED] = value;
+				break;
+
+			case Parameter.FILTER_TYPE:
+				timeDifference = Math.round((time - now) * 1000);
+				if (timeDifference > 0) {
+					setTimeout(function () {
+						me.system.filter.type = value;
+					}, timeDifference);
+				} else {
+					this.system.filter.type = value;
+				}
+				break;
+
+			case Parameter.FILTER_FREQUENCY:
+				param = this.system.filter.frequency;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
+				break;
+
+			case Parameter.FILTER_Q:
+				param = this.system.filter.Q;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
+				break;
+
 			}
 		}
-		if (gainChangeType !== undefined) {
-			this.calcGains(gainChangeType, time);
+		if (gainChange) {
+			this.calcGains(time);
 		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
