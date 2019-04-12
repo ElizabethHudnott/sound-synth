@@ -18,17 +18,17 @@ const Parameter = Object.freeze({
 	NOTE: 8,		// MIDI note number
 	DETUNE: 9,		// in cents
 	VOLUME: 10,		// percentage
-	TREMOLO_SHAPE: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_FREQUENCY: 12,	// in hertz
-	TREMOLO_AMOUNT: 13,		// 0 to 100
+	AM_SHAPE: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
+	AM_FREQUENCY: 12,	// in hertz
+	AM_AMOUNT: 13,		// 0 to 100
 	PANNED: 14,		// 0 or 1
 	VOICE: 15,		// Combinations of Voice enum values
 	MIX: 16,		// Relative volumes
 	PULSE_WIDTH: 17,// 0 to 1
 	FILTERED: 18,	// 0 or 1
-	FILTER_TYPE: -1, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: -2, // in hertz
-	FILTER_Q: -3,	// 0.0001 to 1000
+	FILTER_TYPE: 19, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 20, // in hertz
+	FILTER_Q: 21,	// 0.0001 to 1000
 });
 
 const ChangeType = Object.freeze({
@@ -104,19 +104,9 @@ class Modulator {
 class SynthSystem {
 	constructor(audioContext, filterGain) {
 		this.audioContext = audioContext;
-		this.parameters = [
-			'lowpass',	// filter type
-			4400,		// filter frequency
-			1,			// filter Q
-		];
-		const filter = audioContext.createBiquadFilter();
-		this.filter = filter;
-		filter.frequency.value = 4400;
-		filter.gain.value = filterGain;
-
+		this.filterGain = filterGain;
 		const volume = audioContext.createGain();
 		this.volume = volume;
-		filter.connect(volume);
 		volume.connect(audioContext.destination);
 	}
 }
@@ -137,13 +127,16 @@ class SynthChannel {
 			69,		// MIDI note number
 			0,		// detune
 			100,	//	volume
-			'sine', // tremolo shape
-			5,		// tremolo frequency
-			0,		// tremolo amount
+			'sine', // AM shape
+			5,		// AM frequency
+			0,		// AM amount
 			0,		// pan
 			Voice.OSCILLATOR,
 			[100, 100, 100], // relative proportions of the different sources
 			1,		// filter enabled
+			'lowpass',	// filter type
+			4400,		// filter frequency
+			1,			// filter Q
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -177,31 +170,37 @@ class SynthChannel {
 		noiseGain.connect(envelope);
 		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
-		const tremoloGain = audioContext.createGain();
-		envelope.connect(tremoloGain);
-		const tremoloModulator = new Modulator(audioContext, tremoloGain.gain);
-		this.tremolo = tremoloModulator;
-		tremoloModulator.oscillator.frequency.value = 5;
+		const filter = audioContext.createBiquadFilter();
+		this.filter = filter;
+		filter.frequency.value = 4400;
+		filter.gain.value = system.filterGain;
+
+		const filteredPath = audioContext.createGain();
+		this.filteredPath = filteredPath;
+		envelope.connect(filteredPath);
+		filteredPath.connect(filter);
+
+		const unfilteredPath = audioContext.createGain();
+		this.unfilteredPath = unfilteredPath;
+		unfilteredPath.gain.value = 0;
+		envelope.connect(unfilteredPath);
+
+		const amGain = audioContext.createGain();
+		const amModulator = new Modulator(audioContext, amGain.gain);
+		this.am = amModulator;
+		filter.connect(amGain);
+		unfilteredPath.connect(amGain);
 
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		this.panValue = pannedLeft? -1 : 1;
-		tremoloGain.connect(panner);
+		amGain.connect(panner);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		panner.connect(volume);
 
-		const filteredPath = audioContext.createGain();
-		this.filteredPath = filteredPath;
-		volume.connect(filteredPath);
-		filteredPath.connect(system.filter);
-
-		const unfilteredPath = audioContext.createGain();
-		this.unfilteredPath = unfilteredPath;
-		unfilteredPath.gain.value = 0;
-		volume.connect(unfilteredPath);
-		unfilteredPath.connect(system.volume);
+		volume.connect(system.volume);
 	}
 
 	calcEnvelope(dirty) {
@@ -314,12 +313,6 @@ class SynthChannel {
 						mix[i] = value[i];
 					}
 				}
-			} else if (paramNumber < 0) {
-				if (changeType === ChangeType.DELTA) {
-					changeType = ChangeType.SET;
-					value += this.system.parameters[-paramNumber - 1];
-				}
-				this.system.parameters[-paramNumber - 1] = value;
 			} else {
 				if (changeType === ChangeType.DELTA) {
 					changeType = ChangeType.SET;
@@ -407,21 +400,21 @@ class SynthChannel {
 				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
 					setTimeout(function () {
-						me.system.filter.type = value;
+						me.filter.type = value;
 					}, timeDifference);
 				} else {
-					this.system.filter.type = value;
+					this.filter.type = value;
 				}
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
-				param = this.system.filter.frequency;
+				param = this.filter.frequency;
 				param.cancelAndHoldAtTime(time);
 				param[changeType](value, time);
 				break;
 
 			case Parameter.FILTER_Q:
-				param = this.system.filter.Q;
+				param = this.filter.Q;
 				param.cancelAndHoldAtTime(time);
 				param[changeType](value, time);
 				break;
