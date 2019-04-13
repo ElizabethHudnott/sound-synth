@@ -6,6 +6,18 @@ const LOWEST_LEVEL = 1 / 65535;
 const SHORTEST_TIME = 1 / 96000;
 const LOG_BASE = 2**(16 / 100);
 
+const LFO_MAX = 60;
+
+function clamp(value) {
+	if (value > LFO_MAX) {
+		return LFO_MAX;
+	} else if (value < -LFO_MAX) {
+		return -LFO_MAX;
+	} else {
+		return value;
+	}
+}
+
 const Parameter = Object.freeze({
 	ATTACK: 0,		// in milliseconds
 	DECAY: 1,		// in milliseconds
@@ -18,14 +30,14 @@ const Parameter = Object.freeze({
 	NOTE: 8,		// MIDI note number
 	DETUNE: 9,		// in cents
 	VOLUME: 10,		// percentage
-	AM_SHAPE: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
-	AM_FREQUENCY: 12,	// in hertz
-	AM_AMOUNT: 13,		// 0 to 100
+	TREMOLO_WAVEFORM: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_FREQUENCY: 12, // in hertz
+	TREMOLO_AMOUNT: 13, // percentage
 	PANNED: 14,		// 0 or 1
 	VOICE: 15,		// Combinations of Voice enum values
 	MIX: 16,		// Relative volumes
-	PULSE_WIDTH: 17,// 0 to 1
-	FILTERED: 18,	// 0 or 1
+	PULSE_WIDTH: 17,// percent
+	FILTERED_AMOUNT: 18, // percentage
 	FILTER_TYPE: 19, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 20, // in hertz
 	FILTER_Q: 21,	// 0.0001 to 1000
@@ -127,16 +139,17 @@ class SynthChannel {
 			69,		// MIDI note number
 			0,		// detune
 			100,	//	volume
-			'sine', // AM shape
-			5,		// AM frequency
-			0,		// AM amount
+			'sine', // tremolo shape
+			5,		// tremolo frequency
+			0,		// tremolo amount
 			0,		// pan
 			Voice.OSCILLATOR,
 			[100, 100, 100], // relative proportions of the different sources
-			1,		// filter enabled
-			'lowpass',	// filter type
-			4400,		// filter frequency
-			1,			// filter Q
+			50,		// pulse width
+			100,	// filter fully enabled
+			'lowpass', // filter type
+			4400,	// filter frequency
+			1,		// filter Q
 		];
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
@@ -185,16 +198,16 @@ class SynthChannel {
 		unfilteredPath.gain.value = 0;
 		envelope.connect(unfilteredPath);
 
-		const amGain = audioContext.createGain();
-		const amModulator = new Modulator(audioContext, amGain.gain);
-		this.am = amModulator;
-		filter.connect(amGain);
-		unfilteredPath.connect(amGain);
+		const tremoloGain = audioContext.createGain();
+		const tremoloModulator = new Modulator(audioContext, tremoloGain.gain);
+		this.tremolo = tremoloModulator;
+		filter.connect(tremoloGain);
+		unfilteredPath.connect(tremoloGain);
 
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		this.panValue = pannedLeft? -1 : 1;
-		amGain.connect(panner);
+		tremoloGain.connect(panner);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -346,6 +359,17 @@ class SynthChannel {
 				}
 				break;
 
+			case Parameter.TREMOLO_WAVEFORM:
+				timeDifference = Math.round((time - now) * 1000);
+				if (timeDifference > 0) {
+					setTimeout(function () {
+						me.tremolo.oscillator.type = value;
+					}, timeDifference);
+				} else {
+					this.tremolo.oscillator.type = value;
+				}
+				break;
+
 			case Parameter.FREQUENCY:
 				this.setFrequency(changeType, value, time);
 				break;
@@ -366,6 +390,18 @@ class SynthChannel {
 				param[changeType](LOG_BASE**-(100 - value), time);
 				break;
 
+			case Parameter.TREMOLO_FREQUENCY:
+				value = clamp(value);
+				param = this.tremolo.oscillator.frequency;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
+				this.parameters[Parameter.TREMOLO_FREQUENCY] = value;
+				break;
+
+			case Parameter.TREMOLO_AMOUNT:
+				this.tremolo.setRange(changeType, 1 - value / 100, 1, time);
+				break;
+
 			case Parameter.PANNED:
 				value = Math.trunc(Math.abs(value)) % 2;
 				param = this.panner.pan;
@@ -382,18 +418,16 @@ class SynthChannel {
 			case Parameter.PULSE_WIDTH:
 				param = this.pwm.parameters.get('width');
 				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				param[changeType](value / 100, time);
 				break;
 
-			case Parameter.FILTERED:
-				value = Math.trunc(Math.abs(value)) % 2;
+			case Parameter.FILTERED_AMOUNT:
 				param = this.filteredPath.gain;
 				const param2 = this.unfilteredPath.gain;
 				param.cancelAndHoldAtTime(time);
 				param2.cancelAndHoldAtTime(time);
-				param.setValueAtTime(value, time);
-				param2.setValueAtTime(1 - value, time);
-				this.parameters[Parameter.FILTERED] = value;
+				param.setValueAtTime(value / 100, time);
+				param2.setValueAtTime(1 - value / 100, time);
 				break;
 
 			case Parameter.FILTER_TYPE:
