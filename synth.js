@@ -281,19 +281,16 @@ class SynthChannel {
 			break;
 		case Gate.CLOSED:
 			endTime = start + this.release;
-			gain.exponentialRampToValueAtTime(LOWEST_LEVEL, endTime);
-			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
+			gain.exponentialRampToValueAtTime(LOWEST_LEVEL / 2, endTime);
 			break;
 		case Gate.TRIGGER:
 			const sustainLevel = this.sustain * this.velocity;
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
 			gain.linearRampToValueAtTime(sustainLevel, start + this.endDecay);
 			const beginRelease = start + this.beginRelease;
-			gain.cancelAndHoldAtTime(beginRelease);
-			gain.setValueAtTime(sustainLevel, beginRelease);
+			gain.linearRampToValueAtTime(sustainLevel, beginRelease);
 			endTime = start + this.endRelease;
-			gain.exponentialRampToValueAtTime(LOWEST_LEVEL, endTime);
-			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
+			gain.exponentialRampToValueAtTime(LOWEST_LEVEL / 2, endTime);
 		}
 	}
 
