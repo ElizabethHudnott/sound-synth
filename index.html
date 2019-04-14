@@ -81,9 +81,12 @@
 				document.getElementById('controls').style.display = 'block';
 			}
 
-			function set(parameterNumber, value) {
+			function set(parameterNumber, value, changeType) {
 				const parameterMap = new Map();
-				parameterMap.set(parameterNumber, new Change(ChangeType.SET, value));
+				if (changeType === undefined) {
+					changeType = ChangeType.SET;
+				}
+				parameterMap.set(parameterNumber, new Change(changeType, value));
 				const time = audioContext.currentTime;
 				channel1.setParameters(parameterMap, time, time);
 			}

@@ -4,7 +4,6 @@ audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const LOWEST_LEVEL = 1 / 65535;
 const SHORTEST_TIME = 1 / 96000;
-const LOG_BASE = 2**(16 / 100);
 
 const LFO_MAX = 60;
 
@@ -23,31 +22,33 @@ const Parameter = Object.freeze({
 	DECAY: 1,		// in milliseconds
 	RELEASE: 2,		// in milliseconds
 	DURATION: 3,	// in milliseconds
-	SUSTAIN: 4,		// percentage
-	GATE: 5,		// CLOSED, OPEN or TRIGGER
-	WAVEFORM: 6,	// 'sine', 'square', 'sawtooth' or 'triangle'
-	FREQUENCY: 7,	// in hertz
-	NOTE: 8,		// MIDI note number
-	DETUNE: 9,		// in cents
-	VOLUME: 10,		// percentage
-	TREMOLO_WAVEFORM: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_FREQUENCY: 12, // in hertz
-	TREMOLO_AMOUNT: 13, // percentage
-	PANNED: 14,		// 0 or 1
-	VOICE: 15,		// Combinations of Voice enum values
-	MIX: 16,		// Relative volumes
-	PULSE_WIDTH: 17,// percent
-	FILTERED_AMOUNT: 18, // percentage
-	FILTER_TYPE: 19, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 20, // in hertz
-	FILTER_Q: 21,	// 0.0001 to 1000
+	VELOCITY: 4,	// percentage
+	SUSTAIN: 5,		// percentage
+	GATE: 6,		// CLOSED, OPEN or TRIGGER
+	WAVEFORM: 7,	// 'sine', 'square', 'sawtooth' or 'triangle'
+	FREQUENCY: 8,	// in hertz
+	NOTE: 9,		// MIDI note number
+	DETUNE: 10,		// in cents
+	VOLUME: 11,		// percentage
+	TREMOLO_WAVEFORM: 12, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_FREQUENCY: 13, // in hertz
+	TREMOLO_AMOUNT: 14, // percentage
+	PANNED: 15,		// 0 or 1
+	VOICE: 16,		// Combinations of Voice enum values
+	MIX: 17,		// Relative volumes
+	PULSE_WIDTH: 18,// percent
+	FILTERED_AMOUNT: 19, // percentage
+	FILTER_TYPE: 20, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 21, // in hertz
+	FILTER_Q: 22,	// 0.0001 to 1000
 });
 
 const ChangeType = Object.freeze({
 	SET: 'setValueAtTime',
-	DELTA: 'delta',
 	LINEAR: 'linearRampToValueAtTime',
 	EXPONENTIAL: 'exponentialRampToValueAtTime',
+	DELTA: 'delta',		//standalone or prefixed before LINEAR or EXPONENTIAL
+	MULTIPLY: 'multi',	//standalone or prefixed before LINEAR or EXPONENTIAL
 });
 
 class Change {
@@ -128,11 +129,12 @@ class SynthChannel {
 		const audioContext = system.audioContext;
 		this.system = system;
 		this.parameters = [
-			2,		// attack (ms)
-			50,		// decay (ms)
-			300,	// release (ms)
-			200,	// duration (ms)
-			50,		// sustain (%)
+			2,		// attack
+			50,		// decay
+			300,	// release
+			200,	// duration
+			100,	// velocity
+			50,		// sustain
 			Gate.CLOSED, // gate
 			'sine',	// waveform
 			440,	// frequency
@@ -151,6 +153,7 @@ class SynthChannel {
 			4400,	// filter frequency
 			1,		// filter Q
 		];
+		this.velocity = 1;
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
 
@@ -271,8 +274,8 @@ class SynthChannel {
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.linearRampToValueAtTime(1, start + this.endAttack);
-			gain.linearRampToValueAtTime(this.sustain, start + this.endDecay);
+			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
+			gain.linearRampToValueAtTime(this.sustain * this.velocity, start + this.endDecay);
 			break;
 		case Gate.CLOSED:
 			endTime = start + this.release;
@@ -280,11 +283,12 @@ class SynthChannel {
 			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
 			break;
 		case Gate.TRIGGER:
-			gain.linearRampToValueAtTime(1, start + this.endAttack);
-			gain.linearRampToValueAtTime(this.sustain, start + this.endDecay);
+			const sustainLevel = this.sustain * this.velocity;
+			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
+			gain.linearRampToValueAtTime(sustainLevel, start + this.endDecay);
 			const beginRelease = start + this.beginRelease;
 			gain.cancelAndHoldAtTime(beginRelease);
-			gain.setValueAtTime(this.sustain, beginRelease);
+			gain.setValueAtTime(sustainLevel, beginRelease);
 			endTime = start + this.endRelease;
 			gain.exponentialRampToValueAtTime(LOWEST_LEVEL, endTime);
 			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
@@ -327,9 +331,16 @@ class SynthChannel {
 					}
 				}
 			} else {
-				if (changeType === ChangeType.DELTA) {
-					changeType = ChangeType.SET;
+				const prefix = changeType.slice(0, 5);
+				if (prefix === ChangeType.DELTA) {
 					value += this.parameters[paramNumber];
+					changeType = changeType.slice(5);
+				} else if (prefix === ChangeType.MULTIPLY) {
+					value *= this.parameters[paramNumber];
+					changeType = changeType.slice(5);
+				}
+				if (changeType === "") {
+					changeType = ChangeType.SET;
 				}
 				this.parameters[paramNumber] = value;
 
@@ -344,6 +355,10 @@ class SynthChannel {
 			}
 
 			switch (paramNumber) {
+			case Parameter.VELOCITY:
+				this.velocity = 10 ** -((100 - value) / 99);
+				break;
+
 			case Parameter.SUSTAIN:
 				this.sustain = value / 100;
 				break;
@@ -387,7 +402,11 @@ class SynthChannel {
 			case Parameter.VOLUME:
 				param = this.volume.gain;
 				param.cancelAndHoldAtTime(time);
-				param[changeType](LOG_BASE**-(100 - value), time);
+				if (value === 0) {
+					param[changeType](0, time);
+				} else {
+					param[changeType](10 ** -((100 - value) / 99), time);
+				}
 				break;
 
 			case Parameter.TREMOLO_FREQUENCY:
