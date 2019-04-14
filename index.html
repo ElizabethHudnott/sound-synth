@@ -38,10 +38,9 @@
 				<input type="range" oninput="set(Parameter.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
 				<input type="range" oninput="set(Parameter.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
 				<input type="range" oninput="set(Parameter.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
-				<input type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="20" max="12544" value="440" step="1">Base Frequency<br>
+				<input type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="20" max="12544" value="440" step="1">Frequency<br>
 				<input type="range" oninput="set(Parameter.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
-				<input type="range" oninput="set(Parameter.NOTE, parseInt(this.value)); if (channel1.parameters[Parameter.GATE] !== Gate.OPEN) set(Parameter.GATE, Gate.TRIGGER)" min="0" max="23" value="9" step="1">Note<br>
-				<input type="range" oninput="set(Parameter.OCTAVE_SHIFT, parseInt(this.value)); if (channel1.parameters[Parameter.GATE] !== Gate.OPEN) set(Parameter.GATE, Gate.TRIGGER)" min="2" max="9" value="5" step="1">Octave<br>
+				<input type="range" oninput="set(Parameter.NOTE, parseInt(this.value)); if (channel1.parameters[Parameter.GATE] !== Gate.OPEN) set(Parameter.GATE, Gate.TRIGGER)" min="21" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value))" min="0" max="100" value="100" step="1">Volume<br>
 				<label><input type="checkbox" onclick="set(Parameter.PANNED, this.checked? 1 : 0)">Pan Left</label>
 			</div>
@@ -78,8 +77,6 @@
 				audioContext.resume();
 				system = new SynthSystem(audioContext, 6);
 				channel1 = new SynthChannel(system, true);
-				set(Parameter.NOTE, 9);
-				set(Parameter.OCTAVE_SHIFT, 5);
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}

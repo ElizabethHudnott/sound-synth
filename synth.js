@@ -27,20 +27,19 @@ const Parameter = Object.freeze({
 	WAVEFORM: 7,	// 'sine', 'square', 'sawtooth' or 'triangle'
 	FREQUENCY: 8,	// in hertz
 	NOTE: 9,		// MIDI note number
-	OCTAVE_SHIFT: 10,
-	DETUNE: 11,		// in cents
-	VOLUME: 12,		// percentage
-	TREMOLO_WAVEFORM: 13, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_FREQUENCY: 14, // in hertz
-	TREMOLO_AMOUNT: 15, // percentage
-	PANNED: 16,		// 0 or 1
-	VOICE: 17,		// Combinations of Voice enum values
-	MIX: 18,		// Relative volumes
-	PULSE_WIDTH: 19,// percent
-	FILTERED_AMOUNT: 20, // percentage
-	FILTER_TYPE: 21, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 22, // in hertz
-	FILTER_Q: 23,	// 0.0001 to 1000
+	DETUNE: 10,		// in cents
+	VOLUME: 11,		// percentage
+	TREMOLO_WAVEFORM: 12, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_FREQUENCY: 13, // in hertz
+	TREMOLO_AMOUNT: 14, // percentage
+	PANNED: 15,		// 0 or 1
+	VOICE: 16,		// Combinations of Voice enum values
+	MIX: 17,		// Relative volumes
+	PULSE_WIDTH: 18,// percent
+	FILTERED_AMOUNT: 19, // percentage
+	FILTER_TYPE: 20, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 21, // in hertz
+	FILTER_Q: 22,	// 0.0001 to 1000
 });
 
 const ChangeType = Object.freeze({
@@ -139,7 +138,6 @@ class SynthChannel {
 			'sine',	// waveform
 			440,	// frequency
 			69,		// MIDI note number
-			0,		// octave shift
 			0,		// detune
 			100,	//	volume
 			'sine', // tremolo shape
@@ -388,13 +386,7 @@ class SynthChannel {
 				break;
 
 			case Parameter.NOTE:
-				frequency = noteFrequencies[value + 12 * this.parameters[Parameter.OCTAVE_SHIFT]];
-				this.setFrequency(changeType, frequency, time);
-				this.parameters[Parameter.FREQUENCY] = frequency;
-				break;
-
-			case Parameter.OCTAVE_SHIFT:
-				frequency = noteFrequencies[this.parameters[Parameter.NOTE] + 12 * value];
+				frequency = noteFrequencies[value];
 				this.setFrequency(changeType, frequency, time);
 				this.parameters[Parameter.FREQUENCY] = frequency;
 				break;
