@@ -2,8 +2,7 @@
 const audioContext = new AudioContext({sampleRate: 96000});
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
-const LOWEST_LEVEL = 1 / 65535;
-const SHORTEST_TIME = 1 / 96000;
+const NEARLY_ZERO = (1 / 65535) / 2;
 
 const LFO_MAX = 60;
 
@@ -281,7 +280,7 @@ class SynthChannel {
 			break;
 		case Gate.CLOSED:
 			endTime = start + this.release;
-			gain.exponentialRampToValueAtTime(LOWEST_LEVEL / 2, endTime);
+			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime);
 			break;
 		case Gate.TRIGGER:
 			const sustainLevel = this.sustain * this.velocity;
@@ -290,7 +289,7 @@ class SynthChannel {
 			const beginRelease = start + this.beginRelease;
 			gain.linearRampToValueAtTime(sustainLevel, beginRelease);
 			endTime = start + this.endRelease;
-			gain.exponentialRampToValueAtTime(LOWEST_LEVEL / 2, endTime);
+			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime);
 		}
 	}
 
