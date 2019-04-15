@@ -3,8 +3,9 @@ const audioContext = new AudioContext({sampleRate: 96000});
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const NEARLY_ZERO = (1 / 65535) / 2;
+const CENT = 2 ** (1 / 1200);
 
-const LFO_MAX = 50;
+const LFO_MAX = 25;
 const TIME_STEP = 0.02; // 50 steps per second
 
 function clamp(value) {
@@ -29,18 +30,21 @@ const Parameter = Object.freeze({
 	FREQUENCY: 8,	// in hertz
 	NOTE: 9,		// MIDI note number
 	DETUNE: 10,		// in cents
-	VOLUME: 11,		// percentage
-	TREMOLO_WAVEFORM: 12, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_FREQUENCY: 13, // in hertz
-	TREMOLO_AMOUNT: 14, // percentage
-	PANNED: 15,		// 0 or 1
-	VOICE: 16,		// Combinations of Voice enum values
-	MIX: 17,		// Relative volumes
-	PULSE_WIDTH: 18,// percent
-	FILTERED_AMOUNT: 19, // percentage
-	FILTER_TYPE: 20, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 21, // in hertz
-	FILTER_Q: 22,	// 0.0001 to 1000
+	VIBRATO_WAVEFORM: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
+	VIBRATO_RATE: 12, // in hertz
+	VIBRATO_EXTENT: 13, // in cents
+	VOLUME: 14,		// percentage
+	TREMOLO_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_FREQUENCY: 16, // in hertz
+	TREMOLO_AMOUNT: 17, // percentage
+	PANNED: 18,		// 0 or 1
+	VOICE: 19,		// Combinations of Voice enum values
+	MIX: 20,		// Relative volumes
+	PULSE_WIDTH: 21,// percent
+	FILTERED_AMOUNT: 12, // percentage
+	FILTER_TYPE: 23, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 24, // in hertz
+	FILTER_Q: 24,	// 0.0001 to 1000
 });
 
 const ChangeType = Object.freeze({
@@ -73,7 +77,7 @@ const Voice = Object.freeze({
 
 const noteFrequencies = [];
 
-for (let i = 0; i <= 131; i++) {
+for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
 }
 
@@ -140,6 +144,9 @@ class SynthChannel {
 			440,	// frequency
 			69,		// MIDI note number
 			0,		// detune
+			'sine',	// vibrato shape
+			5,		// vibrato rate
+			0,		// vibrato extent
 			100,	//	volume
 			'sine', // tremolo shape
 			5,		// tremolo frequency
@@ -162,6 +169,10 @@ class SynthChannel {
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
+
+		const vibrato = new Modulator(audioContext, oscillator.frequency);
+		this.vibrato = vibrato;
+		vibrato.setRange(ChangeType.SET, 440, 440, audioContext.currentTime);
 
 		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
 		this.pwm = pwm;
@@ -295,9 +306,8 @@ class SynthChannel {
 	}
 
 	setFrequency(changeType, frequency, when) {
-		let param = this.oscillator.frequency;
-		param.cancelAndHoldAtTime(when);
-		param[changeType](frequency, when);
+		const vibratoAmount = CENT ** this.parameters[Parameter.VIBRATO_EXTENT] / 2;
+		this.vibrato.setRange(changeType, frequency - vibratoExtent, frequency + vibratoExtent, when);
 	}
 
 	setDetune(changeType, cents, when) {
