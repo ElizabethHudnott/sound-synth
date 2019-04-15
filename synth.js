@@ -4,7 +4,8 @@ audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const NEARLY_ZERO = (1 / 65535) / 2;
 
-const LFO_MAX = 60;
+const LFO_MAX = 50;
+const TIME_STEP = 0.02; // 50 steps per second
 
 function clamp(value) {
 	if (value > LFO_MAX) {
@@ -216,6 +217,8 @@ class SynthChannel {
 		panner.connect(volume);
 
 		volume.connect(system.volume);
+
+		this.startTime = audioContext.currentTime;
 	}
 
 	calcEnvelope(dirty) {
@@ -303,31 +306,42 @@ class SynthChannel {
 		param[changeType](cents, when);
 	}
 
-	setParameters(parameterMap, time, now) {
+	begin() {
+		this.startTime = (Math.trunc(this.system.audioContext.currentTime / TIME_STEP) + 1) * TIME_STEP;
+	}
+
+	setParameters(parameterMap, step) {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
 		let gainChange = false;
 		let timeDifference;
 
+		const time = this.startTime + step * TIME_STEP;
+		const now = this.system.audioContext.currentTime;
+
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
+			const prefix = changeType.slice(0, 5);
 			let value = change.value;
 			let param, frequency;
+
 			if (paramNumber === Parameter.MIX) {
+
 				const mix = this.parameters[Parameter.MIX]
-				if (changeType === ChangeType.DELTA) {
-					changeType = ChangeType.SET;
+				if (prefix === ChangeType.DELTA) {
 					for (let i = 0; i < value.length; i++) {
 						mix[i] = mix[i] + value[i];
 					}
+					changeType = changeType.slice(5);
 				} else {
 					for (let i = 0; i < value.length; i++) {
 						mix[i] = value[i];
 					}
 				}
+
 			} else {
-				const prefix = changeType.slice(0, 5);
+
 				if (prefix === ChangeType.DELTA) {
 					value += this.parameters[paramNumber];
 					changeType = changeType.slice(5);
@@ -335,22 +349,25 @@ class SynthChannel {
 					value *= this.parameters[paramNumber];
 					changeType = changeType.slice(5);
 				}
-				if (changeType === "") {
-					changeType = ChangeType.SET;
-				}
 				this.parameters[paramNumber] = value;
 
-				if (paramNumber <= Parameter.DURATION) {
-					if (paramNumber < Parameter.RELEASE) {
-						dirtyEnvelope = dirtyEnvelope | 1;
-					} else {
-						dirtyEnvelope = dirtyEnvelope | 2;
-					}
-					continue;
-				}
+			}
+
+			if (changeType === "") {
+				changeType = ChangeType.SET;
 			}
 
 			switch (paramNumber) {
+			case Parameter.ATTACK:
+			case Parameter.DECAY:
+				dirtyEnvelope = dirtyEnvelope | 1;
+				break;
+
+			case Parameter.RELEASE:
+			case Parameter.DURATION:
+				dirtyEnvelope = dirtyEnvelope | 2;
+				break;
+
 			case Parameter.VELOCITY:
 				this.velocity = 10 ** -((100 - value) / 99);
 				break;
