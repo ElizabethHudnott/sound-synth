@@ -83,8 +83,10 @@ for (let i = 0; i <= 127; i++) {
 
 class Modulator {
 	constructor(audioContext, carrier) {
-		this.min = 1;
-		this.max = 1;
+		this.carrier = carrier;
+		const initialValue = carrier.value;
+		this.min = initialValue;
+		this.max = initialValue;
 
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
@@ -95,12 +97,7 @@ class Modulator {
 		this.gain = gain;
 		gain.gain.value = 0;
 		oscillator.connect(gain);
-
-		const offset = audioContext.createConstantSource();
-		this.offset = offset;
-
 		gain.connect(carrier);
-		offset.connect(carrier);
 	}
 
 	setRange(changeType, min, max, time) {
@@ -109,13 +106,16 @@ class Modulator {
 		gain.cancelAndHoldAtTime(time);
 		gain[changeType](multiplier, time);
 
-		const offset = this.offset.offset;
+		const offset = this.carrier;
 		offset.cancelAndHoldAtTime(time);
 		offset[changeType](min + multiplier, time);
 		this.min = min;
 		this.max = max;
 	}
 
+	connect(carrier) {
+		this.gain.connect(carrier);
+	}
 }
 
 class SynthSystem {
@@ -125,6 +125,11 @@ class SynthSystem {
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		volume.connect(audioContext.destination);
+		this.startTime = audioContext.currentTime;
+	}
+
+	begin() {
+		this.startTime = (Math.trunc(this.audioContext.currentTime / TIME_STEP) + 1) * TIME_STEP;
 	}
 }
 
@@ -172,7 +177,6 @@ class SynthChannel {
 
 		const vibrato = new Modulator(audioContext, oscillator.frequency);
 		this.vibrato = vibrato;
-		vibrato.setRange(ChangeType.SET, 440, 440, audioContext.currentTime);
 
 		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
 		this.pwm = pwm;
@@ -228,8 +232,6 @@ class SynthChannel {
 		panner.connect(volume);
 
 		volume.connect(system.volume);
-
-		this.startTime = audioContext.currentTime;
 	}
 
 	calcEnvelope(dirty) {
@@ -306,18 +308,14 @@ class SynthChannel {
 	}
 
 	setFrequency(changeType, frequency, when) {
-		const vibratoAmount = CENT ** this.parameters[Parameter.VIBRATO_EXTENT] / 2;
-		this.vibrato.setRange(changeType, frequency - vibratoExtent, frequency + vibratoExtent, when);
+		const vibratoExtent = CENT ** (this.parameters[Parameter.VIBRATO_EXTENT] / 2);
+		this.vibrato.setRange(changeType, frequency * 1 / vibratoExtent, frequency * vibratoExtent, when);
 	}
 
 	setDetune(changeType, cents, when) {
 		let param = this.oscillator.detune;
 		param.cancelAndHoldAtTime(when);
 		param[changeType](cents, when);
-	}
-
-	begin() {
-		this.startTime = (Math.trunc(this.system.audioContext.currentTime / TIME_STEP) + 1) * TIME_STEP;
 	}
 
 	setParameters(parameterMap, step) {
@@ -327,7 +325,7 @@ class SynthChannel {
 		let gainChange = false;
 		let timeDifference;
 
-		const time = this.startTime + step * TIME_STEP;
+		const time = this.system.startTime + step * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
 
 		for (let [paramNumber, change] of parameterMap) {
@@ -397,6 +395,17 @@ class SynthChannel {
 				}
 				break;
 
+			case Parameter.VIBRATO_WAVEFORM:
+				timeDifference = Math.round((time - now) * 1000);
+				if (timeDifference > 0) {
+					setTimeout(function () {
+						me.vibrato.oscillator.type = value;
+					}, timeDifference);
+				} else {
+					this.vibrato.oscillator.type = value;
+				}
+				break;
+
 			case Parameter.TREMOLO_WAVEFORM:
 				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
@@ -418,6 +427,10 @@ class SynthChannel {
 				this.parameters[Parameter.FREQUENCY] = frequency;
 				break;
 
+			case Parameter.VIBRATO_EXTENT:
+				this.setFrequency(changeType, this.parameters[Parameter.FREQUENCY], time);
+				break;
+
 			case Parameter.DETUNE:
 				this.setDetune(changeType, value, time);
 				break;
@@ -430,6 +443,14 @@ class SynthChannel {
 				} else {
 					param[changeType](10 ** -((100 - value) / 99), time);
 				}
+				break;
+
+			case Parameter.VIBRATO_RATE:
+				value = clamp(value);
+				param = this.vibrato.oscillator.frequency;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
+				this.parameters[Parameter.VIBRATO_FREQUENCY] = value;
 				break;
 
 			case Parameter.TREMOLO_FREQUENCY:
