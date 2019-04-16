@@ -20,7 +20,7 @@ class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 		let threshold;
 
 		if (widths.length === 1) {
-			threshold = 2 * widths[0] - 1;
+			threshold = 1 - 2 * widths[0];
 			for (let i = 0; i < length; i++) {
 				if (input[i] >= threshold) {
 					output[i] = 1;
@@ -30,7 +30,7 @@ class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 			}
 		} else {
 			for (let i = 0; i < length; i++) {
-				threshold = 2 * widths[i] - 1;
+				threshold = 1 - 2 * widths[i];
 				if (input[i] >= threshold) {
 					output[i] = 1;
 				} else {
