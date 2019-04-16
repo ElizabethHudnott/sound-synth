@@ -18,6 +18,14 @@ function clamp(value) {
 	}
 }
 
+function volumeCurve(value) {
+	if (value === 0) {
+		return 0;
+	} else {
+		return 2 ** (-14 * (100 - value) / 100);
+	}
+}
+
 const Parameter = Object.freeze({
 	ATTACK: 0,		// in milliseconds
 	DECAY: 1,		// in milliseconds
@@ -41,10 +49,11 @@ const Parameter = Object.freeze({
 	VOICE: 19,		// Combinations of Voice enum values
 	MIX: 20,		// Relative volumes
 	PULSE_WIDTH: 21,// percent
-	FILTERED_AMOUNT: 12, // percentage
+	FILTERED_AMOUNT: 22, // percentage
 	FILTER_TYPE: 23, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 24, // in hertz
 	FILTER_Q: 24,	// 0.0001 to 1000
+	FILTER_GAIN: 25, // -40 to 40
 });
 
 const ChangeType = Object.freeze({
@@ -78,7 +87,7 @@ const Voice = Object.freeze({
 const noteFrequencies = [];
 
 for (let i = 0; i <= 127; i++) {
-	noteFrequencies[i] = 2**((i - 69) / 12) * 440;
+	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
 }
 
 class Modulator {
@@ -91,13 +100,16 @@ class Modulator {
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
 		oscillator.frequency.value = 5;
-		oscillator.start();
 
 		const gain = audioContext.createGain();
 		this.gain = gain;
 		gain.gain.value = 0;
 		oscillator.connect(gain);
 		gain.connect(carrier);
+	}
+
+	start(when) {
+		this.oscillator.start(when);
 	}
 
 	setRange(changeType, min, max, time) {
@@ -119,18 +131,31 @@ class Modulator {
 }
 
 class SynthSystem {
-	constructor(audioContext, filterGain) {
+	constructor(audioContext) {
 		this.audioContext = audioContext;
-		this.filterGain = filterGain;
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		volume.connect(audioContext.destination);
 		this.startTime = audioContext.currentTime;
+		this.channels = [];
+	}
+
+	addChannel(channel) {
+		this.channels.push(channel);
 	}
 
 	begin() {
 		this.startTime = (Math.trunc(this.audioContext.currentTime / TIME_STEP) + 1) * TIME_STEP;
 	}
+
+	start() {
+		const startTime = this.audioContext.currentTime + 0.1;
+		for (let channel of this.channels) {
+			channel.start(startTime);
+		}
+		this.startTime = (Math.trunc((this.audioContext.currentTime + 0.1) / TIME_STEP) + 1) * TIME_STEP;
+	}
+
 }
 
 class SynthChannel {
@@ -164,13 +189,13 @@ class SynthChannel {
 			'lowpass', // filter type
 			4400,	// filter frequency
 			1,		// filter Q
+			0,		// filter gain
 		];
 		this.velocity = 1;
 		this.sustain = this.parameters[Parameter.SUSTAIN] / 100;
 		this.calcEnvelope(3)
 
 		const oscillator = audioContext.createOscillator();
-		oscillator.start();
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
@@ -204,7 +229,6 @@ class SynthChannel {
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
-		filter.gain.value = system.filterGain;
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
@@ -232,6 +256,16 @@ class SynthChannel {
 		panner.connect(volume);
 
 		volume.connect(system.volume);
+		system.addChannel(this);
+	}
+
+	start(when) {
+		if (!this.started) {
+			this.oscillator.start(when);
+			this.vibrato.start(when);
+			this.tremolo.start(when);
+			this.started = true;
+		}
 	}
 
 	calcEnvelope(dirty) {
@@ -253,7 +287,7 @@ class SynthChannel {
 		}
 	}
 
-	calcGains(when) {
+	calcGains(changeType, when) {
 		let voices = this.parameters[Parameter.VOICE];
 		const mix = this.parameters[Parameter.MIX];
 		let total = 0;
@@ -273,9 +307,9 @@ class SynthChannel {
 			let param = gains[i].gain;
 			param.cancelAndHoldAtTime(when);
 			if ((voices & 1) === 1) {
-				param.setValueAtTime(unit * mix[i], when);
+				param[changeType](unit * mix[i], when);
 			} else {
-				param.setValueAtTime(0, when);
+				param[changeType](NEARLY_ZERO, when);
 			}
 			voices = voices>>1;
 		}
@@ -322,8 +356,7 @@ class SynthChannel {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
-		let gainChange = false;
-		let timeDifference;
+		let gainChange, timeDifference;
 
 		const time = this.system.startTime + step * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
@@ -377,7 +410,7 @@ class SynthChannel {
 				break;
 
 			case Parameter.VELOCITY:
-				this.velocity = 10 ** -((100 - value) / 99);
+				this.velocity = volumeCurve(value);
 				break;
 
 			case Parameter.SUSTAIN:
@@ -438,11 +471,7 @@ class SynthChannel {
 			case Parameter.VOLUME:
 				param = this.volume.gain;
 				param.cancelAndHoldAtTime(time);
-				if (value === 0) {
-					param[changeType](0, time);
-				} else {
-					param[changeType](10 ** -((100 - value) / 99), time);
-				}
+				param[changeType](volumeCurve(value), time);
 				break;
 
 			case Parameter.VIBRATO_RATE:
@@ -475,7 +504,7 @@ class SynthChannel {
 
 			case Parameter.VOICE:
 			case Parameter.MIX:
-				gainChange = true;
+				gainChange = changeType;
 				break;
 
 			case Parameter.PULSE_WIDTH:
@@ -489,8 +518,8 @@ class SynthChannel {
 				const param2 = this.unfilteredPath.gain;
 				param.cancelAndHoldAtTime(time);
 				param2.cancelAndHoldAtTime(time);
-				param.setValueAtTime(value / 100, time);
-				param2.setValueAtTime(1 - value / 100, time);
+				param[changeType](value / 100, time);
+				param2[changeType](1 - value / 100, time);
 				break;
 
 			case Parameter.FILTER_TYPE:
@@ -516,10 +545,16 @@ class SynthChannel {
 				param[changeType](value, time);
 				break;
 
+			case Parameter.FILTER_GAIN:
+				param = this.filter.gain;
+				param.cancelAndHoldAtTime(time);
+				param[changeType](value, time);
+				break;
+
 			}
 		}
-		if (gainChange) {
-			this.calcGains(time);
+		if (gainChange !== undefined) {
+			this.calcGains(gainChange, time);
 		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
