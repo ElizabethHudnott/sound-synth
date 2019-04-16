@@ -16,6 +16,8 @@
 				<button onclick="set(Parameter.GATE, Gate.TRIGGER)">Play Once</button>
 				<button onmousedown="set(Parameter.GATE, Gate.OPEN)" onmouseup="set(Parameter.GATE, Gate.CLOSED)">Play Held Down</button>
 				<button onclick="set(Parameter.GATE, channel1.parameters[Parameter.GATE] !== Gate.OPEN? Gate.OPEN : Gate.CLOSED)">Sound On/Off</button>
+				<button onclick="set(Parameter.GATE, Gate.RETRIGGER)">Retrigger</button>
+				<button onclick="set(Parameter.GATE, Gate.CUT)">Cut</button>
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
@@ -44,8 +46,7 @@
 			</fieldset>
 			<fieldset>
 				<legend>Frequency</legend>
-				<!-- Max frequency is third harmonic of max note -->
-				<input id="frequency" type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="80" max="12558" value="440" step="0.001">Frequency<br>
+				<input id="frequency" type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="80" max="13000" value="440" step="0.001">Frequency<br>
 				<input type="range" oninput="document.getElementById('frequency').value = noteFrequencies[parseInt(this.value)]; set(Parameter.NOTE, parseInt(this.value)); if (channel1.parameters[Parameter.GATE] !== Gate.OPEN) set(Parameter.GATE, Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Parameter.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
