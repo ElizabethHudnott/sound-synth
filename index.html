@@ -96,21 +96,21 @@
 			function initialize() {
 				audioContext.resume();
 				system = new SynthSystem(audioContext);
-				channel1 = new SynthChannel(system, true);
+				channel1 = new SubtractiveSynthChannel(system, true);
 				system.start();
 				set(Parameter.FILTERED_AMOUNT, 0);
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}
 
-			function set(parameterNumber, value, changeType, delay) {
-				const parameterMap = new Map();
-				if (changeType === undefined) {
-					changeType = ChangeType.SET;
-				}
+			function set(parameterNumber, value, delay, changeType) {
 				if (delay === undefined) {
 					delay = 0;
 				}
+				if (changeType === undefined) {
+					changeType = ChangeType.SET;
+				}
+				const parameterMap = new Map();
 				parameterMap.set(parameterNumber, new Change(changeType, value));
 				system.begin();
 				channel1.setParameters(parameterMap, delay);

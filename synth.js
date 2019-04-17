@@ -3,7 +3,6 @@ const audioContext = new AudioContext({sampleRate: 96000});
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
 const NEARLY_ZERO = (1 / 65535);
-const SHORTEST_TIME = 1 / 96000;
 const CENT = 2 ** (1 / 1200);
 
 const LFO_MAX = 25;
@@ -136,6 +135,7 @@ class Modulator {
 class SynthSystem {
 	constructor(audioContext) {
 		this.audioContext = audioContext;
+		this.shortestTime = 1 / audioContext.sampleRate;
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		volume.connect(audioContext.destination);
@@ -162,7 +162,7 @@ class SynthSystem {
 
 }
 
-class SynthChannel {
+class SubtractiveSynthChannel {
 	constructor(system, pannedLeft) {
 		const audioContext = system.audioContext;
 		this.system = system;
@@ -196,7 +196,7 @@ class SynthChannel {
 			0,		// filter gain
 		];
 		this.velocity = 1;
-		this.sustain = volumeCurve(this.parameters[Parameter.SUSTAIN]);
+		this.sustain = volumeCurve(50);
 		this.calcEnvelope(3)
 
 		const oscillator = audioContext.createOscillator();
@@ -313,34 +313,35 @@ class SynthChannel {
 			if ((voices & 1) === 1) {
 				param[changeType](unit * mix[i], when);
 			} else {
-				param[changeType](NEARLY_ZERO, when);
-				param.setValueAtTime(0, when + SHORTEST_TIME);
+				param[changeType](NEARLY_ZERO, when - this.system.shortestTime);
+				param.setValueAtTime(0, when);
 			}
 			voices = voices>>1;
 		}
 	}
 
 	gate(start) {
+		const state = this.parameters[Parameter.GATE];
+		const sustainLevel = this.sustain;
+		let endDecay, beginRelease, endTime;
+
 		const gain = this.envelope.gain;
 		gain.cancelAndHoldAtTime(start);
-		const state = this.parameters[Parameter.GATE];
-		let endDecay, sustainLevel, beginRelease, endTime;
 
 		switch (state) {
 		case Gate.OPEN:
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
-			gain.linearRampToValueAtTime(this.sustain * this.velocity, start + this.endDecay);
+			gain.linearRampToValueAtTime(sustainLevel, start + this.endDecay);
 			break;
 
 		case Gate.CLOSED:
 			endTime = start + this.release;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime);
-			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
+			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+			gain.setValueAtTime(0, endTime);
 			break;
 
 		case Gate.TRIGGER:
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
-			sustainLevel = this.sustain * this.velocity;
 			endDecay = start + this.endDecay;
 			gain.linearRampToValueAtTime(sustainLevel, endDecay);
 			beginRelease = start + this.beginRelease;
@@ -350,17 +351,16 @@ class SynthChannel {
 				gain.cancelAndHoldAtTime(beginRelease);
 			}
 			endTime = start + this.endRelease;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime);
-			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
+			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+			gain.setValueAtTime(0, endTime);
 			break;
 
 		case Gate.RETRIGGER:
 			const retriggerDelay = this.system.retriggerDelay;
 			gain.linearRampToValueAtTime(0, start + retriggerDelay);
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack + retriggerDelay);
-			sustainLevel = this.sustain * this.velocity;
 			endDecay = start + this.endDecay + retriggerDelay;
-			gain.linearRampToValueAtTime(sustainLevel, start + endDecay);
+			gain.linearRampToValueAtTime(sustainLevel, endDecay);
 			beginRelease = start + this.beginRelease + retriggerDelay;
 			if (endDecay < beginRelease) {
 				gain.linearRampToValueAtTime(sustainLevel, beginRelease);
@@ -368,8 +368,8 @@ class SynthChannel {
 				gain.cancelAndHoldAtTime(beginRelease);
 			}
 			endTime = start + this.endRelease + retriggerDelay;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime);
-			gain.setValueAtTime(0, endTime + SHORTEST_TIME);
+			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+			gain.setValueAtTime(0, endTime);
 			break;
 
 		case Gate.CUT:
@@ -394,6 +394,7 @@ class SynthChannel {
 		const me = this;
 		const gate = parameterMap.get(Parameter.GATE);
 		let dirtyEnvelope = 0;
+		let dirtySustain = false;
 		let gainChange, timeDifference;
 
 		const time = this.system.startTime + step * TIME_STEP;
@@ -449,10 +450,11 @@ class SynthChannel {
 
 			case Parameter.VELOCITY:
 				this.velocity = volumeCurve(value);
+				dirtySustain = true;
 				break;
 
 			case Parameter.SUSTAIN:
-				this.sustain = volumeCurve(value);
+				dirtySustain = true;
 				break;
 
 			case Parameter.WAVEFORM:
@@ -596,6 +598,9 @@ class SynthChannel {
 		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
+		}
+		if (dirtySustain) {
+			this.sustain = volumeCurve(this.parameters[Parameter.VELOCITY] * this.parameters[Parameter.SUSTAIN] / 100);
 		}
 		if (gate !== undefined) {
 			this.gate(time);
