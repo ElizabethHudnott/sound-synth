@@ -434,6 +434,7 @@ class SubtractiveSynthChannel {
 		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
 		const timeDifference = Math.round((time - now) * 1000);
+		const callbacks = [];
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
@@ -501,9 +502,9 @@ class SubtractiveSynthChannel {
 
 			case Parameter.WAVEFORM:
 				if (timeDifference > 0) {
-					setTimeout(function () {
+					callbacks.push(function () {
 						me.oscillator.type = value;
-					}, timeDifference);
+					});
 				} else {
 					this.oscillator.type = value;
 				}
@@ -511,9 +512,9 @@ class SubtractiveSynthChannel {
 
 			case Parameter.VIBRATO_WAVEFORM:
 				if (timeDifference > 0) {
-					setTimeout(function () {
+					callbacks.push(function () {
 						me.vibrato.oscillator.type = value;
-					}, timeDifference);
+					});
 				} else {
 					this.vibrato.oscillator.type = value;
 				}
@@ -521,9 +522,9 @@ class SubtractiveSynthChannel {
 
 			case Parameter.TREMOLO_WAVEFORM:
 				if (timeDifference > 0) {
-					setTimeout(function () {
+					callbacks.push(function () {
 						me.tremolo.oscillator.type = value;
-					}, timeDifference);
+					});
 				} else {
 					this.tremolo.oscillator.type = value;
 				}
@@ -603,9 +604,9 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FILTER_TYPE:
 				if (timeDifference > 0) {
-					setTimeout(function () {
+					callbacks.push(function () {
 						me.filter.type = value;
-					}, timeDifference);
+					});
 				} else {
 					this.filter.type = value;
 				}
@@ -632,9 +633,9 @@ class SubtractiveSynthChannel {
 			case Parameter.RETRIGGER:
 				if (timeDifference > 0) {
 					if (gate !== Gate.CLOSED && gate !== Gate.CUT) {
-						setTimeout(function () {
+						callbacks.push(function () {
 							me.retriggerRate = value;
-						}, timeDifference);
+						});
 					}
 				} else {
 					this.retriggerRate = value;
@@ -657,8 +658,21 @@ class SubtractiveSynthChannel {
 			this.gate(gate, time);
 
 			if ((gate === Gate.CLOSED || gate === Gate.CUT) && this.retriggerRate !== 0) {
-				setTimeout(function () {
+				callbacks.push(function () {
 					me.retriggerRate = 0;
+				});
+			}
+		}
+
+		const numCallbacks = callbacks.length;
+		if (numCallbacks > 0) {
+			if (numCallbacks === 1) {
+				setTimeout(callbacks[0], timeDifference);
+			} else {
+				setTimeout(function () {
+					for (let callback of callbacks) {
+						callback();
+					}
 				}, timeDifference);
 			}
 		}
