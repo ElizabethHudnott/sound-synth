@@ -2,7 +2,7 @@
 const audioContext = new AudioContext({sampleRate: 96000});
 audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 
-const NEARLY_ZERO = (1 / 65535);
+const NEARLY_ZERO = 1 / 65535;
 const CENT = 2 ** (1 / 1200);
 
 const LFO_MAX = 25;
@@ -60,8 +60,9 @@ const ChangeType = Object.freeze({
 	SET: 'setValueAtTime',
 	LINEAR: 'linearRampToValueAtTime',
 	EXPONENTIAL: 'exponentialRampToValueAtTime',
-	DELTA: 'delta',		//standalone or prefixed before LINEAR or EXPONENTIAL
-	MULTIPLY: 'multi',	//standalone or prefixed before LINEAR or EXPONENTIAL
+	DELTA: '+',		//standalone or prefixed before LINEAR or EXPONENTIAL
+	MULTIPLY: '*',	//standalone or prefixed before LINEAR or EXPONENTIAL
+	MARK: '=',
 });
 
 class Change {
@@ -196,7 +197,7 @@ class SubtractiveSynthChannel {
 			0,		// filter gain
 		];
 		this.velocity = 1;
-		this.sustain = volumeCurve(50);
+		this.sustain = volumeCurve(50); // combined sustain and velocity
 		this.calcEnvelope(3)
 
 		const oscillator = audioContext.createOscillator();
@@ -402,8 +403,15 @@ class SubtractiveSynthChannel {
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
-			const prefix = changeType.slice(0, 5);
-			let value = change.value;
+			let prefix, value;
+			if (changeType === ChangeType.MARK) {
+				value = this.parameters[paramNumber];
+				changeType = ChangeType.SET;
+				prefix = '';
+			} else {
+				value = change.value;
+				prefix = changeType[0];
+			}
 			let param, frequency;
 
 			if (paramNumber === Parameter.MIX) {
@@ -413,7 +421,7 @@ class SubtractiveSynthChannel {
 					for (let i = 0; i < value.length; i++) {
 						mix[i] = mix[i] + value[i];
 					}
-					changeType = changeType.slice(5);
+					changeType = changeType.slice(1);
 				} else {
 					for (let i = 0; i < value.length; i++) {
 						mix[i] = value[i];
@@ -424,10 +432,10 @@ class SubtractiveSynthChannel {
 
 				if (prefix === ChangeType.DELTA) {
 					value += this.parameters[paramNumber];
-					changeType = changeType.slice(5);
+					changeType = changeType.slice(1);
 				} else if (prefix === ChangeType.MULTIPLY) {
 					value *= this.parameters[paramNumber];
-					changeType = changeType.slice(5);
+					changeType = changeType.slice(1);
 				}
 				this.parameters[paramNumber] = value;
 
