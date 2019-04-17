@@ -1,6 +1,6 @@
 'use strict';
-const audioContext = new AudioContext({sampleRate: 96000});
-audioContext.audioWorklet.addModule('audioworkletprocessors.js');
+
+(function (global) {
 
 const NEARLY_ZERO = 1 / 65535;
 const CENT = 2 ** (1 / 1200);
@@ -136,6 +136,7 @@ class Modulator {
 
 class SynthSystem {
 	constructor(audioContext) {
+		audioContext.audioWorklet.addModule('audioworkletprocessors.js');
 		this.audioContext = audioContext;
 		this.shortestTime = 1 / audioContext.sampleRate;
 		const volume = audioContext.createGain();
@@ -679,3 +680,16 @@ class SubtractiveSynthChannel {
 	}
 
 }
+
+global.Synth = {
+	Change: Change,
+	SubtractiveSynthChannel: SubtractiveSynthChannel,
+	System: SynthSystem,
+	ChangeType: ChangeType,
+	Gate: Gate,
+	Param: Parameter,
+	Voice: Voice,
+	noteFrequencies: noteFrequencies,
+};
+
+})(window);

@@ -13,96 +13,97 @@
 		<div id="controls">
 			<fieldset>
 				<legend>Activation</legend>
-				<button onclick="set(Parameter.GATE, Gate.TRIGGER)">Play Once</button>
-				<button onmousedown="set(Parameter.GATE, Gate.OPEN)" onmouseup="set(Parameter.GATE, Gate.CLOSED)">Play Held Down</button>
-				<button onclick="set(Parameter.GATE, channel1.parameters[Parameter.GATE] !== Gate.OPEN? Gate.OPEN : Gate.CLOSED)">Sound On/Off</button>
-				<button onclick="set(Parameter.GATE, Gate.RETRIGGER)">Retrigger</button>
-				<button onclick="set(Parameter.GATE, Gate.CUT); document.getElementById('retrigger').value = 0">Cut</button>
+				<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
+				<button onmousedown="set(Synth.Param.GATE, Synth.Gate.OPEN)" onmouseup="set(Synth.Param.GATE, Synth.Gate.CLOSED)">Play Held Down</button>
+				<button onclick="set(Synth.Param.GATE, channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
+				<button onclick="set(Synth.Param.GATE, Synth.Gate.RETRIGGER)">Retrigger</button>
+				<button onclick="set(Synth.Param.GATE, Synth.Gate.CUT); document.getElementById('retrigger').value = 0">Cut</button>
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
-				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'sine')" checked>Sine</label>
-				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'square')">Square</label>
-				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'sawtooth')">Sawtooth</label>
-				<label><input type="radio" name="waveform" oninput="set(Parameter.WAVEFORM, 'triangle')">Triangle</label><br>
-				<input type="range" oninput="set(Parameter.PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Pulse Width
+				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sine')" checked>Sine</label>
+				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'square')">Square</label>
+				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sawtooth')">Sawtooth</label>
+				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'triangle')">Triangle</label><br>
+				<input type="range" oninput="set(Synth.Param.PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Pulse Width
 			</fieldset>
 			<fieldset>
 				<legend>Mixer</legend>
-				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
-				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
-				<label><input type="checkbox" onclick="set(Parameter.VOICE, (channel1.parameters[Parameter.VOICE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
+				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
 				<input type="range" oninput="mix(0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
 				<input type="range" oninput="mix(1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
 				<input type="range" oninput="mix(2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
-				<input type="range" oninput="set(Parameter.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
-				<input type="range" oninput="set(Parameter.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay<br>
-				<input type="range" oninput="set(Parameter.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
-				<input type="range" oninput="set(Parameter.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
-				<input type="range" oninput="set(Parameter.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
+				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
+				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay<br>
+				<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
+				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
+				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
 			</fieldset>
 			<fieldset>
 				<legend>Frequency</legend>
-				<input id="frequency" type="range" oninput="set(Parameter.FREQUENCY, parseFloat(this.value))" min="80" max="13000" value="440" step="0.001">Frequency<br>
-				<input type="range" oninput="document.getElementById('frequency').value = noteFrequencies[parseInt(this.value)]; set(Parameter.NOTE, parseInt(this.value)); if (channel1.parameters[Parameter.GATE] !== Gate.OPEN) set(Parameter.GATE, Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
-				<input type="range" oninput="set(Parameter.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
+				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="13000" value="440" step="0.001">Frequency<br>
+				<input type="range" oninput="document.getElementById('frequency').value = noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTE, parseInt(this.value)); if (channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
+				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>
 				<legend>Vibrato</legend>
-				<label><input type="radio" name="vibrato-waveform" oninput="set(Parameter.VIBRATO_WAVEFORM, 'sine')" checked>Sine</label>
-				<label><input type="radio" name="vibrato-waveform" oninput="set(Parameter.VIBRATO_WAVEFORM, 'square')">Square</label>
-				<label><input type="radio" name="vibrato-waveform" oninput="set(Parameter.VIBRATO_WAVEFORM, 'sawtooth')">Sawtooth</label>
-				<label><input type="radio" name="vibrato-waveform" oninput="set(Parameter.VIBRATO_WAVEFORM, 'triangle')">Triangle</label><br>
-				<input type="range" oninput="set(Parameter.VIBRATO_RATE, parseFloat(this.value))" min="0" max="25" value="5" step="0.1">Rate<br>
-				<input type="range" oninput="set(Parameter.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0" step="1">Extent<br>
+				<label><input type="radio" name="vibrato-waveform" oninput="set(Synth.Param.VIBRATO_WAVEFORM, 'sine')" checked>Sine</label>
+				<label><input type="radio" name="vibrato-waveform" oninput="set(Synth.Param.VIBRATO_WAVEFORM, 'square')">Square</label>
+				<label><input type="radio" name="vibrato-waveform" oninput="set(Synth.Param.VIBRATO_WAVEFORM, 'sawtooth')">Sawtooth</label>
+				<label><input type="radio" name="vibrato-waveform" oninput="set(Synth.Param.VIBRATO_WAVEFORM, 'triangle')">Triangle</label><br>
+				<input type="range" oninput="set(Synth.Param.VIBRATO_RATE, parseFloat(this.value))" min="0" max="25" value="5" step="0.1">Rate<br>
+				<input type="range" oninput="set(Synth.Param.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0" step="1">Extent<br>
 			</fieldset>
 			<fieldset>
 				<legend>Filter</legend>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'lowpass')" checked>Low Pass</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'highpass')">High Pass</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'bandpass')">Band Pass</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'notch')">Notch</label><br>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'allpass')">All Pass</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'lowshelf')">Low Shelf</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'highshelf')">High Shelf</label>
-				<label><input type="radio" name="filter-type" oninput="set(Parameter.FILTER_TYPE, 'peaking')">Peaking</label><br>
-				<input type="range" oninput="set(Parameter.FILTERED_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
-				<input type="range" oninput="set(Parameter.FILTER_FREQUENCY, parseFloat(this.value))" min="30" max="10000" value="4400" step="1">Frequency<br>
-				<input type="range" oninput="set(Parameter.FILTER_Q, parseFloat(this.value))" min="0.0001" max="300" value="1" step="0.001">Q<br>
-				<input type="range" oninput="set(Parameter.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'lowpass')" checked>Low Pass</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highpass')">High Pass</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'bandpass')">Band Pass</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'notch')">Notch</label><br>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'allpass')">All Pass</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'lowshelf')">Low Shelf</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highshelf')">High Shelf</label>
+				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking</label><br>
+				<input type="range" oninput="set(Synth.Param.FILTERED_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
+				<input type="range" oninput="set(Synth.Param.FILTER_FREQUENCY, parseFloat(this.value))" min="30" max="10000" value="4400" step="1">Frequency<br>
+				<input type="range" oninput="set(Synth.Param.FILTER_Q, parseFloat(this.value))" min="0.0001" max="300" value="1" step="0.001">Q<br>
+				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 			</fieldset>
 			<fieldset>
 				<legend>Tremolo</legend>
-				<label><input type="radio" name="tremolo-waveform" oninput="set(Parameter.TREMOLO_WAVEFORM, 'sine')" checked>Sine</label>
-				<label><input type="radio" name="tremolo-waveform" oninput="set(Parameter.TREMOLO_WAVEFORM, 'square')">Square</label>
-				<label><input type="radio" name="tremolo-waveform" oninput="set(Parameter.TREMOLO_WAVEFORM, 'sawtooth')">Sawtooth</label>
-				<label><input type="radio" name="tremolo-waveform" oninput="set(Parameter.TREMOLO_WAVEFORM, 'triangle')">Triangle</label><br>
-				<input type="range" oninput="set(Parameter.TREMOLO_FREQUENCY, parseFloat(this.value))" min="0" max="25" value="5" step="0.1">Frequency<br>
-				<input type="range" oninput="set(Parameter.TREMOLO_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
+				<label><input type="radio" name="tremolo-waveform" oninput="set(Synth.Param.TREMOLO_WAVEFORM, 'sine')" checked>Sine</label>
+				<label><input type="radio" name="tremolo-waveform" oninput="set(Synth.Param.TREMOLO_WAVEFORM, 'square')">Square</label>
+				<label><input type="radio" name="tremolo-waveform" oninput="set(Synth.Param.TREMOLO_WAVEFORM, 'sawtooth')">Sawtooth</label>
+				<label><input type="radio" name="tremolo-waveform" oninput="set(Synth.Param.TREMOLO_WAVEFORM, 'triangle')">Triangle</label><br>
+				<input type="range" oninput="set(Synth.Param.TREMOLO_FREQUENCY, parseFloat(this.value))" min="0" max="25" value="5" step="0.1">Frequency<br>
+				<input type="range" oninput="set(Synth.Param.TREMOLO_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<label><input id="retrigger" type="range" oninput="set(Parameter.RETRIGGER, parseInt(this.value))" min="0" max="75" value="0" step="1">Retrigger Rate</label>
+				<label><input id="retrigger" type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="75" value="0" step="1">Retrigger Rate</label>
 			</fieldset>
 			<div>
-				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value), ChangeType.LINEAR, 1)" min="0" max="100" value="100" step="1">Volume
-				<label><input type="checkbox" onclick="set(Parameter.PANNED, this.checked? 1 : 0)">Pan Left</label>
+				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), Synth.ChangeType.LINEAR, 1)" min="0" max="100" value="100" step="1">Volume
+				<label><input type="checkbox" onclick="set(Synth.Param.PANNED, this.checked? 1 : 0)">Pan Left</label>
 			</div>
 		</div>
 
 		<script src="synth.js"></script>
 		<script>
-			let system, channel1;
+			const audioContext = new AudioContext({sampleRate: 96000});
+			const system = new Synth.System(audioContext);
+			let channel1;
 
 			function initialize() {
 				audioContext.resume();
-				system = new SynthSystem(audioContext);
-				channel1 = new SubtractiveSynthChannel(system, true);
+				channel1 = new Synth.SubtractiveSynthChannel(system, true);
 				system.start();
-				set(Parameter.FILTERED_AMOUNT, 0);
+				set(Synth.Param.FILTERED_AMOUNT, 0);
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}
@@ -112,18 +113,18 @@
 					delay = 0;
 				}
 				if (changeType === undefined) {
-					changeType = ChangeType.SET;
+					changeType = Synth.ChangeType.SET;
 				}
 				const parameterMap = new Map();
-				parameterMap.set(parameterNumber, new Change(changeType, value));
+				parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
 				system.begin();
 				channel1.setParameters(parameterMap, delay);
 			}
 
 			function mix(source, amount) {
-				const levels = channel1.parameters[Parameter.MIX].slice();
+				const levels = channel1.parameters[Synth.Param.MIX].slice();
 				levels.splice(source, 1, amount);
-				set(Parameter.MIX, levels);
+				set(Synth.Param.MIX, levels);
 			}
 		</script>
 	</body>
