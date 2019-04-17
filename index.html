@@ -17,7 +17,7 @@
 				<button onmousedown="set(Parameter.GATE, Gate.OPEN)" onmouseup="set(Parameter.GATE, Gate.CLOSED)">Play Held Down</button>
 				<button onclick="set(Parameter.GATE, channel1.parameters[Parameter.GATE] !== Gate.OPEN? Gate.OPEN : Gate.CLOSED)">Sound On/Off</button>
 				<button onclick="set(Parameter.GATE, Gate.RETRIGGER)">Retrigger</button>
-				<button onclick="set(Parameter.GATE, Gate.CUT)">Cut</button>
+				<button onclick="set(Parameter.GATE, Gate.CUT); document.getElementById('retrigger').value = 0">Cut</button>
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
@@ -82,6 +82,10 @@
 				<label><input type="radio" name="tremolo-waveform" oninput="set(Parameter.TREMOLO_WAVEFORM, 'triangle')">Triangle</label><br>
 				<input type="range" oninput="set(Parameter.TREMOLO_FREQUENCY, parseFloat(this.value))" min="0" max="25" value="5" step="0.1">Frequency<br>
 				<input type="range" oninput="set(Parameter.TREMOLO_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
+			</fieldset>
+			<fieldset>
+				<legend>Sequencing</legend>
+				<label><input id="retrigger" type="range" oninput="set(Parameter.RETRIGGER, parseInt(this.value))" min="0" max="75" value="0" step="1">Retrigger Rate</label>
 			</fieldset>
 			<div>
 				<input type="range" oninput="set(Parameter.VOLUME, parseFloat(this.value), ChangeType.LINEAR, 1)" min="0" max="100" value="100" step="1">Volume

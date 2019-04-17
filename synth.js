@@ -54,6 +54,7 @@ const Parameter = Object.freeze({
 	FILTER_FREQUENCY: 24, // in hertz
 	FILTER_Q: 24,	// 0.0001 to 1000
 	FILTER_GAIN: 25, // -40 to 40
+	RETRIGGER: 26,	// in steps
 });
 
 const ChangeType = Object.freeze({
@@ -143,6 +144,25 @@ class SynthSystem {
 		this.startTime = audioContext.currentTime;
 		this.channels = [];
 		this.retriggerDelay = 0.002;
+
+		const me = this;
+		this.timerFunc = function () {
+			const now = me.audioContext.currentTime + 0.001;
+			const step = Math.round((now - me.startTime) / TIME_STEP);
+			const channels = me.channels;
+			const numChannels = channels.length;
+
+			for (let channel of channels) {
+				const retriggerRate = channel.retriggerRate;
+				if (retriggerRate !== 0 && step % retriggerRate === 0) {
+					channel.gate(Gate.RETRIGGER, now);
+				}
+			}
+		}
+		this.timer = undefined;
+		this.installTimer = function () {
+			me.timer = setInterval(me.timerFunc, TIME_STEP * 1000);
+		};
 	}
 
 	addChannel(channel) {
@@ -150,15 +170,22 @@ class SynthSystem {
 	}
 
 	begin() {
-		this.startTime = (Math.trunc(this.audioContext.currentTime / TIME_STEP) + 1) * TIME_STEP;
+		const now = this.audioContext.currentTime;
+		const startTime = this.startTime;
+		const step = Math.trunc((now - startTime) / TIME_STEP);
+		this.startTime = startTime + (step + 1) * TIME_STEP;
 	}
 
 	start() {
-		const startTime = this.audioContext.currentTime + 0.1;
+		clearInterval(this.timer);
+		const now = this.audioContext.currentTime;
+		const startTime = (Math.trunc(now / TIME_STEP) + 1) * TIME_STEP;
+		setTimeout(this.installTimer, (startTime - now) * 1000);
+
 		for (let channel of this.channels) {
 			channel.start(startTime);
 		}
-		this.startTime = (Math.trunc((this.audioContext.currentTime + 0.1) / TIME_STEP) + 1) * TIME_STEP;
+		this.startTime = startTime;
 	}
 
 }
@@ -195,10 +222,12 @@ class SubtractiveSynthChannel {
 			4400,	// filter frequency
 			1,		// filter Q
 			0,		// filter gain
+			0,		// retrigger time (steps)
 		];
 		this.velocity = 1;
 		this.sustain = volumeCurve(50); // combined sustain and velocity
 		this.calcEnvelope(3)
+		this.retriggerRate = 0;
 
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
@@ -321,8 +350,7 @@ class SubtractiveSynthChannel {
 		}
 	}
 
-	gate(start) {
-		const state = this.parameters[Parameter.GATE];
+	gate(state, start) {
 		const sustainLevel = this.sustain;
 		let endDecay, beginRelease, endTime;
 
@@ -393,19 +421,25 @@ class SubtractiveSynthChannel {
 
 	setParameters(parameterMap, step) {
 		const me = this;
-		const gate = parameterMap.get(Parameter.GATE);
+		const parameters = this.parameters;
+		let gate = parameterMap.get(Parameter.GATE);
+		if (gate !== undefined) {
+			gate = gate.value;
+		}
+
 		let dirtyEnvelope = 0;
 		let dirtySustain = false;
-		let gainChange, timeDifference;
+		let gainChange;
 
-		const time = this.system.startTime + step * TIME_STEP;
+		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
+		const timeDifference = Math.round((time - now) * 1000);
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
 			let prefix, value;
 			if (changeType === ChangeType.MARK) {
-				value = this.parameters[paramNumber];
+				value = parameters[paramNumber];
 				changeType = ChangeType.SET;
 				prefix = '';
 			} else {
@@ -416,7 +450,7 @@ class SubtractiveSynthChannel {
 
 			if (paramNumber === Parameter.MIX) {
 
-				const mix = this.parameters[Parameter.MIX]
+				const mix = parameters[Parameter.MIX]
 				if (prefix === ChangeType.DELTA) {
 					for (let i = 0; i < value.length; i++) {
 						mix[i] = mix[i] + value[i];
@@ -431,13 +465,13 @@ class SubtractiveSynthChannel {
 			} else {
 
 				if (prefix === ChangeType.DELTA) {
-					value += this.parameters[paramNumber];
+					value += parameters[paramNumber];
 					changeType = changeType.slice(1);
 				} else if (prefix === ChangeType.MULTIPLY) {
-					value *= this.parameters[paramNumber];
+					value *= parameters[paramNumber];
 					changeType = changeType.slice(1);
 				}
-				this.parameters[paramNumber] = value;
+				parameters[paramNumber] = value;
 
 			}
 
@@ -466,7 +500,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.WAVEFORM:
-				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
 					setTimeout(function () {
 						me.oscillator.type = value;
@@ -477,7 +510,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.VIBRATO_WAVEFORM:
-				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
 					setTimeout(function () {
 						me.vibrato.oscillator.type = value;
@@ -488,7 +520,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.TREMOLO_WAVEFORM:
-				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
 					setTimeout(function () {
 						me.tremolo.oscillator.type = value;
@@ -505,11 +536,11 @@ class SubtractiveSynthChannel {
 			case Parameter.NOTE:
 				frequency = noteFrequencies[value];
 				this.setFrequency(changeType, frequency, time);
-				this.parameters[Parameter.FREQUENCY] = frequency;
+				parameters[Parameter.FREQUENCY] = frequency;
 				break;
 
 			case Parameter.VIBRATO_EXTENT:
-				this.setFrequency(changeType, this.parameters[Parameter.FREQUENCY], time);
+				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
 				break;
 
 			case Parameter.DETUNE:
@@ -527,7 +558,7 @@ class SubtractiveSynthChannel {
 				param = this.vibrato.oscillator.frequency;
 				param.cancelAndHoldAtTime(time);
 				param[changeType](value, time);
-				this.parameters[Parameter.VIBRATO_FREQUENCY] = value;
+				parameters[Parameter.VIBRATO_FREQUENCY] = value;
 				break;
 
 			case Parameter.TREMOLO_FREQUENCY:
@@ -535,7 +566,7 @@ class SubtractiveSynthChannel {
 				param = this.tremolo.oscillator.frequency;
 				param.cancelAndHoldAtTime(time);
 				param[changeType](value, time);
-				this.parameters[Parameter.TREMOLO_FREQUENCY] = value;
+				parameters[Parameter.TREMOLO_FREQUENCY] = value;
 				break;
 
 			case Parameter.TREMOLO_AMOUNT:
@@ -547,7 +578,7 @@ class SubtractiveSynthChannel {
 				param = this.panner.pan;
 				param.cancelAndHoldAtTime(time);
 				param.setValueAtTime(value === 0? 0 : this.panValue, time);
-				this.parameters[Parameter.PANNED] = value;
+				parameters[Parameter.PANNED] = value;
 				break;
 
 			case Parameter.VOICE:
@@ -571,7 +602,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_TYPE:
-				timeDifference = Math.round((time - now) * 1000);
 				if (timeDifference > 0) {
 					setTimeout(function () {
 						me.filter.type = value;
@@ -599,8 +629,21 @@ class SubtractiveSynthChannel {
 				param[changeType](value, time);
 				break;
 
-			}
-		}
+			case Parameter.RETRIGGER:
+				if (timeDifference > 0) {
+					if (gate !== Gate.CLOSED && gate !== Gate.CUT) {
+						setTimeout(function () {
+							me.retriggerRate = value;
+						}, timeDifference);
+					}
+				} else {
+					this.retriggerRate = value;
+				}
+				break;
+
+			} // end switch
+		} // end loop over each parameter
+
 		if (gainChange !== undefined) {
 			this.calcGains(gainChange, time);
 		}
@@ -608,10 +651,16 @@ class SubtractiveSynthChannel {
 			this.calcEnvelope(dirtyEnvelope);
 		}
 		if (dirtySustain) {
-			this.sustain = volumeCurve(this.parameters[Parameter.VELOCITY] * this.parameters[Parameter.SUSTAIN] / 100);
+			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
 		}
 		if (gate !== undefined) {
-			this.gate(time);
+			this.gate(gate, time);
+
+			if ((gate === Gate.CLOSED || gate === Gate.CUT) && this.retriggerRate !== 0) {
+				setTimeout(function () {
+					me.retriggerRate = 0;
+				}, timeDifference);
+			}
 		}
 	}
 
