@@ -47,7 +47,7 @@
 			<fieldset>
 				<legend>Frequency</legend>
 				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="13000" value="440" step="0.001">Frequency<br>
-				<input type="range" oninput="document.getElementById('frequency').value = noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTE, parseInt(this.value)); if (channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
+				<input type="range" oninput="document.getElementById('frequency').value = Synth.noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTE, parseInt(this.value)); if (channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>

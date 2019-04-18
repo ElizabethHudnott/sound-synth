@@ -4,7 +4,10 @@ class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		return [{
 			name: 'width',
-			defaultValue: 0.5
+			automationRate: 'k-rate',
+			defaultValue: 0.5,
+			minValue: 0,
+			maxValue: 1,
 		}];
 	}
 
@@ -13,29 +16,16 @@ class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 	}
 
 	process(inputs, outputs, parameters) {
-		const widths = parameters.width;
 		const input = inputs[0][0];
 		const output = outputs[0][0];
 		const length = input.length;
-		let threshold;
+		const threshold = 1 - 2 * parameters.width[0];
 
-		if (widths.length === 1) {
-			threshold = 1 - 2 * widths[0];
-			for (let i = 0; i < length; i++) {
-				if (input[i] >= threshold) {
-					output[i] = 1;
-				} else {
-					output[i] = 0;
-				}
-			}
-		} else {
-			for (let i = 0; i < length; i++) {
-				threshold = 1 - 2 * widths[i];
-				if (input[i] >= threshold) {
-					output[i] = 1;
-				} else {
-					output[i] = 0;
-				}
+		for (let i = 0; i < length; i++) {
+			if (input[i] >= threshold) {
+				output[i] = 1;
+			} else {
+				output[i] = 0;
 			}
 		}
 
@@ -81,3 +71,49 @@ class NoiseGenerationProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor('noise-generation-processor', NoiseGenerationProcessor);
+
+class RingModAndSyncProcessor extends AudioWorkletProcessor {
+	static get parameterDescriptors() {
+		return [
+			{
+				name: 'ring',
+				automationRate: 'k-rate',
+				defaultValue: 0,
+				minValue: 0,
+				maxValue: 1,
+			},
+			{
+				name: 'sync',
+				automationRate: 'k-rate',
+				defaultValue: 0,
+				minValue: 0,
+				maxValue: 1,
+			},
+		];
+	}
+
+	constructor() {
+		super();
+	}
+
+	process(inputs, outputs, parameters) {
+		const slave = inputs[0][0];
+		const master = inputs[1][0];
+		const output = outputs[0][0];
+		const length = input.length;
+		const ringMod = Math.trunc(parameters.ring[0]);
+
+		for (let i = 0; i < length; i++) {
+			if (ringMod) {
+				output[i] = slave[i] * master[i];
+			} else {
+				output[i] = slave[i];
+			}
+
+		}
+		return true;
+	}
+
+}
+
+registerProcessor('ring-mod-and-sync-processor', RingModAndSyncProcessor);

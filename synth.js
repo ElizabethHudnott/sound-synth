@@ -1,6 +1,5 @@
-'use strict';
-
 (function (global) {
+'use strict';
 
 const NEARLY_ZERO = 1 / 65535;
 const CENT = 2 ** (1 / 1200);
@@ -135,18 +134,18 @@ class Modulator {
 }
 
 class SynthSystem {
-	constructor(audioContext) {
-		audioContext.audioWorklet.addModule('audioworkletprocessors.js');
+	constructor(audioContext, callback) {
+		const me = this;
 		this.audioContext = audioContext;
 		this.shortestTime = 1 / audioContext.sampleRate;
+		this.retriggerDelay = 0.002;
+		this.startTime = audioContext.currentTime;
+		this.channels = [];
+
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		volume.connect(audioContext.destination);
-		this.startTime = audioContext.currentTime;
-		this.channels = [];
-		this.retriggerDelay = 0.002;
 
-		const me = this;
 		this.timerFunc = function () {
 			const now = me.audioContext.currentTime + 0.001;
 			const step = Math.round((now - me.startTime) / TIME_STEP);
@@ -164,6 +163,12 @@ class SynthSystem {
 		this.installTimer = function () {
 			me.timer = setInterval(me.timerFunc, TIME_STEP * 1000);
 		};
+
+		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
+			if (callback !== undefined) {
+				callback(me);
+			}
+		});
 	}
 
 	addChannel(channel) {
