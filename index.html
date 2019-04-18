@@ -88,7 +88,7 @@
 				<label><input id="retrigger" type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="75" value="0" step="1">Retrigger Rate</label>
 			</fieldset>
 			<div>
-				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), Synth.ChangeType.LINEAR, 1)" min="0" max="100" value="100" step="1">Volume
+				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume
 				<label><input type="checkbox" onclick="set(Synth.Param.PANNED, this.checked? 1 : 0)">Pan Left</label>
 			</div>
 		</div>
