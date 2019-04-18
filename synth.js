@@ -33,7 +33,7 @@ const Parameter = Object.freeze({
 	DURATION: 3,	// in milliseconds
 	VELOCITY: 4,	// percentage
 	SUSTAIN: 5,		// percentage
-	GATE: 6,		// CLOSED, OPEN or TRIGGER
+	GATE: 6,		// CLOSED, OPEN, TRIGGER, RETRIGGER or CUT
 	WAVEFORM: 7,	// 'sine', 'square', 'sawtooth' or 'triangle'
 	FREQUENCY: 8,	// in hertz
 	NOTE: 9,		// MIDI note number
@@ -46,14 +46,14 @@ const Parameter = Object.freeze({
 	TREMOLO_FREQUENCY: 16, // in hertz
 	TREMOLO_AMOUNT: 17, // percentage
 	PANNED: 18,		// 0 or 1
-	VOICE: 19,		// Combinations of Voice enum values
+	SOURCE: 19,		// Combinations of Source enum values
 	MIX: 20,		// Relative volumes
-	PULSE_WIDTH: 21,// percent
+	PULSE_WIDTH: 21,// percentage
 	FILTERED_AMOUNT: 22, // percentage
 	FILTER_TYPE: 23, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 24, // in hertz
 	FILTER_Q: 24,	// 0.0001 to 1000
-	FILTER_GAIN: 25, // -40 to 40
+	FILTER_GAIN: 25, // -40dB to 40dB
 	RETRIGGER: 26,	// in steps
 });
 
@@ -81,7 +81,7 @@ const Gate = Object.freeze({
 	CUT: 4,
 });
 
-const Voice = Object.freeze({
+const Source = Object.freeze({
 	OSCILLATOR: 1,
 	PULSE: 2,
 	NOISE: 4,
@@ -215,7 +215,7 @@ class SubtractiveSynthChannel {
 			5,		// tremolo frequency
 			0,		// tremolo amount
 			0,		// pan
-			Voice.OSCILLATOR,
+			Source.OSCILLATOR,
 			[100, 100, 100], // relative proportions of the different sources
 			50,		// pulse width
 			100,	// filter fully enabled
@@ -323,7 +323,7 @@ class SubtractiveSynthChannel {
 	}
 
 	calcGains(changeType, when) {
-		let voices = this.parameters[Parameter.VOICE];
+		let voices = this.parameters[Parameter.SOURCE];
 		const mix = this.parameters[Parameter.MIX];
 		let total = 0;
 		for (let level of mix) {
@@ -337,7 +337,7 @@ class SubtractiveSynthChannel {
 		}
 		const unit = 1 / total;
 		const gains = this.gains;
-		voices = this.parameters[Parameter.VOICE];
+		voices = this.parameters[Parameter.SOURCE];
 		for (let i = 0; i < mix.length; i++) {
 			let param = gains[i].gain;
 			param.cancelAndHoldAtTime(when);
@@ -583,7 +583,7 @@ class SubtractiveSynthChannel {
 				parameters[Parameter.PANNED] = value;
 				break;
 
-			case Parameter.VOICE:
+			case Parameter.SOURCE:
 			case Parameter.MIX:
 				gainChange = changeType;
 				break;
@@ -688,7 +688,7 @@ global.Synth = {
 	ChangeType: ChangeType,
 	Gate: Gate,
 	Param: Parameter,
-	Voice: Voice,
+	Source: Source,
 	noteFrequencies: noteFrequencies,
 };
 

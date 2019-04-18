@@ -29,9 +29,9 @@
 			</fieldset>
 			<fieldset>
 				<legend>Mixer</legend>
-				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 13) + (this.checked? 2 : 0))">Pulse</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.VOICE, (channel1.parameters[Synth.Param.VOICE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 13) + (this.checked? 2 : 0))">Pulse</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
 				<input type="range" oninput="mix(0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
 				<input type="range" oninput="mix(1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
 				<input type="range" oninput="mix(2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
