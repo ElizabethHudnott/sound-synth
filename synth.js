@@ -54,6 +54,7 @@ const Parameter = Object.freeze({
 	FILTER_Q: 24,	// 0.0001 to 1000
 	FILTER_GAIN: 25, // -40dB to 40dB
 	RETRIGGER: 26,	// in steps
+	RING_MODULATION: 27, // 0 or 1
 });
 
 const ChangeType = Object.freeze({
@@ -592,8 +593,7 @@ class SubtractiveSynthChannel {
 			case Parameter.PANNED:
 				value = Math.trunc(Math.abs(value)) % 2;
 				param = this.panner.pan;
-				param.cancelAndHoldAtTime(time);
-				param.setValueAtTime(value === 0? 0 : this.panValue, time);
+				param.setValueAtTime(value * this.panValue, time);
 				parameters[Parameter.PANNED] = value;
 				break;
 
