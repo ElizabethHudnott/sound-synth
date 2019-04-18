@@ -76,6 +76,10 @@ class RingModAndSyncProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		return [
 			{
+				name: 'modulator',
+				defaultValue: 1,
+			},
+			{
 				name: 'ring',
 				automationRate: 'k-rate',
 				defaultValue: 0,
@@ -97,19 +101,29 @@ class RingModAndSyncProcessor extends AudioWorkletProcessor {
 	}
 
 	process(inputs, outputs, parameters) {
-		const slave = inputs[0][0];
-		const master = inputs[1][0];
+		const input = inputs[0][0];
 		const output = outputs[0][0];
 		const length = input.length;
+
 		const ringMod = Math.trunc(parameters.ring[0]);
+		const modulator = parameters.modulator;
 
-		for (let i = 0; i < length; i++) {
-			if (ringMod) {
-				output[i] = slave[i] * master[i];
-			} else {
-				output[i] = slave[i];
+		if (modulator.length == 1) {
+			for (let i = 0; i < length; i++) {
+				if (ringMod) {
+					output[i] = input[i] * modulator[0];
+				} else {
+					output[i] = input[i];
+				}
 			}
-
+		} else {
+			for (let i = 0; i < length; i++) {
+				if (ringMod) {
+					output[i] = input[i] * modulator[i];
+				} else {
+					output[i] = input[i];
+				}
+			}
 		}
 		return true;
 	}

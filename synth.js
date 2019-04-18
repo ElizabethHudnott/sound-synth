@@ -257,14 +257,17 @@ class SubtractiveSynthChannel {
 		noiseGain.gain.value = 0;
 		noise.connect(noiseGain);
 
+		const effects = new AudioWorkletNode(audioContext, 'ring-mod-and-sync-processor');
+		this.effects = effects;
+		oscillatorGain.connect(effects);
+		pwmGain.connect(effects);
+		noiseGain.connect(effects);
+		this.gains = [oscillatorGain, pwmGain, noiseGain];
+
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-
-		oscillatorGain.connect(envelope);
-		pwmGain.connect(envelope);
-		noiseGain.connect(envelope);
-		this.gains = [oscillatorGain, pwmGain, noiseGain];
+		effects.connect(envelope);
 
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
@@ -297,6 +300,12 @@ class SubtractiveSynthChannel {
 
 		volume.connect(system.volume);
 		system.addChannel(this);
+	}
+
+	connect(channel) {
+		const param = channel.effects.parameters.get('modulator');
+		this.filter.connect(param);
+		this.unfilteredPath.connect(param);
 	}
 
 	start(when) {

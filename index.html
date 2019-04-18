@@ -15,7 +15,7 @@
 				<legend>Activation</legend>
 				<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
 				<button onmousedown="set(Synth.Param.GATE, Synth.Gate.OPEN)" onmouseup="set(Synth.Param.GATE, Synth.Gate.CLOSED)">Play Held Down</button>
-				<button onclick="set(Synth.Param.GATE, channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
+				<button onclick="set(Synth.Param.GATE, channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
 				<button onclick="set(Synth.Param.GATE, Synth.Gate.RETRIGGER)">Retrigger</button>
 				<button onclick="set(Synth.Param.GATE, Synth.Gate.CUT); document.getElementById('retrigger').value = 0">Cut</button>
 			</fieldset>
@@ -29,12 +29,12 @@
 			</fieldset>
 			<fieldset>
 				<legend>Mixer</legend>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 13) + (this.checked? 2 : 0))">Pulse</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channel1.parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
-				<input type="range" oninput="mix(0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
-				<input type="range" oninput="mix(1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
-				<input type="range" oninput="mix(2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 13) + (this.checked? 2 : 0))">Pulse</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
+				<input type="range" oninput="mix(0, 0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
+				<input type="range" oninput="mix(0, 1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
+				<input type="range" oninput="mix(0, 2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
@@ -47,7 +47,7 @@
 			<fieldset>
 				<legend>Frequency</legend>
 				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="13000" value="440" step="0.001">Frequency<br>
-				<input type="range" oninput="document.getElementById('frequency').value = Synth.noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTE, parseInt(this.value)); if (channel1.parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
+				<input type="range" oninput="document.getElementById('frequency').value = Synth.noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTE, parseInt(this.value)); if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>
@@ -97,34 +97,41 @@
 		<script>
 			const audioContext = new AudioContext({sampleRate: 96000});
 			const system = new Synth.System(audioContext);
-			let channel1;
+			let channels;
 
 			function initialize() {
 				audioContext.resume();
-				channel1 = new Synth.SubtractiveSynthChannel(system, true);
+				let channel1 = new Synth.SubtractiveSynthChannel(system, true);
+				let channel2 = new Synth.SubtractiveSynthChannel(system, true);
+				channel2.connect(channel1);
+				channels = [channel1, channel2];
+
 				system.start();
 				set(Synth.Param.FILTERED_AMOUNT, 0);
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}
 
-			function set(parameterNumber, value, delay, changeType) {
+			function set(parameterNumber, value, delay, changeType, channelNumber) {
 				if (delay === undefined) {
 					delay = 0;
 				}
 				if (changeType === undefined) {
 					changeType = Synth.ChangeType.SET;
 				}
+				if (channelNumber === undefined) {
+					channelNumber = 0;
+				}
 				const parameterMap = new Map();
 				parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
 				system.begin();
-				channel1.setParameters(parameterMap, delay);
+				channels[channelNumber].setParameters(parameterMap, delay);
 			}
 
-			function mix(source, amount) {
-				const levels = channel1.parameters[Synth.Param.MIX].slice();
+			function mix(channelNumber, source, amount) {
+				const levels = channels[channelNumber].parameters[Synth.Param.MIX].slice();
 				levels.splice(source, 1, amount);
-				set(Synth.Param.MIX, levels);
+				set(Synth.Param.MIX, levels, 0, Synth.ChangeType.SET, channelNumber);
 			}
 		</script>
 	</body>
