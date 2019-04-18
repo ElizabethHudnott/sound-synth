@@ -54,7 +54,7 @@ const Parameter = Object.freeze({
 	FILTER_Q: 24,	// 0.0001 to 1000
 	FILTER_GAIN: 25, // -40dB to 40dB
 	RETRIGGER: 26,	// in steps
-	RING_MODULATION: 27, // 0 or 1
+	RING_MODULATION: 27, // 0 to 1
 });
 
 const ChangeType = Object.freeze({
@@ -119,11 +119,9 @@ class Modulator {
 	setRange(changeType, min, max, time) {
 		const multiplier = (max - min) / 2;
 		const gain = this.gain.gain;
-		gain.cancelAndHoldAtTime(time);
 		gain[changeType](multiplier, time);
 
 		const offset = this.carrier;
-		offset.cancelAndHoldAtTime(time);
 		offset[changeType](min + multiplier, time);
 		this.min = min;
 		this.max = max;
@@ -230,6 +228,7 @@ class SubtractiveSynthChannel {
 			1,		// filter Q
 			0,		// filter gain
 			0,		// retrigger time (steps)
+			0,		// ring modulation
 		];
 		this.velocity = 1;
 		this.sustain = volumeCurve(50); // combined sustain and velocity
@@ -258,17 +257,22 @@ class SubtractiveSynthChannel {
 		noiseGain.gain.value = 0;
 		noise.connect(noiseGain);
 
-		const effects = new AudioWorkletNode(audioContext, 'ring-mod-and-sync-processor');
-		this.effects = effects;
-		oscillatorGain.connect(effects);
-		pwmGain.connect(effects);
-		noiseGain.connect(effects);
+		const ringMod = audioContext.createGain();
+		const ringInput = audioContext.createGain();
+		ringInput.connect(ringMod.gain);
+		ringInput.gain.value = 0;
+		this.ringMod = ringMod;
+		this.ringInput = ringInput;
+
+		oscillatorGain.connect(ringMod);
+		pwmGain.connect(ringMod);
+		noiseGain.connect(ringMod);
 		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-		effects.connect(envelope);
+		ringMod.connect(envelope);
 
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
@@ -304,9 +308,9 @@ class SubtractiveSynthChannel {
 	}
 
 	connect(channel) {
-		const param = channel.effects.parameters.get('modulator');
-		this.filter.connect(param);
-		this.unfilteredPath.connect(param);
+		const node = channel.ringInput;
+		this.filter.connect(node);
+		this.unfilteredPath.connect(node);
 	}
 
 	start(when) {
@@ -355,7 +359,6 @@ class SubtractiveSynthChannel {
 		voices = this.parameters[Parameter.SOURCE];
 		for (let i = 0; i < mix.length; i++) {
 			let param = gains[i].gain;
-			param.cancelAndHoldAtTime(when);
 			if ((voices & 1) === 1) {
 				param[changeType](unit * mix[i], when);
 			} else {
@@ -430,9 +433,7 @@ class SubtractiveSynthChannel {
 	}
 
 	setDetune(changeType, cents, when) {
-		let param = this.oscillator.detune;
-		param.cancelAndHoldAtTime(when);
-		param[changeType](cents, when);
+		this.oscillator.detune[changeType](cents, when);
 	}
 
 	setParameters(parameterMap, step) {
@@ -463,7 +464,7 @@ class SubtractiveSynthChannel {
 				value = change.value;
 				prefix = changeType[0];
 			}
-			let param, frequency;
+			let frequency;
 
 			if (paramNumber === Parameter.MIX) {
 
@@ -565,24 +566,18 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.VOLUME:
-				param = this.volume.gain;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](volumeCurve(value), time);
+				this.volume.gain[changeType](volumeCurve(value), time);
 				break;
 
 			case Parameter.VIBRATO_RATE:
 				value = clamp(value);
-				param = this.vibrato.oscillator.frequency;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				this.vibrato.oscillator.frequency[changeType](value, time);
 				parameters[Parameter.VIBRATO_FREQUENCY] = value;
 				break;
 
 			case Parameter.TREMOLO_FREQUENCY:
 				value = clamp(value);
-				param = this.tremolo.oscillator.frequency;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				this.tremolo.oscillator.frequency[changeType](value, time);
 				parameters[Parameter.TREMOLO_FREQUENCY] = value;
 				break;
 
@@ -592,8 +587,7 @@ class SubtractiveSynthChannel {
 
 			case Parameter.PANNED:
 				value = Math.trunc(Math.abs(value)) % 2;
-				param = this.panner.pan;
-				param.setValueAtTime(value * this.panValue, time);
+				this.panner.pan.setValueAtTime(value * this.panValue, time);
 				parameters[Parameter.PANNED] = value;
 				break;
 
@@ -603,18 +597,12 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.PULSE_WIDTH:
-				param = this.pwm.parameters.get('width');
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value / 100, time);
+				this.pwm.parameters.get('width')[changeType](value / 100, time);
 				break;
 
 			case Parameter.FILTERED_AMOUNT:
-				param = this.filteredPath.gain;
-				const param2 = this.unfilteredPath.gain;
-				param.cancelAndHoldAtTime(time);
-				param2.cancelAndHoldAtTime(time);
-				param[changeType](value / 100, time);
-				param2[changeType](1 - value / 100, time);
+				this.filteredPath.gain[changeType](value / 100, time);
+				this.unfilteredPath.gain[changeType](1 - value / 100, time);
 				break;
 
 			case Parameter.FILTER_TYPE:
@@ -628,21 +616,15 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
-				param = this.filter.frequency;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				this.filter.frequency[changeType](value, time);
 				break;
 
 			case Parameter.FILTER_Q:
-				param = this.filter.Q;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				this.filter.Q[changeType](value, time);
 				break;
 
 			case Parameter.FILTER_GAIN:
-				param = this.filter.gain;
-				param.cancelAndHoldAtTime(time);
-				param[changeType](value, time);
+				this.filter.gain[changeType](value, time);
 				break;
 
 			case Parameter.RETRIGGER:
@@ -655,6 +637,11 @@ class SubtractiveSynthChannel {
 				} else {
 					this.retriggerRate = value;
 				}
+				break;
+
+			case Parameter.RING_MODULATION:
+				this.ringMod.gain[changeType](1 - value / 100, time);
+				this.ringInput.gain[changeType](value / 100, time);
 				break;
 
 			} // end switch
