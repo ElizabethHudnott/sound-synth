@@ -2,34 +2,51 @@
 
 class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
-		return [{
+		return [
+		{
+			name: 'frequency',
+			automationRate: 'k-rate',
+			defaultValue: 440,
+			minValue: Number.EPSILON,
+			maxValue: sampleRate / 2,
+		},
+		{
 			name: 'width',
 			automationRate: 'k-rate',
 			defaultValue: 0.5,
 			minValue: 0,
 			maxValue: 1,
-		}];
+			}
+		];
 	}
 
 	constructor() {
 		super();
+		this.outputLevel = 1;
+		this.plateauLength = 0;
 	}
 
 	process(inputs, outputs, parameters) {
-		const input = inputs[0][0];
 		const output = outputs[0][0];
-		const length = input.length;
-		const threshold = 1 - 2 * parameters.width[0];
+		const period = sampleRate / parameters.frequency[0];
+		const lengths = [Math.round(parameters.width[0] * period), undefined];
+		lengths[2]  = Math.round(period) - lengths[0];
 
-		for (let i = 0; i < length; i++) {
-			if (input[i] >= threshold) {
-				output[i] = 1;
-			} else {
-				output[i] = 0;
+		let outputLevel = this.outputLevel;
+		let plateauLength = this.plateauLength;
+		let targetLength = lengths[1 - outputLevel];
+		for (let i = 0; i < 128; i++) {
+			if (plateauLength >= targetLength) {
+				outputLevel = outputLevel * -1;
+				plateauLength = 0;
+				targetLength = lengths[1 - outputLevel];
 			}
+			output[i] = outputLevel;
+			plateauLength++;
 		}
 
-		// To keep the processor alive.
+		this.outputLevel = outputLevel;
+		this.plateauLength = plateauLength;
 		return true;
 	}
 }
@@ -38,33 +55,38 @@ registerProcessor('pulse-width-modulation-processor', PulseWidthModulationProces
 
 class NoiseGenerationProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
-		return [];
+		return [{
+			name: 'frequency',
+			automationRate: 'k-rate',
+			defaultValue: 440,
+			minValue: Number.EPSILON,
+			maxValue: sampleRate / 2,
+		}];
 	}
 
 	constructor() {
 		super();
-		this.previousInputLevel = 0;
 		this.outputLevel = Math.random() * 2 - 1;
+		this.plateauLength = 0;
 	}
 
 	process(inputs, outputs, parameters) {
-		const input = inputs[0][0];
 		const output = outputs[0][0];
-		const length = input.length;
+		const targetLength = Math.round(sampleRate / (2 * parameters.frequency[0]));
 
-		let previousInputLevel = this.previousInputLevel;
 		let outputLevel = this.outputLevel;
-
-		for (let i = 0; i < length; i++) {
-			let level = input[i];
-			if ((previousInputLevel <= 0 && level > 0) || (previousInputLevel >= 0 && level < 0)) {
-				outputLevel = Math.random() * 2 - 1;
+		let plateauLength = this.plateauLength;
+		for (let i = 0; i < 128; i++) {
+			if (plateauLength >= targetLength) {
+				outputLevel = Math.random() * 2 + 1;
+				plateauLength = 0;
 			}
 			output[i] = outputLevel;
-			previousInputLevel = level;
+			plateauLength++;
 		}
-		this.previousInputLevel = previousInputLevel;
+
 		this.outputLevel = outputLevel;
+		this.plateauLength = plateauLength;
 		return true;
 	}
 

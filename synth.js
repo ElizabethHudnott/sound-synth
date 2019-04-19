@@ -96,7 +96,7 @@ for (let i = 0; i <= 127; i++) {
 
 class Modulator {
 	constructor(audioContext, carrier) {
-		this.carrier = carrier;
+		this.carriers = [carrier];
 		const initialValue = carrier.value;
 		this.min = initialValue;
 		this.max = initialValue;
@@ -121,14 +121,26 @@ class Modulator {
 		const gain = this.gain.gain;
 		gain[changeType](multiplier, time);
 
-		const offset = this.carrier;
-		offset[changeType](min + multiplier, time);
+		for (let carrier of this.carriers) {
+			carrier[changeType](min + multiplier, time);
+		}
 		this.min = min;
 		this.max = max;
 	}
 
 	connect(carrier) {
 		this.gain.connect(carrier);
+		if (!this.carriers.includes(carrier)) {
+			this.carriers.push(carrier);
+		}
+	}
+
+	disconnect(carrier) {
+		const index = this.carriers.indexOf(carrier);
+		if (index !== -1) {
+			this.gain.disconnect(carrier);
+			this.carriers.splice(index, 1);
+		}
 	}
 }
 
@@ -195,6 +207,29 @@ class SynthSystem {
 
 }
 
+class NoiseNode extends AudioWorkletNode {
+	constructor(context) {
+		super(context, 'noise-generation-processor', {numberOfInputs: 0});
+	}
+
+	get frequency() {
+		return this.parameters.get('frequency');
+	}
+}
+
+class PulseNode extends AudioWorkletNode {
+	constructor(context) {
+		super(context, 'pulse-width-modulation-processor', {numberOfInputs: 0});
+	}
+
+	get frequency() {
+		return this.parameters.get('frequency');
+	}
+
+	get width() {
+		return this.parameters.get('width');
+	}
+}
 class SubtractiveSynthChannel {
 	constructor(system, pannedLeft) {
 		const audioContext = system.audioContext;
@@ -240,22 +275,22 @@ class SubtractiveSynthChannel {
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
 
-		const vibrato = new Modulator(audioContext, oscillator.frequency);
-		this.vibrato = vibrato;
-
-		const pwm = new AudioWorkletNode(audioContext, 'pulse-width-modulation-processor');
+		const pwm = new PulseNode(audioContext);
 		this.pwm = pwm;
-		oscillator.connect(pwm);
 		const pwmGain = audioContext.createGain();
 		pwmGain.gain.value = 0;
 		pwm.connect(pwmGain);
 
-		const noise = new AudioWorkletNode(audioContext, 'noise-generation-processor');
+		const noise = new NoiseNode(audioContext);
 		this.noise = noise;
-		oscillator.connect(noise);
 		const noiseGain = audioContext.createGain();
 		noiseGain.gain.value = 0;
 		noise.connect(noiseGain);
+
+		const vibrato = new Modulator(audioContext, oscillator.frequency);
+		this.vibrato = vibrato;
+		vibrato.connect(pwm.frequency);
+		vibrato.connect(noise.frequency);
 
 		const ringMod = audioContext.createGain();
 		const ringInput = audioContext.createGain();
@@ -597,7 +632,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.PULSE_WIDTH:
-				this.pwm.parameters.get('width')[changeType](value / 100, time);
+				this.pwm.width[changeType](value / 100, time);
 				break;
 
 			case Parameter.FILTERED_AMOUNT:
@@ -690,6 +725,9 @@ global.Synth = {
 	Gate: Gate,
 	Param: Parameter,
 	Source: Source,
+	Modulator: Modulator,
+	NoiseNode: NoiseNode,
+	PulseNode: PulseNode,
 	noteFrequencies: noteFrequencies,
 };
 
