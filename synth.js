@@ -42,7 +42,7 @@ const Parameter = Object.freeze({
 	VIBRATO_EXTENT: 13, // in cents
 	VOLUME: 14,		// percentage
 	TREMOLO_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_FREQUENCY: 16, // in hertz
+	TREMOLO_RATE: 16, // in hertz
 	TREMOLO_AMOUNT: 17, // percentage
 	PANNED: 18,		// 0 or 1
 	SOURCE: 19,		// Combinations of Source enum values
@@ -619,10 +619,10 @@ class SubtractiveSynthChannel {
 				parameters[Parameter.VIBRATO_FREQUENCY] = value;
 				break;
 
-			case Parameter.TREMOLO_FREQUENCY:
+			case Parameter.TREMOLO_RATE:
 				value = clamp(value);
 				this.tremolo.oscillator.frequency[changeType](value, time);
-				parameters[Parameter.TREMOLO_FREQUENCY] = value;
+				parameters[Parameter.TREMOLO_RATE] = value;
 				break;
 
 			case Parameter.TREMOLO_AMOUNT:
