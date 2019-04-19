@@ -51,10 +51,10 @@ const Parameter = Object.freeze({
 	FILTERED_AMOUNT: 22, // percentage
 	FILTER_TYPE: 23, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 24, // in hertz
-	FILTER_Q: 24,	// 0.0001 to 1000
-	FILTER_GAIN: 25, // -40dB to 40dB
-	RETRIGGER: 26,	// in steps
-	RING_MODULATION: 27, // 0 to 1
+	FILTER_Q: 25,	// 0.0001 to 1000
+	FILTER_GAIN: 26, // -40dB to 40dB
+	RETRIGGER: 27,	// in steps
+	RING_MODULATION: 28, // 0 to 1
 });
 
 const ChangeType = Object.freeze({
