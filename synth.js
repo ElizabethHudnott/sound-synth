@@ -97,9 +97,6 @@ for (let i = 0; i <= 127; i++) {
 class Modulator {
 	constructor(audioContext, carrier) {
 		this.carriers = [carrier];
-		const initialValue = carrier.value;
-		this.min = initialValue;
-		this.max = initialValue;
 
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
@@ -116,21 +113,33 @@ class Modulator {
 		this.oscillator.start(when);
 	}
 
-	setRange(changeType, min, max, time) {
+	setMinMax(changeType, min, max, time) {
 		const multiplier = (max - min) / 2;
-		const gain = this.gain.gain;
-		gain[changeType](multiplier, time);
+		const centre = min + multiplier;
+		this.gain.gain[changeType](multiplier, time);
 
 		for (let carrier of this.carriers) {
-			carrier[changeType](min + multiplier, time);
+			carrier[changeType](centre, time);
 		}
-		this.min = min;
-		this.max = max;
+	}
+
+	setRange(changeType, range, time) {
+		this.gain.gain[changeType](range, time);
+	}
+
+	setCentre(changeType, centre, time) {
+		for (let carrier of this.carriers) {
+			carrier[changeType](centre, time);
+		}
 	}
 
 	connect(carrier) {
 		this.gain.connect(carrier);
-		if (!this.carriers.includes(carrier)) {
+		const carriers = this.carriers;
+		if (!carriers.includes(carrier)) {
+			if (carriers.length > 0) {
+				carrier.value = carriers[0].value;
+			}
 			this.carriers.push(carrier);
 		}
 	}
@@ -464,7 +473,7 @@ class SubtractiveSynthChannel {
 
 	setFrequency(changeType, frequency, when) {
 		const vibratoExtent = CENT ** (this.parameters[Parameter.VIBRATO_EXTENT] / 2);
-		this.vibrato.setRange(changeType, frequency * 1 / vibratoExtent, frequency * vibratoExtent, when);
+		this.vibrato.setMinMax(changeType, frequency / vibratoExtent, frequency * vibratoExtent, when);
 	}
 
 	setDetune(changeType, cents, when) {
@@ -617,7 +626,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.TREMOLO_AMOUNT:
-				this.tremolo.setRange(changeType, 1 - value / 100, 1, time);
+				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
 				break;
 
 			case Parameter.PANNED:
