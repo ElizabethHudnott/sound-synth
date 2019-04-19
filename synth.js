@@ -53,8 +53,9 @@ const Parameter = Object.freeze({
 	FILTER_FREQUENCY: 24, // in hertz
 	FILTER_Q: 25,	// 0.0001 to 1000
 	FILTER_GAIN: 26, // -40dB to 40dB
-	RETRIGGER: 27,	// in steps
-	RING_MODULATION: 28, // 0 to 1
+	RING_MODULATION: 27, // 0 to 1
+	LINE_TIME: 28,	// in steps
+	RETRIGGER: 29,	// in steps
 });
 
 const ChangeType = Object.freeze({
@@ -75,10 +76,10 @@ class Change {
 
 const Gate = Object.freeze({
 	CLOSED: 0,
-	OPEN: 1,
-	TRIGGER: 2,
-	RETRIGGER: 3,
-	CUT: 4,
+	CUT: 1,
+	OPEN: 2,
+	TRIGGER: 3,
+	RETRIGGER: 6,
 });
 
 const Source = Object.freeze({
@@ -166,24 +167,6 @@ class SynthSystem {
 		this.volume = volume;
 		volume.connect(audioContext.destination);
 
-		this.timerFunc = function () {
-			const now = me.audioContext.currentTime + 0.001;
-			const step = Math.round((now - me.startTime) / TIME_STEP);
-			const channels = me.channels;
-			const numChannels = channels.length;
-
-			for (let channel of channels) {
-				const retriggerRate = channel.retriggerRate;
-				if (retriggerRate !== 0 && step % retriggerRate === 0) {
-					channel.gate(Gate.RETRIGGER, now);
-				}
-			}
-		}
-		this.timer = undefined;
-		this.installTimer = function () {
-			me.timer = setInterval(me.timerFunc, TIME_STEP * 1000);
-		};
-
 		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
 				callback(me);
@@ -203,10 +186,8 @@ class SynthSystem {
 	}
 
 	start() {
-		clearInterval(this.timer);
 		const now = this.audioContext.currentTime;
 		const startTime = (Math.trunc(now / TIME_STEP) + 1) * TIME_STEP;
-		setTimeout(this.installTimer, (startTime - now) * 1000);
 
 		for (let channel of this.channels) {
 			channel.start(startTime);
@@ -271,13 +252,14 @@ class SubtractiveSynthChannel {
 			4400,	// filter frequency
 			1,		// filter Q
 			0,		// filter gain
-			0,		// retrigger time (steps)
 			0,		// ring modulation
+			25,		// line time (120bpm)
+			0,		// retrigger time (steps)
 		];
 		this.velocity = 1;
 		this.sustain = volumeCurve(50); // combined sustain and velocity
-		this.calcEnvelope(3)
-		this.retriggerRate = 0;
+		this.calcEnvelope(3);
+		this.numberOfRetriggers = 0;
 
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
@@ -490,7 +472,7 @@ class SubtractiveSynthChannel {
 
 		let dirtyEnvelope = 0;
 		let dirtySustain = false;
-		let gainChange;
+		let gainChange, retriggerTime;
 
 		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
@@ -671,21 +653,24 @@ class SubtractiveSynthChannel {
 				this.filter.gain[changeType](value, time);
 				break;
 
-			case Parameter.RETRIGGER:
-				if (timeDifference > 0) {
-					if (gate !== Gate.CLOSED && gate !== Gate.CUT) {
-						callbacks.push(function () {
-							me.retriggerRate = value;
-						});
-					}
-				} else {
-					this.retriggerRate = value;
-				}
-				break;
-
 			case Parameter.RING_MODULATION:
 				this.ringMod.gain[changeType](1 - value / 100, time);
 				this.ringInput.gain[changeType](value / 100, time);
+				break;
+
+			case Parameter.RETRIGGER:
+				if (value === 0) {
+					this.numberOfRetriggers = 0;
+				} else {
+					this.numberOfRetriggers = Math.trunc(parameters[Parameter.LINE_TIME] / value);
+				}
+				break;
+
+			case Parameter.LINE_TIME:
+				retriggerTime = parameters[Parameter.RETRIGGER];
+				if (retriggerTime > 0) {
+					this.numberOfRetriggers = Math.trunc(value / retriggerTime);
+				}
 				break;
 
 			} // end switch
@@ -702,11 +687,12 @@ class SubtractiveSynthChannel {
 		}
 		if (gate !== undefined) {
 			this.gate(gate, time);
-
-			if ((gate === Gate.CLOSED || gate === Gate.CUT) && this.retriggerRate !== 0) {
-				callbacks.push(function () {
-					me.retriggerRate = 0;
-				});
+			if ((gate & Gate.OPEN) === Gate.OPEN) {
+				retriggerTime = parameters[Parameter.RETRIGGER] * TIME_STEP;
+				const numberOfRetriggers = this.numberOfRetriggers;
+				for (let i = 1; i < numberOfRetriggers; i++) {
+					this.gate(Gate.RETRIGGER, time + i * retriggerTime);
+				}
 			}
 		}
 
