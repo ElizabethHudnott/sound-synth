@@ -601,6 +601,7 @@ class SubtractiveSynthChannel {
 				for (let i = 1; i < value.length; i++) {
 					this.frequencies[i] = noteFrequencies[value[i]];
 				}
+				this.frequencies.splice(value.length);
 				break;
 
 			case Parameter.VIBRATO_EXTENT:
