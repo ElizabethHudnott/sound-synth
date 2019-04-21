@@ -59,7 +59,8 @@ const Parameter = Object.freeze({
 	TICKS: 29, // maximum number of events during a LINE_TIME
 	RETRIGGER: 30,	// number of ticks between retriggers
 	CHORD_SPEED: 31, // number of ticks between notes of a broken chord
-	GLISSANDO_SIZE: 32, // number of steps
+	CHORD_PATTERN: 32,
+	GLISSANDO_SIZE: 33, // number of steps
 });
 
 const ChangeType = Object.freeze({
@@ -92,6 +93,13 @@ const Source = Object.freeze({
 	NOISE: 4,
 	SAMPLE: 8
 });
+
+const Chord = Object.freeze({
+	CYCLE: 0,
+	TO_AND_FRO: 1,
+	TO_AND_FRO_2: 2,
+	RANDOM: 3,
+})
 
 const noteFrequencies = [];
 
@@ -168,21 +176,23 @@ class Modulator {
 class SynthSystem {
 	constructor(audioContext, callback) {
 		const me = this;
-		this.audioContext = audioContext;
-		this.shortestTime = 1 / audioContext.sampleRate;
-		this.retriggerDelay = 0.002;
-		this.startTime = audioContext.currentTime;
-		this.channels = [];
-
-		const volume = audioContext.createGain();
-		this.volume = volume;
-		volume.connect(audioContext.destination);
-
 		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
 				callback(me);
 			}
 		});
+
+		this.audioContext = audioContext;
+		this.channels = [];
+		this.shortestTime = 1 / audioContext.sampleRate;
+		this.startTime = audioContext.currentTime;
+		this.systemParameters = [Parameter.LINE_TIME, Parameter.TICKS];
+
+		this.retriggerDelay = 0.002;
+
+		const volume = audioContext.createGain();
+		this.volume = volume;
+		volume.connect(audioContext.destination);
 	}
 
 	addChannel(channel) {
@@ -265,9 +275,10 @@ class SubtractiveSynthChannel {
 			0,		// filter gain
 			0,		// ring modulation
 			24,		// line time (125bpm, allegro)
-			12,		// number of ticks for broken chords, glissando and retrigger
+			24,		// number of ticks for broken chords, glissando and retrigger
 			0,		// retrigger time (ticks)
 			1,		// broken chord speed
+			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
 		];
 		this.velocity = 1;
@@ -488,6 +499,7 @@ class SubtractiveSynthChannel {
 		let dirtyEnvelope = 0;
 		let dirtySustain = false;
 		let dirtyNumTicks = false;
+		let frequencySet = false;
 		let gainChange;
 
 		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
@@ -591,11 +603,13 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FREQUENCY:
 				this.setFrequency(changeType, value, time);
+				frequencySet = true;
 				break;
 
 			case Parameter.NOTES:
 				frequency = noteFrequencies[value[0]];
 				this.setFrequency(changeType, frequency, time);
+				frequencySet = true;
 				this.frequencies[0] = frequency;
 				parameters[Parameter.FREQUENCY] = frequency;
 				for (let i = 1; i < value.length; i++) {
@@ -703,6 +717,7 @@ class SubtractiveSynthChannel {
 			} else if (numTicks < 1) {
 				parameters[Parameter.TICKS] = 1;
 			}
+			this.copyParameters([Parameter.LINE_TIME, Parameter.TICKS]);
 		}
 		if (gate !== undefined) {
 			this.gate(gate, time);
@@ -712,40 +727,100 @@ class SubtractiveSynthChannel {
 				let numNotes = frequencies.length;
 				let retriggerTicks = parameters[Parameter.RETRIGGER];
 
-				if (glissandoSteps > 0 || numNotes > 1 || retriggerTicks > 0) {
+				if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
+					if (!frequencySet) {
+						this.setFrequency(ChangeType.SET, this.frequencies[0], time);
+					}
 					const chordTicks = parameters[Parameter.CHORD_SPEED];
 					const numTicks = parameters[Parameter.TICKS];
 					const tickTime = (parameters[Parameter.LINE_TIME] * TIME_STEP) / numTicks;
 
-					let glissandoDir = SEMITONE;
-					if (glissandoSteps < 0) {
-						glissandoSteps = -glissandoSteps;
-						glissandoDir = 1 / SEMITONE;
-					}
 					let glissandoAmount = 0;
 					let prevGlissandoAmount = 0;
-					const glissandoPerTick = glissandoSteps / (numTicks - 1);
+					let glissandoPerTick;
+					if (glissandoSteps === 0) {
+						glissandoPerTick = 0;
+					} else if (glissandoSteps > 0) {
+					 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
+					} else {
+						glissandoPerTick = (glissandoSteps - 1) / numTicks;
+					}
 
 					let tick = 1;
 					let noteIndex = 0;
+					const pattern = parameters[Parameter.CHORD_PATTERN];
+					let chordDir = 1;
+					let noteRepeated = false;
 					while (tick < numTicks) {
 						const timeOfTick = time + tick * tickTime;
 
-						glissandoAmount = Math.round(tick * glissandoPerTick);
+						glissandoAmount = Math.trunc(tick * glissandoPerTick);
 						let newFrequency = glissandoAmount !== prevGlissandoAmount;
 						if (numNotes > 1 && tick % chordTicks === 0) {
-							noteIndex = (noteIndex + 1) % numNotes;
-							newFrequency = true;
+							noteIndex = noteIndex + chordDir;
+							switch (pattern) {
+							case Chord.CYCLE:
+								noteIndex = noteIndex % numNotes;
+								newFrequency = true;
+								break;
+
+							case Chord.TO_AND_FRO:
+								if (noteIndex === numNotes) {
+									noteIndex = numNotes - 2;
+									chordDir = -1;
+								} else if (noteIndex === -1) {
+									noteIndex = 1;
+									chordDir = 1;
+								}
+								newFrequency = true;
+								break;
+
+							case Chord.TO_AND_FRO_2:
+								if (noteIndex === numNotes) {
+									if (noteRepeated) {
+										noteIndex = numNotes - 2;
+										chordDir = -1;
+										newFrequency = true;
+										noteRepeated = false;
+									} else {
+										noteIndex--;
+										noteRepeated = true;
+									}
+								} else if (noteIndex === -1) {
+									if (noteRepeated) {
+										noteIndex = 1;
+										chordDir = 1;
+										newFrequency = true;
+										noteRepeated = false;
+									} else {
+										noteIndex++;
+										noteRepeated = true;
+									}
+								} else {
+									newFrequency = true;
+								}
+								break;
+
+							case Chord.RANDOM:
+								const oldNoteIndex = noteIndex - 1;
+								noteIndex = Math.trunc(Math.random() * numNotes);
+								if (noteIndex !== oldNoteIndex) {
+									newFrequency = true;
+								}
+								break;
+
+							}
 						}
 
 						if (newFrequency) {
-							const frequency = frequencies[noteIndex] * glissandoDir ** (1 + glissandoAmount);
+							const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
 							this.setFrequency(ChangeType.SET, frequency, timeOfTick);
 						}
 
 						if (tick % retriggerTicks === 0) {
 							this.gate(Gate.RETRIGGER, timeOfTick);
 						}
+						prevGlissandoAmount = glissandoAmount;
 						tick++;
 					}
 				}
@@ -766,6 +841,16 @@ class SubtractiveSynthChannel {
 		}
 	}
 
+	copyParameters(paramNumbers) {
+		const channels = this.system.channels;
+		for (let paramNumber of paramNumbers) {
+			const value = this.parameters[paramNumber];
+			for (let channel of channels) {
+				channel.parameters[paramNumber] = value;
+			}
+		}
+	}
+
 }
 
 global.Synth = {
@@ -774,6 +859,7 @@ global.Synth = {
 	System: SynthSystem,
 	ChangeType: ChangeType,
 	Gate: Gate,
+	Pattern: Chord,
 	Param: Parameter,
 	Source: Source,
 	Modulator: Modulator,

@@ -47,7 +47,7 @@
 			<fieldset>
 				<legend>Frequency</legend>
 				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="15000" value="440" step="0.001">Frequency<br>
-				<input type="range" oninput="document.getElementById('frequency').value = Synth.noteFrequencies[parseInt(this.value)]; set(Synth.Param.NOTES, [parseInt(this.value)]); if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER)" min="40" max="108" value="69" step="1">Note<br>
+				<input id="note" type="range" oninput="playNote()" min="40" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>
@@ -85,8 +85,19 @@
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<label><input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="75" value="0" step="1">Retrigger Rate</label><br>
-				<label><input type="range" oninput="set(Synth.Param.LINE_TIME, parseInt(this.value))" min="15" max="150" value="50" step="1">Playing Time</label>
+				<label><input id="line-time" type="range" oninput="set(Synth.Param.LINE_TIME, parseInt(this.value)); calcTicks()" min="15" max="150" value="50" step="1">Playing Time</label><br>
+				<label><input id="ticks" type="range" oninput="calcTicks()" min="1" max="50" step="0.1" value="50">Ticks / second</label><br>
+				<label>1<input type="text" id="chord" oninput="playNote()" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small></label><br>
+				<label><input type="range" oninput="set(Synth.Param.CHORD_SPEED, parseInt(this.value))" min="0" max="16" value="1" step="1">Chord rotation time</label><br>
+				<label><input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.CYCLE)">Cycle</label>
+				<label><input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO)">To and Fro</label>
+				<label><input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO_2)" checked>To and Fro 2</label>
+				<label><input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.RANDOM)">Random</label>
+				<br>
+				<label><input id="glissando" type="range" oninput="set(Synth.Param.GLISSANDO_SIZE, parseInt(this.value))" min="-12" max="12" value="0" step="1">Glissando</label>
+				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO_SIZE, 0)">Reset</button>
+				<br>
+				<label><input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time</label><br>
 			</fieldset>
 			<div>
 				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume
@@ -134,6 +145,28 @@
 				const levels = channels[channelNumber].parameters[Synth.Param.MIX].slice();
 				levels.splice(source, 1, amount);
 				set(Synth.Param.MIX, levels, 0, Synth.ChangeType.SET, channelNumber);
+			}
+
+			function playNote() {
+				const noteNumber = parseInt(document.getElementById('note').value);
+				document.getElementById('frequency').value = Synth.noteFrequencies[noteNumber];
+				const notes = [noteNumber];
+				const chord = document.getElementById('chord').value;
+				for (let i = 0; i < chord.length; i++) {
+					const interval = parseInt(chord[i], 36);
+					notes.push(noteNumber + interval - 1);
+				}
+				set(Synth.Param.NOTES, notes);
+				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
+					set(Synth.Param.GATE, Synth.Gate.TRIGGER);
+				}
+			}
+
+			function calcTicks() {
+				const lineTime = channels[0].parameters[Synth.Param.LINE_TIME];
+				const ticksPerSecond = parseFloat(document.getElementById('ticks').value);
+				const ticks = Math.round(lineTime / 50 * ticksPerSecond);
+				set(Synth.Param.TICKS, ticks);
 			}
 		</script>
 	</body>
