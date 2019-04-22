@@ -733,7 +733,6 @@ class SubtractiveSynthChannel {
 
 		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN;
 		const frequencies = this.frequencies;
-		const numNotes = frequencies.length;
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
@@ -744,7 +743,7 @@ class SubtractiveSynthChannel {
 			noteIndex = 0;
 			chordDir = 1;
 			noteRepeated = false;
-			if (!frequencySet && (numNotes > 1 || glissandoSteps !== 0)) {
+			if (!frequencySet) {
 				this.setFrequency(ChangeType.SET, frequencies[0], time);
 			}
 		} else if (gateOpen) {
@@ -760,6 +759,7 @@ class SubtractiveSynthChannel {
 		if ((gate & Gate.OPEN) === Gate.OPEN || gateOpen) {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
+			const numNotes = frequencies.length;
 			const retriggerTicks = parameters[Parameter.RETRIGGER];
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
@@ -844,7 +844,6 @@ class SubtractiveSynthChannel {
 					if (newFrequency) {
 						const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
 						this.setFrequency(ChangeType.SET, frequency, timeOfTick);
-						console.log("Scheduled frequency " + frequency + " at " + timeOfTick);
 					}
 
 					if (tick % retriggerTicks === 0) {
