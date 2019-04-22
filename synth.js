@@ -267,6 +267,20 @@ class SynthSystem {
 	 	request.send();
 	}
 
+	setSample(number, buffer) {
+		if (this.samples[number] === undefined) {
+			this.loopSample[number] = false;
+			this.sampleLoopStart[number] = 0;
+			this.sampleLoopEnd[number] = Number.MAX_VALUE;
+			this.sampledNote[number] = 69;
+		}
+		this.samples[number] = buffer;
+	}
+
+	removeSample(number) {
+		this.samples[number] = undefined;
+	}
+
 	getSamplePlayer(index) {
 		const samplePlayer = this.audioContext.createBufferSource();
 		const sample = this.samples[index];
