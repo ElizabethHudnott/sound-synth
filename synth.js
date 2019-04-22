@@ -284,7 +284,12 @@ class SubtractiveSynthChannel {
 		this.velocity = 1;
 		this.sustain = volumeCurve(50); // combined sustain and velocity
 		this.calcEnvelope(3);
+
+		// State information for processing chords
 		this.frequencies = [440];
+		this.noteIndex = 0;
+		this.chordDir = 1;
+		this.noteRepeated = false;
 
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
@@ -698,6 +703,12 @@ class SubtractiveSynthChannel {
 				dirtyNumTicks = true;
 				break;
 
+			case Parameter.CHORD_PATTERN:
+				if (value === Chord.CYCLE) {
+					this.chordDir = 1;
+				}
+				break;
+
 			} // end switch
 		} // end loop over each parameter
 
@@ -719,111 +730,131 @@ class SubtractiveSynthChannel {
 			}
 			this.copyParameters([Parameter.LINE_TIME, Parameter.TICKS]);
 		}
+
+		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN;
+		const frequencies = this.frequencies;
+		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
+		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
+
 		if (gate !== undefined) {
 			this.gate(gate, time);
-			if ((gate & Gate.OPEN) === Gate.OPEN) {
-				let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
-				const frequencies = this.frequencies;
-				let numNotes = frequencies.length;
-				let retriggerTicks = parameters[Parameter.RETRIGGER];
+			glissandoAmount = 0;
+			prevGlissandoAmount = 0;
+			noteIndex = 0;
+			chordDir = 1;
+			noteRepeated = false;
+			if (!frequencySet) {
+				this.setFrequency(ChangeType.SET, frequencies[0], time);
+			}
+		} else if (gateOpen) {
+			glissandoAmount = glissandoSteps;
+			prevGlissandoAmount = glissandoAmount;
+			glissandoSteps = 0;
+			noteIndex = this.noteIndex;
+			chordDir = this.chordDir;
+			noteRepeated = this.noteRepeated;
+		}
 
-				if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
-					if (!frequencySet) {
-						this.setFrequency(ChangeType.SET, this.frequencies[0], time);
-					}
-					const chordTicks = parameters[Parameter.CHORD_SPEED];
-					const numTicks = parameters[Parameter.TICKS];
-					const tickTime = (parameters[Parameter.LINE_TIME] * TIME_STEP) / numTicks;
+		if ((gate & Gate.OPEN) === Gate.OPEN || gateOpen) {
+			// The gate's just been triggered or it's open.
+			//TODO handle gate triggered in a previous step but not yet closed.
+			const numNotes = frequencies.length;
+			const retriggerTicks = parameters[Parameter.RETRIGGER];
 
-					let glissandoAmount = 0;
-					let prevGlissandoAmount = 0;
-					let glissandoPerTick;
-					if (glissandoSteps === 0) {
-						glissandoPerTick = 0;
-					} else if (glissandoSteps > 0) {
-					 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
-					} else {
-						glissandoPerTick = (glissandoSteps - 1) / numTicks;
-					}
+			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
+				const chordTicks = parameters[Parameter.CHORD_SPEED];
+				const numTicks = parameters[Parameter.TICKS];
+				const tickTime = (parameters[Parameter.LINE_TIME] * TIME_STEP) / numTicks;
 
-					let tick = 1;
-					let noteIndex = 0;
-					const pattern = parameters[Parameter.CHORD_PATTERN];
-					let chordDir = 1;
-					let noteRepeated = false;
-					while (tick < numTicks) {
-						const timeOfTick = time + tick * tickTime;
+				let glissandoPerTick;
+				if (glissandoSteps === 0) {
+					glissandoPerTick = 0;
+				} else if (glissandoSteps > 0) {
+				 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
+				} else {
+					glissandoPerTick = (glissandoSteps - 1) / numTicks;
+				}
 
+				let tick = 1;
+				const pattern = parameters[Parameter.CHORD_PATTERN];
+				while (tick < numTicks) {
+					const timeOfTick = time + tick * tickTime;
+
+					if (glissandoSteps > 0) {
 						glissandoAmount = Math.trunc(tick * glissandoPerTick);
-						let newFrequency = glissandoAmount !== prevGlissandoAmount;
-						if (numNotes > 1 && tick % chordTicks === 0) {
-							noteIndex = noteIndex + chordDir;
-							switch (pattern) {
-							case Chord.CYCLE:
-								noteIndex = noteIndex % numNotes;
-								newFrequency = true;
-								break;
+					}
+					let newFrequency = glissandoAmount !== prevGlissandoAmount;
+					if (numNotes > 1 && tick % chordTicks === 0) {
+						noteIndex = noteIndex + chordDir;
+						switch (pattern) {
+						case Chord.CYCLE:
+							noteIndex = noteIndex % numNotes;
+							newFrequency = true;
+							break;
 
-							case Chord.TO_AND_FRO:
-								if (noteIndex === numNotes) {
+						case Chord.TO_AND_FRO:
+							if (noteIndex === numNotes) {
+								noteIndex = numNotes - 2;
+								chordDir = -1;
+							} else if (noteIndex === -1) {
+								noteIndex = 1;
+								chordDir = 1;
+							}
+							newFrequency = true;
+							break;
+
+						case Chord.TO_AND_FRO_2:
+							if (noteIndex === numNotes) {
+								if (noteRepeated) {
 									noteIndex = numNotes - 2;
 									chordDir = -1;
-								} else if (noteIndex === -1) {
+									newFrequency = true;
+									noteRepeated = false;
+								} else {
+									noteIndex--;
+									noteRepeated = true;
+								}
+							} else if (noteIndex === -1) {
+								if (noteRepeated) {
 									noteIndex = 1;
 									chordDir = 1;
-								}
-								newFrequency = true;
-								break;
-
-							case Chord.TO_AND_FRO_2:
-								if (noteIndex === numNotes) {
-									if (noteRepeated) {
-										noteIndex = numNotes - 2;
-										chordDir = -1;
-										newFrequency = true;
-										noteRepeated = false;
-									} else {
-										noteIndex--;
-										noteRepeated = true;
-									}
-								} else if (noteIndex === -1) {
-									if (noteRepeated) {
-										noteIndex = 1;
-										chordDir = 1;
-										newFrequency = true;
-										noteRepeated = false;
-									} else {
-										noteIndex++;
-										noteRepeated = true;
-									}
+									newFrequency = true;
+									noteRepeated = false;
 								} else {
-									newFrequency = true;
+									noteIndex++;
+									noteRepeated = true;
 								}
-								break;
-
-							case Chord.RANDOM:
-								const oldNoteIndex = noteIndex - 1;
-								noteIndex = Math.trunc(Math.random() * numNotes);
-								if (noteIndex !== oldNoteIndex) {
-									newFrequency = true;
-								}
-								break;
-
+							} else {
+								newFrequency = true;
 							}
-						}
+							break;
 
-						if (newFrequency) {
-							const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
-							this.setFrequency(ChangeType.SET, frequency, timeOfTick);
-						}
+						case Chord.RANDOM:
+							const oldNoteIndex = noteIndex - 1;
+							noteIndex = Math.trunc(Math.random() * numNotes);
+							if (noteIndex !== oldNoteIndex) {
+								newFrequency = true;
+							}
+							break;
 
-						if (tick % retriggerTicks === 0) {
-							this.gate(Gate.RETRIGGER, timeOfTick);
 						}
-						prevGlissandoAmount = glissandoAmount;
-						tick++;
 					}
+
+					if (newFrequency) {
+						const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
+						this.setFrequency(ChangeType.SET, frequency, timeOfTick);
+						console.log("Scheduled frequency " + frequency + " at " + timeOfTick);
+					}
+
+					if (tick % retriggerTicks === 0) {
+						this.gate(Gate.RETRIGGER, timeOfTick);
+					}
+					prevGlissandoAmount = glissandoAmount;
+					tick++;
 				}
+				this.noteIndex = noteIndex;
+				this.chordDir = chordDir;
+				this.noteRepeated = noteRepeated;
 			}
 		}
 
