@@ -54,13 +54,15 @@ const Parameter = Object.freeze({
 	FILTER_FREQUENCY: 24, // in hertz
 	FILTER_Q: 25,	// 0.0001 to 1000
 	FILTER_GAIN: 26, // -40dB to 40dB
-	RING_MODULATION: 27, // 0 to 1
+	RING_MODULATION: 27, // 0 to 100
 	LINE_TIME: 28,	// in steps
 	TICKS: 29, // maximum number of events during a LINE_TIME
 	RETRIGGER: 30,	// number of ticks between retriggers
 	CHORD_SPEED: 31, // number of ticks between notes of a broken chord
 	CHORD_PATTERN: 32,
 	GLISSANDO_SIZE: 33, // number of steps
+	SAMPLE: 34,		// array index of the sample to play.
+	SAMPLE_OFFSET: 35, // in seconds
 });
 
 const ChangeType = Object.freeze({
@@ -184,6 +186,12 @@ class SynthSystem {
 
 		this.audioContext = audioContext;
 		this.channels = [];
+		this.samples = [];
+		this.loopSample = [];
+		this.sampleLoopStart = [];
+		this.sampleLoopEnd = [];
+		this.sampledNote = [];
+
 		this.shortestTime = 1 / audioContext.sampleRate;
 		this.startTime = audioContext.currentTime;
 		this.tempoChanged = 0;
@@ -216,6 +224,71 @@ class SynthSystem {
 			channel.start(startTime);
 		}
 		this.startTime = startTime;
+	}
+
+	loadSample(number, url, callback) {
+		const me = this;
+
+		if (this.samples[number] === undefined) {
+			this.loopSample[number] = false;
+			this.sampleLoopStart[number] = 0;
+			this.sampleLoopEnd[number] = Number.MAX_VALUE;
+			this.sampledNote[number] = 69;
+		}
+
+		const request = new XMLHttpRequest();
+		request.open('GET', url);
+		request.responseType = 'arraybuffer';
+		request.timeout = 60000;
+
+		request.addEventListener('load', function (event) {
+	  		if (request.status < 400) {
+		  		me.audioContext.decodeAudioData(request.response)
+		  		.then(function(buffer) {
+		  			me.samples[number] = buffer;
+		  			callback(url, true, '');
+
+		  		}).catch(function (error) {
+		  			callback(url, false, error.message)
+		  		});
+		  	} else {
+		  		callback(url, false, request.status + ' - ' + request.statusText);
+		  	}
+	  	});
+
+		request.addEventListener('error', function (event) {
+			callback(url, false,'Network error');
+		});
+
+		request.addEventListener('timeout', function (event) {
+			dispatchError(url, false, 'Timeout');
+		});
+
+	 	request.send();
+	}
+
+	getSamplePlayer(index) {
+		const samplePlayer = this.audioContext.createBufferSource();
+		const sample = this.samples[index];
+		if (sample !== undefined) {
+			samplePlayer.buffer = sample;
+			const loop = this.loopSample[index];
+			if (loop) {
+				samplePlayer.loop = true;
+				samplePlayer.loopStart = this.sampleLoopStart[index];
+				samplePlayer.loopEnd = this.sampleLoopEnd[index];
+			}
+		}
+		return samplePlayer;
+	}
+
+	getSampleSpeed(index, frequency) {
+		const sampledNote = this.sampledNote[index];
+		if (sampledNote !== undefined) {
+			return frequency / noteFrequencies[sampledNote];
+		} else {
+			return 1;
+		}
 	}
 
 }
@@ -282,6 +355,8 @@ class SubtractiveSynthChannel {
 			1,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
+			0,		// use first sample
+			0,		// no sample offset
 		];
 		this.velocity = 1;
 		this.sustain = volumeCurve(50); // combined sustain and velocity
@@ -310,6 +385,8 @@ class SubtractiveSynthChannel {
 		noiseGain.gain.value = 0;
 		noise.connect(noiseGain);
 
+		this.samplePlayer = undefined;
+
 		const vibrato = new Modulator(audioContext, oscillator.frequency);
 		this.vibrato = vibrato;
 		vibrato.connect(pwm.frequency);
@@ -325,6 +402,7 @@ class SubtractiveSynthChannel {
 		oscillatorGain.connect(ringMod);
 		pwmGain.connect(ringMod);
 		noiseGain.connect(ringMod);
+		// sample player needs to connect to the ring mod too, when it's used.
 		this.gains = [oscillatorGain, pwmGain, noiseGain];
 
 		const envelope = audioContext.createGain();
@@ -427,8 +505,23 @@ class SubtractiveSynthChannel {
 		}
 	}
 
+	playSample(time) {
+		if (this.samplePlayer !== undefined) {
+			this.samplePlayer.stop(time);
+		}
+		const parameters = this.parameters;
+		const sampleNumber = parameters[Parameter.SAMPLE];
+		const samplePlayer = this.system.getSamplePlayer(sampleNumber);
+		samplePlayer.detune.value = parameters[Parameter.DETUNE];
+		samplePlayer.playbackRate.value = this.system.getSampleSpeed(sampleNumber, parameters[Parameter.FREQUENCY]);
+		samplePlayer.connect(this.ringMod);
+		samplePlayer.start(time, parameters[Parameter.SAMPLE_OFFSET]);
+		this.samplePlayer = samplePlayer;
+	}
+
 	gate(state, start) {
 		const sustainLevel = this.sustain;
+		const playSample = (this.parameters[Parameter.SOURCE] & Source.SAMPLE) > 0;
 		let endDecay, beginRelease, endTime;
 
 		const gain = this.envelope.gain;
@@ -444,42 +537,60 @@ class SubtractiveSynthChannel {
 			endTime = start + this.release;
 			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
 			gain.setValueAtTime(0, endTime);
+			if (this.samplePlayer !== undefined) {
+				this.samplePlayer.stop(endTime);
+				this.samplePlayer = undefined;
+			}
 			break;
 
 		case Gate.TRIGGER:
+			if (playSample) {
+				this.playSample(start);
+			}
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
 			endDecay = start + this.endDecay;
 			gain.linearRampToValueAtTime(sustainLevel, endDecay);
-			beginRelease = start + this.beginRelease;
-			if (endDecay < beginRelease) {
-				gain.linearRampToValueAtTime(sustainLevel, beginRelease);
-			} else {
-				gain.cancelAndHoldAtTime(beginRelease);
+			if (!playSample) {
+				beginRelease = start + this.beginRelease;
+				if (endDecay < beginRelease) {
+					gain.linearRampToValueAtTime(sustainLevel, beginRelease);
+				} else {
+					gain.cancelAndHoldAtTime(beginRelease);
+				}
+				endTime = start + this.endRelease;
+				gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+				gain.setValueAtTime(0, endTime);
 			}
-			endTime = start + this.endRelease;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
-			gain.setValueAtTime(0, endTime);
 			break;
 
 		case Gate.RETRIGGER:
 			const retriggerDelay = this.system.retriggerDelay;
+			if (playSample) {
+				this.playSample(start + retriggerDelay);
+			}
 			gain.linearRampToValueAtTime(0, start + retriggerDelay);
 			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack + retriggerDelay);
 			endDecay = start + this.endDecay + retriggerDelay;
 			gain.linearRampToValueAtTime(sustainLevel, endDecay);
-			beginRelease = start + this.beginRelease + retriggerDelay;
-			if (endDecay < beginRelease) {
-				gain.linearRampToValueAtTime(sustainLevel, beginRelease);
-			} else {
-				gain.cancelAndHoldAtTime(beginRelease);
+			if (!playSample) {
+				beginRelease = start + this.beginRelease + retriggerDelay;
+				if (endDecay < beginRelease) {
+					gain.linearRampToValueAtTime(sustainLevel, beginRelease);
+				} else {
+					gain.cancelAndHoldAtTime(beginRelease);
+				}
+				endTime = start + this.endRelease + retriggerDelay;
+				gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+				gain.setValueAtTime(0, endTime);
 			}
-			endTime = start + this.endRelease + retriggerDelay;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
-			gain.setValueAtTime(0, endTime);
 			break;
 
 		case Gate.CUT:
 			gain.setValueAtTime(0, start);
+			if (this.samplePlayer !== undefined) {
+				this.samplePlayer.stop(start);
+				this.samplePlayer = undefined;
+			}
 			break;
 
 		}
@@ -507,6 +618,7 @@ class SubtractiveSynthChannel {
 		let dirtySustain = false;
 		let dirtyNumTicks = false;
 		let frequencySet = false;
+		let sampleChanged = false;
 		let gainChange;
 
 		const now = this.system.audioContext.currentTime;
@@ -702,6 +814,10 @@ class SubtractiveSynthChannel {
 				}
 				break;
 
+			case Parameter.SAMPLE:
+				sampleChanged = true;
+				break;
+
 			} // end switch
 		} // end loop over each parameter
 
@@ -741,6 +857,9 @@ class SubtractiveSynthChannel {
 				this.setFrequency(ChangeType.SET, frequencies[0], time);
 			}
 		} else if (gateOpen) {
+			if (sampleChanged) {
+				this.playSample(time);
+			}
 			// Don't repeat glissando but keep the chords smooth.
 			glissandoAmount = glissandoSteps;
 			prevGlissandoAmount = glissandoAmount;
@@ -750,9 +869,11 @@ class SubtractiveSynthChannel {
 			noteRepeated = this.noteRepeated;
 		}
 
-		if ((gate & Gate.OPEN) === Gate.OPEN || (gateOpen && newLine)) {
+		if ((gate & Gate.OPEN) > 0 || (gateOpen && newLine)) {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
+			//TODO handle gate status change not aligned with line start time.
+			//TODO handle pitch changes for samples.
 			const numNotes = frequencies.length;
 			const retriggerTicks = parameters[Parameter.RETRIGGER];
 

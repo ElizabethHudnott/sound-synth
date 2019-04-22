@@ -21,20 +21,28 @@
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
+				Oscillator:
 				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sine')" checked>Sine</label>
 				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'square')">Square</label>
 				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sawtooth')">Sawtooth</label>
 				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'triangle')">Triangle</label><br>
+				<label>Sample:
+					<select oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
+						<option value="0">Guitar</option>
+						<option value="1">Violin</option>
+					</select>
+				</label>
 				<input type="range" oninput="set(Synth.Param.PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Pulse Width
 			</fieldset>
 			<fieldset>
 				<legend>Mixer</legend>
 				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
 				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 13) + (this.checked? 2 : 0))">Pulse</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label><br/>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label>
+				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 7) + (this.checked? 8 : 0))">Sample</label><br/>
 				<input type="range" oninput="mix(0, 0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
 				<input type="range" oninput="mix(0, 1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
-				<input type="range" oninput="mix(0, 2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise<br>
+				<input type="range" oninput="mix(0, 2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
@@ -112,6 +120,14 @@
 			let stepNumber = 1;
 			let channels, timer;
 
+			function sampleLoaded(url, success, message) {
+				if (success) {
+					console.log('Loaded ' + url);
+				} else {
+					console.log('Failed to load ' + url + '. ' + message);
+				}
+			}
+
 			function sendNewLine() {
 				if (channels[0].parameters[Synth.Param.GATE] === Synth.Gate.OPEN) {
 					const parameterMap = new Map();
@@ -133,6 +149,10 @@
 				set(Synth.Param.LINE_TIME, 50, 0);
 				timer = setInterval(sendNewLine, 1000);
 				sendNewLine();
+				system.loadSample(0, 'samples/guitar-strum.wav', sampleLoaded);
+				system.sampledNote[0] = 55;
+				system.loadSample(1, 'samples/violin.wav', sampleLoaded);
+				system.sampledNote[1] = 46;
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}
@@ -141,7 +161,7 @@
 				let time;
 				if (delay !== undefined) {
 					system.begin();
-					time = 0;
+					time = delay;
 					stepNumber = 1;
 				}
 				if (changeType === undefined) {
