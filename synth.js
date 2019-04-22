@@ -186,6 +186,7 @@ class SynthSystem {
 		this.channels = [];
 		this.shortestTime = 1 / audioContext.sampleRate;
 		this.startTime = audioContext.currentTime;
+		this.tempoChanged = 0;
 		this.systemParameters = [Parameter.LINE_TIME, Parameter.TICKS];
 
 		this.retriggerDelay = 0.002;
@@ -204,6 +205,7 @@ class SynthSystem {
 		const startTime = this.startTime;
 		const step = Math.trunc((now - startTime) / TIME_STEP);
 		this.startTime = startTime + (step + 1) * TIME_STEP;
+		this.tempoChanged = 0;
 	}
 
 	start() {
@@ -507,8 +509,11 @@ class SubtractiveSynthChannel {
 		let frequencySet = false;
 		let gainChange;
 
-		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
 		const now = this.system.audioContext.currentTime;
+		if (step === undefined) {
+			step = Math.trunc((now - this.system.startTime) / TIME_STEP) + 1;
+		}
+		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
 
@@ -577,33 +582,21 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.WAVEFORM:
-				if (timeDifference > 0) {
-					callbacks.push(function () {
-						me.oscillator.type = value;
-					});
-				} else {
-					this.oscillator.type = value;
-				}
+				callbacks.push(function () {
+					me.oscillator.type = value;
+				});
 				break;
 
 			case Parameter.VIBRATO_WAVEFORM:
-				if (timeDifference > 0) {
-					callbacks.push(function () {
-						me.vibrato.oscillator.type = value;
-					});
-				} else {
-					this.vibrato.oscillator.type = value;
-				}
+				callbacks.push(function () {
+					me.vibrato.oscillator.type = value;
+				});
 				break;
 
 			case Parameter.TREMOLO_WAVEFORM:
-				if (timeDifference > 0) {
-					callbacks.push(function () {
-						me.tremolo.oscillator.type = value;
-					});
-				} else {
-					this.tremolo.oscillator.type = value;
-				}
+				callbacks.push(function () {
+					me.tremolo.oscillator.type = value;
+				});
 				break;
 
 			case Parameter.FREQUENCY:
@@ -672,13 +665,9 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_TYPE:
-				if (timeDifference > 0) {
-					callbacks.push(function () {
-						me.filter.type = value;
-					});
-				} else {
-					this.filter.type = value;
-				}
+				callbacks.push(function () {
+					me.filter.type = value;
+				});
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
@@ -699,6 +688,10 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.LINE_TIME:
+				this.system.tempoChanged = step;
+				dirtyNumTicks = true;
+				break;
+
 			case Parameter.TICKS:
 				dirtyNumTicks = true;
 				break;
@@ -732,6 +725,7 @@ class SubtractiveSynthChannel {
 		}
 
 		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN;
+		const newLine = (step - this.system.tempoChanged) % parameters[Parameter.LINE_TIME] === 0;
 		const frequencies = this.frequencies;
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
@@ -756,7 +750,7 @@ class SubtractiveSynthChannel {
 			noteRepeated = this.noteRepeated;
 		}
 
-		if ((gate & Gate.OPEN) === Gate.OPEN || gateOpen) {
+		if ((gate & Gate.OPEN) === Gate.OPEN || (gateOpen && newLine)) {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
 			const numNotes = frequencies.length;

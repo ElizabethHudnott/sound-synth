@@ -85,7 +85,7 @@
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<label><input id="line-time" type="range" oninput="set(Synth.Param.LINE_TIME, parseInt(this.value)); calcTicks()" min="15" max="150" value="50" step="1">Playing Time</label><br>
+				<label><input id="line-time" type="range" oninput="setLineTime(parseInt(this.value))" min="15" max="150" value="50" step="1">Playing Time</label><br>
 				<label><input id="ticks" type="range" oninput="calcTicks()" min="1" max="50" step="0.1" value="50">Ticks / second</label><br>
 				<label>1<input type="text" id="chord" oninput="playNote()" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small></label><br>
 				<label><input type="range" oninput="set(Synth.Param.CHORD_SPEED, parseInt(this.value))" min="0" max="16" value="1" step="1">Chord rotation time</label><br>
@@ -109,7 +109,17 @@
 		<script>
 			const audioContext = new AudioContext({sampleRate: 96000});
 			const system = new Synth.System(audioContext);
-			let channels;
+			let stepNumber = 1;
+			let channels, timer;
+
+			function sendNewLine() {
+				if (channels[0].parameters[Synth.Param.GATE] === Synth.Gate.OPEN) {
+					const parameterMap = new Map();
+					const when = stepNumber * channels[0].parameters[Synth.Param.LINE_TIME];
+					channels[0].setParameters(parameterMap, when);
+				}
+				stepNumber++;
+			}
 
 			function initialize() {
 				audioContext.resume();
@@ -120,14 +130,19 @@
 
 				system.start();
 				set(Synth.Param.FILTERED_AMOUNT, 0);
-				set(Synth.Param.LINE_TIME, 50);
+				set(Synth.Param.LINE_TIME, 50, 0);
+				timer = setInterval(sendNewLine, 1000);
+				sendNewLine();
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
 			}
 
 			function set(parameterNumber, value, delay, changeType, channelNumber) {
-				if (delay === undefined) {
-					delay = 0;
+				let time;
+				if (delay !== undefined) {
+					system.begin();
+					time = 0;
+					stepNumber = 1;
 				}
 				if (changeType === undefined) {
 					changeType = Synth.ChangeType.SET;
@@ -137,8 +152,7 @@
 				}
 				const parameterMap = new Map();
 				parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
-				system.begin();
-				channels[channelNumber].setParameters(parameterMap, delay);
+				channels[channelNumber].setParameters(parameterMap, time);
 			}
 
 			function mix(channelNumber, source, amount) {
@@ -160,6 +174,13 @@
 				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
 					set(Synth.Param.GATE, Synth.Gate.TRIGGER);
 				}
+			}
+
+			function setLineTime(steps) {
+				clearInterval(timer);
+				set(Synth.Param.LINE_TIME, steps, 0);
+				timer = setInterval(sendNewLine, steps * 20);
+				sendNewLine();
 			}
 
 			function calcTicks() {
