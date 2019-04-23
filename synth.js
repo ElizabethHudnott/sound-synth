@@ -296,17 +296,14 @@ class SynthSystem {
 				samplePlayer.loopStart = this.sampleLoopStart[index];
 				samplePlayer.loopEnd = this.sampleLoopEnd[index];
 			}
+		} else {
+			this.sampledNote[index] = 69;
 		}
 		return samplePlayer;
 	}
 
-	getSampleSpeed(index, frequency) {
-		const sampledNote = this.sampledNote[index];
-		if (sampledNote !== undefined) {
-			return frequency / noteFrequencies[sampledNote];
-		} else {
-			return 1;
-		}
+	getSamplePeriod(index) {
+		return 1 / noteFrequencies[this.sampledNote[index]];
 	}
 
 }
@@ -314,7 +311,7 @@ class SynthSystem {
 class C64OscillatorNode extends AudioWorkletNode {
 	constructor(context) {
 		super(context, 'c64-oscillator-processor', {numberOfInputs: 0});
-		this._type = 'triangle';
+		this._type = Waveform.TRIANGLE;
 	}
 
 	get frequency() {
@@ -334,6 +331,13 @@ class C64OscillatorNode extends AudioWorkletNode {
 		return this._type;
 	}
 }
+
+class LogNode extends AudioWorkletNode {
+	constructor(context) {
+		super(context, 'log-processor', {numberOfOutputs: 0});
+	}
+}
+
 class SubtractiveSynthChannel {
 	constructor(system, pannedLeft) {
 		const audioContext = system.audioContext;
@@ -394,9 +398,15 @@ class SubtractiveSynthChannel {
 		const sampleGain = audioContext.createGain();
 		sampleGain.gain.value = 0;
 		this.sampleGain = sampleGain;
+		const playRateMultiplier = audioContext.createGain();
+		this.playRateMultiplier = playRateMultiplier;
+		const samplePlaybackRate = audioContext.createConstantSource();
+		samplePlaybackRate.connect(playRateMultiplier);
+		samplePlaybackRate.start();
 
 		const vibrato = new Modulator(audioContext, oscillator.frequency);
 		this.vibrato = vibrato;
+		vibrato.connect(samplePlaybackRate.offset);
 
 		const ringMod = audioContext.createGain();
 		const ringInput = audioContext.createGain();
@@ -487,9 +497,9 @@ class SubtractiveSynthChannel {
 		const parameters = this.parameters;
 		const sampleNumber = parameters[Parameter.SAMPLE];
 		const samplePlayer = this.system.getSamplePlayer(sampleNumber);
-		//TODO make samples work with vibrato and other frequency changes during playback
-		let frequency = parameters[Parameter.FREQUENCY] * CENT ** parameters[Parameter.DETUNE];
-		samplePlayer.playbackRate.value = this.system.getSampleSpeed(sampleNumber, frequency);
+		const multiplier = this.playRateMultiplier;
+		multiplier.gain.setValueAtTime(this.system.getSamplePeriod(sampleNumber), time);
+		multiplier.connect(samplePlayer.playbackRate);
 		samplePlayer.connect(this.sampleGain);
 		samplePlayer.start(time, parameters[Parameter.SAMPLE_OFFSET]);
 		this.samplePlayer = samplePlayer;
@@ -852,7 +862,6 @@ class SubtractiveSynthChannel {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
 			//TODO handle gate status change not aligned with line start time.
-			//TODO handle pitch changes for samples.
 			const numNotes = frequencies.length;
 			const retriggerTicks = parameters[Parameter.RETRIGGER];
 
