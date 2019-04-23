@@ -97,7 +97,7 @@ class LogProcessor extends AudioWorkletProcessor {
 		return [{
 			name: 'steps',
 			automationRate: 'k-rate',
-			defaultValue: 4,
+			defaultValue: 3,
 			minValue: 1,
 			maxValue: 128,
 		}];
@@ -106,7 +106,7 @@ class LogProcessor extends AudioWorkletProcessor {
 	process(inputs, outputs, parameters) {
 		const input = inputs[0][0];
 		const steps = parameters.steps[0];
-		const step = Math.trunc(128 / steps);
+		const step = Math.round(128 / steps);
 		for (let i = 0; i < steps; i++) {
 			console.log(input[i * step]);
 		}

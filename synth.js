@@ -336,6 +336,10 @@ class LogNode extends AudioWorkletNode {
 	constructor(context) {
 		super(context, 'log-processor', {numberOfOutputs: 0});
 	}
+
+	get steps() {
+		return this.parameters('steps');
+	}
 }
 
 class SubtractiveSynthChannel {
@@ -999,6 +1003,7 @@ global.Synth = {
 	Waveform: Waveform,
 	Modulator: Modulator,
 	C64Oscillator: C64OscillatorNode,
+	LogNode: LogNode,
 	noteFrequencies: noteFrequencies,
 };
 
