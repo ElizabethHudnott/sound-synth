@@ -699,6 +699,7 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FREQUENCY:
 				this.setFrequency(changeType, value, time);
+				this.frequencies[0] = value;
 				frequencySet = true;
 				break;
 
@@ -814,6 +815,9 @@ class SubtractiveSynthChannel {
 				sampleChanged = true;
 				break;
 
+			case undefined:
+				console.error('An undefined synthesizer parameter was used.');
+				break;
 			} // end switch
 		} // end loop over each parameter
 

@@ -49,7 +49,7 @@
 			</fieldset>
 			<fieldset>
 				<legend>Frequency</legend>
-				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="15000" value="440" step="0.001">Frequency<br>
+				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="8000" value="440" step="0.001">Frequency<br>
 				<input id="note" type="range" oninput="playNote()" min="36" max="84" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
@@ -73,7 +73,7 @@
 				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highshelf')">High Shelf</label>
 				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking</label><br>
 				<input type="range" oninput="set(Synth.Param.FILTERED_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
-				<input type="range" oninput="set(Synth.Param.FILTER_FREQUENCY, parseFloat(this.value))" min="30" max="10000" value="4400" step="1">Frequency<br>
+				<input type="range" oninput="if (channels[0].parameters[Synth.Param.Gate] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER); set(Synth.Param.FILTER_FREQUENCY, parseFloat(this.value))" min="30" max="10000" value="4400" step="1">Frequency<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_Q, parseFloat(this.value))" min="1" max="1000" value="1" step="1">Resonance<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 			</fieldset>
