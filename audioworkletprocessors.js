@@ -78,7 +78,7 @@ class NoiseGenerationProcessor extends AudioWorkletProcessor {
 		let plateauLength = this.plateauLength;
 		for (let i = 0; i < 128; i++) {
 			if (plateauLength >= targetLength) {
-				outputLevel = Math.random() * 2 + 1;
+				outputLevel = Math.random() * 2 - 1;
 				plateauLength = 0;
 			}
 			output[i] = outputLevel;
