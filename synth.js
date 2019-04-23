@@ -34,10 +34,10 @@ const Parameter = Object.freeze({
 	VELOCITY: 4,	// percentage
 	SUSTAIN: 5,		// percentage
 	GATE: 6,		// CLOSED, OPEN, TRIGGER, RETRIGGER or CUT
-	WAVEFORM: 7,	// 'sine', 'square', 'sawtooth' or 'triangle'
+	WAVEFORM: 7,	// combinations of Waveform enum values
 	FREQUENCY: 8,	// in hertz
-	NOTES: 9,		// MIDI note number
-	DETUNE: 10,		// in cents
+	DETUNE: 9,		// in cents
+	NOTES: 10,		// MIDI note number
 	VIBRATO_WAVEFORM: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
 	VIBRATO_RATE: 12, // in hertz
 	VIBRATO_EXTENT: 13, // in cents
@@ -46,23 +46,22 @@ const Parameter = Object.freeze({
 	TREMOLO_RATE: 16, // in hertz
 	TREMOLO_AMOUNT: 17, // percentage
 	PANNED: 18,		// 0 or 1
-	SOURCE: 19,		// Combinations of Source enum values
-	MIX: 20,		// Relative volumes
-	PULSE_WIDTH: 21,// percentage
-	FILTERED_AMOUNT: 22, // percentage
-	FILTER_TYPE: 23, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 24, // in hertz
-	FILTER_Q: 25,	// 0.0001 to 1000
-	FILTER_GAIN: 26, // -40dB to 40dB
-	RING_MODULATION: 27, // 0 to 100
-	LINE_TIME: 28,	// in steps
-	TICKS: 29, // maximum number of events during a LINE_TIME
-	RETRIGGER: 30,	// number of ticks between retriggers
-	CHORD_SPEED: 31, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 32,
-	GLISSANDO_SIZE: 33, // number of steps
-	SAMPLE: 34,		// array index of the sample to play.
-	SAMPLE_OFFSET: 35, // in seconds
+	SOURCE: 19,		// combinations of Source enum values
+	PULSE_WIDTH: 20,// percentage
+	FILTERED_AMOUNT: 21, // percentage
+	FILTER_TYPE: 22, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 23, // in hertz
+	FILTER_Q: 24,	// 0.0001 to 1000
+	FILTER_GAIN: 25, // -40dB to 40dB
+	RING_MODULATION: 26, // 0 to 100
+	LINE_TIME: 27,	// in steps
+	TICKS: 28, // maximum number of events during a LINE_TIME
+	RETRIGGER: 29,	// number of ticks between retriggers
+	CHORD_SPEED: 30, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 31,
+	GLISSANDO_SIZE: 32, // number of steps
+	SAMPLE: 33,		// array index of the sample to play.
+	SAMPLE_OFFSET: 34, // in seconds
 });
 
 const ChangeType = Object.freeze({
@@ -89,11 +88,16 @@ const Gate = Object.freeze({
 	RETRIGGER: 6,
 });
 
+const Waveform = Object.freeze({
+	TRIANGLE: 1,
+	SAWTOOTH: 2,
+	PULSE: 4,
+	NOISE: 8,
+});
+
 const Source = Object.freeze({
-	OSCILLATOR: 1,
-	PULSE: 2,
-	NOISE: 4,
-	SAMPLE: 8
+	OSCILLATOR: 0,
+	SAMPLE: 1,
 });
 
 const Chord = Object.freeze({
@@ -307,19 +311,10 @@ class SynthSystem {
 
 }
 
-class NoiseNode extends AudioWorkletNode {
+class C64OscillatorNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'noise-generation-processor', {numberOfInputs: 0});
-	}
-
-	get frequency() {
-		return this.parameters.get('frequency');
-	}
-}
-
-class PulseNode extends AudioWorkletNode {
-	constructor(context) {
-		super(context, 'pulse-width-modulation-processor', {numberOfInputs: 0});
+		super(context, 'c64-oscillator-processor', {numberOfInputs: 0});
+		this._type = 'triangle';
 	}
 
 	get frequency() {
@@ -328,6 +323,15 @@ class PulseNode extends AudioWorkletNode {
 
 	get width() {
 		return this.parameters.get('width');
+	}
+
+	set type(value) {
+		this.port.postMessage(value);
+		this._type = value;
+	}
+
+	get type() {
+		return this._type;
 	}
 }
 class SubtractiveSynthChannel {
@@ -340,12 +344,12 @@ class SubtractiveSynthChannel {
 			300,	// release
 			200,	// duration
 			100,	// velocity
-			50,		// sustain
+			75,		// sustain
 			Gate.CLOSED, // gate
-			'sine',	// waveform
+			Waveform.TRIANGLE, // waveform
 			440,	// frequency
-			[69],	// MIDI note numbers
 			0,		// detune
+			[69],	// MIDI note numbers
 			'sine',	// vibrato shape
 			5,		// vibrato rate
 			0,		// vibrato extent
@@ -355,7 +359,6 @@ class SubtractiveSynthChannel {
 			0,		// tremolo amount
 			0,		// pan
 			Source.OSCILLATOR,
-			[100, 100, 100], // relative proportions of the different sources
 			50,		// pulse width
 			100,	// filter fully enabled
 			'lowpass', // filter type
@@ -382,29 +385,18 @@ class SubtractiveSynthChannel {
 		this.chordDir = 1;
 		this.noteRepeated = false;
 
-		const oscillator = audioContext.createOscillator();
+		const oscillator = new C64OscillatorNode(audioContext);
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
 
-		const pwm = new PulseNode(audioContext);
-		this.pwm = pwm;
-		const pwmGain = audioContext.createGain();
-		pwmGain.gain.value = 0;
-		pwm.connect(pwmGain);
-
-		const noise = new NoiseNode(audioContext);
-		this.noise = noise;
-		const noiseGain = audioContext.createGain();
-		noiseGain.gain.value = 0;
-		noise.connect(noiseGain);
-
 		this.samplePlayer = undefined;
+		const sampleGain = audioContext.createGain();
+		sampleGain.gain.value = 0;
+		this.sampleGain = sampleGain;
 
 		const vibrato = new Modulator(audioContext, oscillator.frequency);
 		this.vibrato = vibrato;
-		vibrato.connect(pwm.frequency);
-		vibrato.connect(noise.frequency);
 
 		const ringMod = audioContext.createGain();
 		const ringInput = audioContext.createGain();
@@ -414,10 +406,8 @@ class SubtractiveSynthChannel {
 		this.ringInput = ringInput;
 
 		oscillatorGain.connect(ringMod);
-		pwmGain.connect(ringMod);
-		noiseGain.connect(ringMod);
-		// sample player needs to connect to the ring mod too, when it's used.
-		this.gains = [oscillatorGain, pwmGain, noiseGain];
+		sampleGain.connect(ringMod);
+		this.gains = [oscillatorGain, sampleGain];
 
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
@@ -465,7 +455,6 @@ class SubtractiveSynthChannel {
 
 	start(when) {
 		if (!this.started) {
-			this.oscillator.start(when);
 			this.vibrato.start(when);
 			this.tremolo.start(when);
 			this.started = true;
@@ -491,34 +480,6 @@ class SubtractiveSynthChannel {
 		}
 	}
 
-	calcGains(changeType, when) {
-		let voices = this.parameters[Parameter.SOURCE];
-		const mix = this.parameters[Parameter.MIX];
-		let total = 0;
-		for (let level of mix) {
-			if ((voices & 1) == 1) {
-				total += level;
-			}
-			voices = voices>>1;
-		}
-		if (total < 100) {
-			total = 100;
-		}
-		const unit = 1 / total;
-		const gains = this.gains;
-		voices = this.parameters[Parameter.SOURCE];
-		for (let i = 0; i < mix.length; i++) {
-			let param = gains[i].gain;
-			if ((voices & 1) === 1) {
-				param[changeType](unit * mix[i], when);
-			} else {
-				param[changeType](NEARLY_ZERO, when - this.system.shortestTime);
-				param.setValueAtTime(0, when);
-			}
-			voices = voices>>1;
-		}
-	}
-
 	playSample(time) {
 		if (this.samplePlayer !== undefined) {
 			this.samplePlayer.stop(time);
@@ -526,16 +487,17 @@ class SubtractiveSynthChannel {
 		const parameters = this.parameters;
 		const sampleNumber = parameters[Parameter.SAMPLE];
 		const samplePlayer = this.system.getSamplePlayer(sampleNumber);
-		samplePlayer.detune.value = parameters[Parameter.DETUNE];
-		samplePlayer.playbackRate.value = this.system.getSampleSpeed(sampleNumber, parameters[Parameter.FREQUENCY]);
-		samplePlayer.connect(this.ringMod);
+		//TODO make samples work with vibrato and other frequency changes during playback
+		let frequency = parameters[Parameter.FREQUENCY] * CENT ** parameters[Parameter.DETUNE];
+		samplePlayer.playbackRate.value = this.system.getSampleSpeed(sampleNumber, frequency);
+		samplePlayer.connect(this.sampleGain);
 		samplePlayer.start(time, parameters[Parameter.SAMPLE_OFFSET]);
 		this.samplePlayer = samplePlayer;
 	}
 
 	gate(state, start) {
 		const sustainLevel = this.sustain;
-		const playSample = (this.parameters[Parameter.SOURCE] & Source.SAMPLE) > 0;
+		const playSample = this.parameters[Parameter.SOURCE] === Source.SAMPLE;
 		let endDecay, beginRelease, endTime;
 
 		const gain = this.envelope.gain;
@@ -611,13 +573,10 @@ class SubtractiveSynthChannel {
 	}
 
 	setFrequency(changeType, frequency, when) {
+		frequency = frequency * CENT ** this.parameters[Parameter.DETUNE];
 		const vibratoExtent = CENT ** (this.parameters[Parameter.VIBRATO_EXTENT] / 2);
 		this.vibrato.cancelAndHoldAtTime(when);
 		this.vibrato.setMinMax(changeType, frequency / vibratoExtent, frequency * vibratoExtent, when);
-	}
-
-	setDetune(changeType, cents, when) {
-		this.oscillator.detune[changeType](cents, when);
 	}
 
 	setParameters(parameterMap, step) {
@@ -633,7 +592,6 @@ class SubtractiveSynthChannel {
 		let dirtyNumTicks = false;
 		let frequencySet = false;
 		let sampleChanged = false;
-		let gainChange;
 
 		const now = this.system.audioContext.currentTime;
 		if (step === undefined) {
@@ -656,7 +614,7 @@ class SubtractiveSynthChannel {
 			}
 			let frequency;
 
-			if (paramNumber === Parameter.NOTES || paramNumber === Parameter.MIX) {
+			if (paramNumber === Parameter.NOTES) {
 				const list = parameters[paramNumber];
 
 				if (prefix === ChangeType.DELTA) {
@@ -742,12 +700,9 @@ class SubtractiveSynthChannel {
 				this.frequencies.splice(value.length);
 				break;
 
+			case Parameter.DETUNE:
 			case Parameter.VIBRATO_EXTENT:
 				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
-				break;
-
-			case Parameter.DETUNE:
-				this.setDetune(changeType, value, time);
 				break;
 
 			case Parameter.VOLUME:
@@ -777,12 +732,25 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.SOURCE:
-			case Parameter.MIX:
-				gainChange = changeType;
+				for (let i = 0; i < this.gains.length; i++) {
+					if (value === i) {
+						this.gains[i].gain[changeType](1, time);
+					} else {
+						this.gains[i].gain[changeType](0, time);
+					}
+					if (value === 0 && gate === undefined) {
+						const currentGate = parameters[Parameter.GATE];
+						if (currentGate === Gate.TRIGGER || currentGate === Gate.RETRIGGER) {
+							const param = this.envelope.gain;
+							param.cancelAndHoldAtTime(time);
+							param.setValueAtTime(0, time);
+						}
+					}
+				}
 				break;
 
 			case Parameter.PULSE_WIDTH:
-				this.pwm.width[changeType](value / 100, time);
+				this.oscillator.width[changeType](value / 100, time);
 				break;
 
 			case Parameter.FILTERED_AMOUNT:
@@ -835,9 +803,6 @@ class SubtractiveSynthChannel {
 			} // end switch
 		} // end loop over each parameter
 
-		if (gainChange !== undefined) {
-			this.calcGains(gainChange, time);
-		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope(dirtyEnvelope);
 		}
@@ -1022,9 +987,9 @@ global.Synth = {
 	Pattern: Chord,
 	Param: Parameter,
 	Source: Source,
+	Waveform: Waveform,
 	Modulator: Modulator,
-	NoiseNode: NoiseNode,
-	PulseNode: PulseNode,
+	C64Oscillator: C64OscillatorNode,
 	noteFrequencies: noteFrequencies,
 };
 

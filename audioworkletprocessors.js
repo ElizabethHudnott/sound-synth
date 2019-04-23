@@ -1,13 +1,18 @@
 'use strict';
 
-class PulseWidthModulationProcessor extends AudioWorkletProcessor {
+const TWO24 = 1<<24;
+const TWO23 = 1<<23;
+const MAX24 = (1<<24) - 1;
+const NOISE_BIT = 1<<22;
+
+class C64OscillatorProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		return [
 		{
 			name: 'frequency',
 			automationRate: 'k-rate',
 			defaultValue: 440,
-			minValue: Number.EPSILON,
+			minValue: 1,
 			maxValue: sampleRate / 2,
 		},
 		{
@@ -22,74 +27,67 @@ class PulseWidthModulationProcessor extends AudioWorkletProcessor {
 
 	constructor() {
 		super();
-		this.outputLevel = 1;
-		this.plateauLength = 0;
+		this.type = 1; // 1 = triangle, 2 = sawtooth, 4 = pulse, 8 = noise
+		this.accumulator = 0;
+		this.random = Math.random() * 2 - 1;
+		const me = this;
+		this.port.onmessage = function (event) {
+			me.type = event.data;
+		}
 	}
 
 	process(inputs, outputs, parameters) {
 		const output = outputs[0][0];
-		const period = sampleRate / parameters.frequency[0];
-		const lengths = [Math.round(parameters.width[0] * period), undefined];
-		lengths[2]  = Math.round(period) - lengths[0];
+		const frequency = parameters.frequency[0];
+		const step = Math.round((TWO24 / sampleRate) * frequency);
+		const width = parameters.width[0];
+		const threshold = Math.round(MAX24 * width);
+		const type = this.type;
+		let accumulator = this.accumulator;
 
-		let outputLevel = this.outputLevel;
-		let plateauLength = this.plateauLength;
-		let targetLength = lengths[1 - outputLevel];
-		for (let i = 0; i < 128; i++) {
-			if (plateauLength >= targetLength) {
-				outputLevel = outputLevel * -1;
-				plateauLength = 0;
-				targetLength = lengths[1 - outputLevel];
+		if ((type & 8) === 0) {
+			for (let i = 0; i < 128; i++) {
+				accumulator = (accumulator + step) % TWO24;
+				let value = MAX24;
+				if ((type & 1) === 1) {
+					// triangle
+					if ((accumulator & TWO23) === 0) {
+						value = value & ((accumulator & 8388607) << 1);
+					} else {
+						value = value & ((accumulator ^ 8388607) << 1);
+					}
+				}
+				if ((type & 2) === 2) {
+					// sawtooth
+					value = value & accumulator;
+				}
+				if ((type & 4) === 4) {
+					// pulse
+					if (accumulator < threshold) {
+						value = 0;
+					}
+				}
+				output[i] = value / TWO23 - 1;
 			}
-			output[i] = outputLevel;
-			plateauLength++;
+		} else {
+			let prevBIT = accumulator & NOISE_BIT;
+			let random = this.random;
+			let thisBIT;
+			for (let i = 0; i < 128; i++) {
+				accumulator = (accumulator + step) % TWO24;
+				thisBIT = accumulator & NOISE_BIT;
+				if (prevBIT != thisBIT) {
+					random = Math.random() * 2 - 1;
+				}
+				output[i] = random;
+				prevBIT = thisBIT;
+			}
+			this.random = random;
 		}
 
-		this.outputLevel = outputLevel;
-		this.plateauLength = plateauLength;
+		this.accumulator = accumulator;
 		return true;
 	}
 }
 
-registerProcessor('pulse-width-modulation-processor', PulseWidthModulationProcessor);
-
-class NoiseGenerationProcessor extends AudioWorkletProcessor {
-	static get parameterDescriptors() {
-		return [{
-			name: 'frequency',
-			automationRate: 'k-rate',
-			defaultValue: 440,
-			minValue: Number.EPSILON,
-			maxValue: sampleRate / 2,
-		}];
-	}
-
-	constructor() {
-		super();
-		this.outputLevel = Math.random() * 2 - 1;
-		this.plateauLength = 0;
-	}
-
-	process(inputs, outputs, parameters) {
-		const output = outputs[0][0];
-		const targetLength = Math.round(sampleRate / (2 * parameters.frequency[0]));
-
-		let outputLevel = this.outputLevel;
-		let plateauLength = this.plateauLength;
-		for (let i = 0; i < 128; i++) {
-			if (plateauLength >= targetLength) {
-				outputLevel = Math.random() * 2 - 1;
-				plateauLength = 0;
-			}
-			output[i] = outputLevel;
-			plateauLength++;
-		}
-
-		this.outputLevel = outputLevel;
-		this.plateauLength = plateauLength;
-		return true;
-	}
-
-}
-
-registerProcessor('noise-generation-processor', NoiseGenerationProcessor);
+registerProcessor('c64-oscillator-processor', C64OscillatorProcessor);

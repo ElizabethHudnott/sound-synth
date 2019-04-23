@@ -22,10 +22,15 @@
 			<fieldset>
 				<legend>Generation</legend>
 				Oscillator:
-				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sine')" checked>Sine</label>
-				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'square')">Square</label>
-				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'sawtooth')">Sawtooth</label>
-				<label><input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, 'triangle')">Triangle</label><br>
+				<label><input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 11) + (this.checked? 4 : 0))">Pulse</label>
+				<label><input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 13) + (this.checked? 2 : 0))">Sawtooth</label>
+				<label><input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 14) + (this.checked? 1 : 0))" checked>Triangle</label>
+				<label><input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 7) + (this.checked? 8 : 0))">Noise</label>
+				<br>
+				Source:
+				<label><input type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.OSCILLATOR)" checked>Oscillator</label>
+				<label><input type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.SAMPLE)">Samples</label>
+				<br>
 				<label>Sample:
 					<select oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
 						<option value="0">Guitar</option>
@@ -35,20 +40,10 @@
 				<input type="range" oninput="set(Synth.Param.PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Pulse Width
 			</fieldset>
 			<fieldset>
-				<legend>Mixer</legend>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 14) + (this.checked? 1 : 0))" checked>Oscillator</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 13) + (this.checked? 2 : 0))">Pulse</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 11) + (this.checked? 4 : 0))">Noise</label>
-				<label><input type="checkbox" onclick="set(Synth.Param.SOURCE, (channels[0].parameters[Synth.Param.SOURCE] & 7) + (this.checked? 8 : 0))">Sample</label><br/>
-				<input type="range" oninput="mix(0, 0, parseFloat(this.value))" min="0" max="100" step="1" value="100">Oscillator<br>
-				<input type="range" oninput="mix(0, 1, parseFloat(this.value))" min="0" max="100" step="1" value="100">Pulse<br>
-				<input type="range" oninput="mix(0, 2, parseFloat(this.value))" min="0" max="100" step="1" value="100">Noise
-			</fieldset>
-			<fieldset>
 				<legend>Amplitude Envelope</legend>
 				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="0" max="1000" value="2" step="1">Attack<br>
 				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay<br>
-				<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="50" step="1">Sustain<br>
+				<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="75" step="1">Sustain<br>
 				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release<br>
 				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
 			</fieldset>
