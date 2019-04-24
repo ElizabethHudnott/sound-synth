@@ -53,17 +53,21 @@ const Parameter = Object.freeze({
 	FILTERED_AMOUNT: 23, // percentage
 	FILTER_TYPE: 24, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 25, // in hertz
-	FILTER_Q: 26,	// 0.0001 to 1000
-	FILTER_GAIN: 27, // -40dB to 40dB
-	RING_MODULATION: 28, // 0 to 100
-	LINE_TIME: 29,	// in steps
-	TICKS: 30, // maximum number of events during a LINE_TIME
-	RETRIGGER: 31,	// number of ticks between retriggers
-	CHORD_SPEED: 32, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 33,
-	GLISSANDO_SIZE: 34, // number of steps
-	SAMPLE: 35,		// array index of the sample to play.
-	SAMPLE_OFFSET: 36, // in seconds
+	FILTER_MIN_FREQUENCY: 26, // in hertz
+	FILTER_MAX_FREQUENCY: 27, // in hertz
+	FILTER_LFO_FREQUENCY: 28, // in hertz
+	FILTER_WAVEFORM: 29, // 'sine', 'square', 'sawtooth' or 'triangle'
+	FILTER_Q: 30,	// 0.0001 to 1000
+	FILTER_GAIN: 31, // -40dB to 40dB
+	RING_MODULATION: 32, // 0 to 100
+	LINE_TIME: 33,	// in steps
+	TICKS: 34, // maximum number of events during a LINE_TIME
+	RETRIGGER: 35,	// number of ticks between retriggers
+	CHORD_SPEED: 36, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 37,
+	GLISSANDO_SIZE: 38, // number of steps
+	SAMPLE: 39,		// array index of the sample to play.
+	SAMPLE_OFFSET: 40, // in seconds
 });
 
 const ChangeType = Object.freeze({
@@ -373,6 +377,10 @@ class SubtractiveSynthChannel {
 			100,	// filter fully enabled
 			'lowpass', // filter type
 			4400,	// filter frequency
+			4400,	// minimum filter frequency
+			4400,	// maximum filter frequency
+			5,		// filter LFO frequency
+			'sine',	// filter LFO shape
 			1,		// filter Q
 			0,		// filter gain
 			0,		// ring modulation
@@ -433,6 +441,8 @@ class SubtractiveSynthChannel {
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
+		const filterLFO = new Modulator(audioContext, filter.frequency);
+		this.filterLFO = filterLFO;
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
@@ -473,6 +483,7 @@ class SubtractiveSynthChannel {
 		if (!this.started) {
 			this.vibrato.start(when);
 			this.tremolo.start(when);
+			this.filterLFO.start(when);
 			this.started = true;
 		}
 	}
@@ -697,6 +708,12 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
+			case Parameter.FILTER_WAVEFORM:
+				callbacks.push(function () {
+					me.filterLFO.oscillator.type = value;
+				});
+				break;
+
 			case Parameter.FREQUENCY:
 				this.setFrequency(changeType, value, time);
 				this.frequencies[0] = value;
@@ -780,7 +797,21 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
-				this.filter.frequency[changeType](value, time);
+				this.filterLFO.setMinMax(changeType, value, value, time);
+				parameters[Parameter.FILTER_MIN_FREQUENCY] = value;
+				parameters[Parameter.FILTER_MAX_FREQUENCY] = value;
+				break;
+
+			case Parameter.FILTER_MIN_FREQUENCY:
+				this.filterLFO.setMinMax(changeType, value, parameters[Parameter.FILTER_MAX_FREQUENCY], time);
+				break;
+
+			case Parameter.FILTER_MAX_FREQUENCY:
+				this.filterLFO.setMinMax(changeType, parameters[Parameter.FILTER_MIN_FREQUENCY], value, time);
+				break;
+
+			case Parameter.FILTER_LFO_FREQUENCY:
+				this.filterLFO.oscillator.frequency[changeType](value, time);
 				break;
 
 			case Parameter.FILTER_Q:
