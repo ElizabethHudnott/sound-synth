@@ -526,8 +526,8 @@ class SubtractiveSynthChannel {
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.setTargetAtTime(0, start, endDelay * 2);
-			gain.setValueAtTime(0, start + endDelay);
+			gain.setTargetAtTime(0.01, start, endDelay * 2);
+			gain.setValueAtTime(0.01, start + endDelay);
 			gain.linearRampToValueAtTime(velocity, start + this.endAttack);
 			gain.setValueAtTime(velocity, start + this.endHold);
 			gain.linearRampToValueAtTime(sustainLevel, start + this.endDecay);
@@ -544,8 +544,8 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.TRIGGER:
-			gain.setTargetAtTime(0, start, endDelay * 2);
-			gain.setValueAtTime(0, start + endDelay);
+			gain.setTargetAtTime(0.01, start, endDelay * 2);
+			gain.setValueAtTime(0.01, start + endDelay);
 			if (playSample) {
 				this.playSample(start + endDelay);
 			}
@@ -1049,6 +1049,7 @@ global.Synth = {
 	LogNode: LogNode,
 	keymap: keymap,
 	noteFrequencies: noteFrequencies,
+	volumeCurve: volumeCurve,
 };
 
 })(window);

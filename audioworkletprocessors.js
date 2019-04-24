@@ -55,7 +55,7 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 					if ((accumulator & TWO23) === 0) {
 						value = value & ((accumulator & 8388607) << 1);
 					} else {
-						value = value & ((accumulator ^ 8388607) << 1);
+						value = value & ((accumulator ^ 16777215) << 1);
 					}
 				}
 				if ((type & 2) === 2) {
