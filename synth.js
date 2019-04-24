@@ -27,41 +27,43 @@ function volumeCurve(value) {
 }
 
 const Parameter = Object.freeze({
-	ATTACK: 0,		// in milliseconds
-	DECAY: 1,		// in milliseconds
-	RELEASE: 2,		// in milliseconds
-	DURATION: 3,	// in milliseconds
-	VELOCITY: 4,	// percentage
-	SUSTAIN: 5,		// percentage
-	GATE: 6,		// CLOSED, OPEN, TRIGGER, RETRIGGER or CUT
-	WAVEFORM: 7,	// combinations of Waveform enum values
-	FREQUENCY: 8,	// in hertz
-	DETUNE: 9,		// in cents
-	NOTES: 10,		// MIDI note number
-	VIBRATO_WAVEFORM: 11, // 'sine', 'square', 'sawtooth' or 'triangle'
-	VIBRATO_RATE: 12, // in hertz
-	VIBRATO_EXTENT: 13, // in cents
-	VOLUME: 14,		// percentage
-	TREMOLO_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_RATE: 16, // in hertz
-	TREMOLO_AMOUNT: 17, // percentage
-	PANNED: 18,		// 0 or 1
-	SOURCE: 19,		// combinations of Source enum values
-	PULSE_WIDTH: 20,// percentage
-	FILTERED_AMOUNT: 21, // percentage
-	FILTER_TYPE: 22, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 23, // in hertz
-	FILTER_Q: 24,	// 0.0001 to 1000
-	FILTER_GAIN: 25, // -40dB to 40dB
-	RING_MODULATION: 26, // 0 to 100
-	LINE_TIME: 27,	// in steps
-	TICKS: 28, // maximum number of events during a LINE_TIME
-	RETRIGGER: 29,	// number of ticks between retriggers
-	CHORD_SPEED: 30, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 31,
-	GLISSANDO_SIZE: 32, // number of steps
-	SAMPLE: 33,		// array index of the sample to play.
-	SAMPLE_OFFSET: 34, // in seconds
+	DELAY: 0,		//in 1/10,000ths of a second
+	ATTACK: 1,		// in milliseconds
+	HOLD: 2,		// in milliseconds
+	DECAY: 3,		// in milliseconds
+	RELEASE: 4,		// in milliseconds
+	DURATION: 5,	// in milliseconds
+	VELOCITY: 6,	// percentage
+	SUSTAIN: 7,		// percentage
+	GATE: 8,		// CLOSED, OPEN, TRIGGER or CUT
+	WAVEFORM: 9,	// combinations of Waveform enum values
+	FREQUENCY: 10,	// in hertz
+	DETUNE: 11,		// in cents
+	NOTES: 12,		// MIDI note number
+	VIBRATO_WAVEFORM: 13, // 'sine', 'square', 'sawtooth' or 'triangle'
+	VIBRATO_RATE: 14, // in hertz
+	VIBRATO_EXTENT: 15, // in cents
+	VOLUME: 16,		// percentage
+	TREMOLO_WAVEFORM: 17, // 'sine', 'square', 'sawtooth' or 'triangle'
+	TREMOLO_RATE: 18, // in hertz
+	TREMOLO_AMOUNT: 19, // percentage
+	PANNED: 20,		// 0 or 1
+	SOURCE: 21,		// combinations of Source enum values
+	PULSE_WIDTH: 22,// percentage
+	FILTERED_AMOUNT: 23, // percentage
+	FILTER_TYPE: 24, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 25, // in hertz
+	FILTER_Q: 26,	// 0.0001 to 1000
+	FILTER_GAIN: 27, // -40dB to 40dB
+	RING_MODULATION: 28, // 0 to 100
+	LINE_TIME: 29,	// in steps
+	TICKS: 30, // maximum number of events during a LINE_TIME
+	RETRIGGER: 31,	// number of ticks between retriggers
+	CHORD_SPEED: 32, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 33,
+	GLISSANDO_SIZE: 34, // number of steps
+	SAMPLE: 35,		// array index of the sample to play.
+	SAMPLE_OFFSET: 36, // in seconds
 });
 
 const ChangeType = Object.freeze({
@@ -85,7 +87,6 @@ const Gate = Object.freeze({
 	CUT: 1,
 	OPEN: 2,
 	TRIGGER: 3,
-	RETRIGGER: 6,
 });
 
 const Waveform = Object.freeze({
@@ -200,8 +201,6 @@ class SynthSystem {
 		this.startTime = audioContext.currentTime;
 		this.tempoChanged = 0;
 		this.systemParameters = [Parameter.LINE_TIME, Parameter.TICKS];
-
-		this.retriggerDelay = 0.002;
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -347,12 +346,14 @@ class SubtractiveSynthChannel {
 		const audioContext = system.audioContext;
 		this.system = system;
 		this.parameters = [
+			10,		// delay
 			2,		// attack
+			0,		// hold
 			50,		// decay
 			300,	// release
 			200,	// duration
 			100,	// velocity
-			75,		// sustain
+			70,		// sustain
 			Gate.CLOSED, // gate
 			Waveform.TRIANGLE, // waveform
 			440,	// frequency
@@ -384,7 +385,7 @@ class SubtractiveSynthChannel {
 			0,		// no sample offset
 		];
 		this.velocity = 1;
-		this.sustain = volumeCurve(50); // combined sustain and velocity
+		this.sustain = volumeCurve(70); // combined sustain and velocity
 		this.calcEnvelope(3);
 
 		// State information for processing chords
@@ -477,15 +478,19 @@ class SubtractiveSynthChannel {
 
 	calcEnvelope(dirty) {
 		const params = this.parameters;
+		const delay = params[Parameter.DELAY] / 10;
 
 		if (dirty & 1) {
-			const endAttack = params[Parameter.ATTACK];
-			const endDecay = endAttack + params[Parameter.DECAY];
+			const endAttack = delay + params[Parameter.ATTACK];
+			const endHold = endAttack + params[Parameter.HOLD];
+			const endDecay = endHold + params[Parameter.DECAY];
+			this.endDelay = delay / 1000;
 			this.endAttack = endAttack / 1000;
+			this.endHold = endHold / 1000;
 			this.endDecay = endDecay / 1000;
 		}
 		if (dirty & 2) {
-			const duration = params[Parameter.DURATION];
+			const duration = delay + params[Parameter.DURATION];
 			const release = params[Parameter.RELEASE];
 			const endRelease = duration + release;
 			this.release = release / 1000;
@@ -510,16 +515,21 @@ class SubtractiveSynthChannel {
 	}
 
 	gate(state, start) {
+		const endDelay = this.endDelay;
+		const velocity = this.velocity;
 		const sustainLevel = this.sustain;
-		const playSample = this.parameters[Parameter.SOURCE] === Source.SAMPLE;
 		let endDecay, beginRelease, endTime;
 
+		const playSample = this.parameters[Parameter.SOURCE] === Source.SAMPLE;
 		const gain = this.envelope.gain;
 		gain.cancelAndHoldAtTime(start);
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
+			gain.setTargetAtTime(0, start, endDelay * 2);
+			gain.setValueAtTime(0, start + endDelay);
+			gain.linearRampToValueAtTime(velocity, start + this.endAttack);
+			gain.setValueAtTime(velocity, start + this.endHold);
 			gain.linearRampToValueAtTime(sustainLevel, start + this.endDecay);
 			break;
 
@@ -534,16 +544,20 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.TRIGGER:
+			gain.setTargetAtTime(0, start, endDelay * 2);
+			gain.setValueAtTime(0, start + endDelay);
 			if (playSample) {
-				this.playSample(start);
+				this.playSample(start + endDelay);
 			}
-			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack);
+			gain.linearRampToValueAtTime(velocity, start + this.endAttack);
+			gain.setValueAtTime(velocity, start + this.endHold);
 			endDecay = start + this.endDecay;
 			gain.linearRampToValueAtTime(sustainLevel, endDecay);
+
 			if (!playSample) {
 				beginRelease = start + this.beginRelease;
 				if (endDecay < beginRelease) {
-					gain.linearRampToValueAtTime(sustainLevel, beginRelease);
+					gain.setValueAtTime(sustainLevel, beginRelease);
 				} else {
 					gain.cancelAndHoldAtTime(beginRelease);
 				}
@@ -553,32 +567,11 @@ class SubtractiveSynthChannel {
 			}
 			break;
 
-		case Gate.RETRIGGER:
-			const retriggerDelay = this.system.retriggerDelay;
-			if (playSample) {
-				this.playSample(start + retriggerDelay);
-			}
-			gain.linearRampToValueAtTime(0, start + retriggerDelay);
-			gain.linearRampToValueAtTime(this.velocity, start + this.endAttack + retriggerDelay);
-			endDecay = start + this.endDecay + retriggerDelay;
-			gain.linearRampToValueAtTime(sustainLevel, endDecay);
-			if (!playSample) {
-				beginRelease = start + this.beginRelease + retriggerDelay;
-				if (endDecay < beginRelease) {
-					gain.linearRampToValueAtTime(sustainLevel, beginRelease);
-				} else {
-					gain.cancelAndHoldAtTime(beginRelease);
-				}
-				endTime = start + this.endRelease + retriggerDelay;
-				gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
-				gain.setValueAtTime(0, endTime);
-			}
-			break;
-
 		case Gate.CUT:
-			gain.setValueAtTime(0, start);
+			gain.setTargetAtTime(0, start + endDelay, endDelay / 3);
+			gain.setValueAtTime(0, start + endDelay);
 			if (this.samplePlayer !== undefined) {
-				this.samplePlayer.stop(start);
+				this.samplePlayer.stop(start + endDelay);
 				this.samplePlayer = undefined;
 			}
 			break;
@@ -661,7 +654,12 @@ class SubtractiveSynthChannel {
 			}
 
 			switch (paramNumber) {
+			case Parameter.DELAY:
+				dirtyEnvelope = 3;
+				break;
+
 			case Parameter.ATTACK:
+			case Parameter.HOLD:
 			case Parameter.DECAY:
 				dirtyEnvelope = dirtyEnvelope | 1;
 				break;
@@ -748,19 +746,19 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.SOURCE:
+				if (value === 0 && gate === undefined) {
+					const currentGate = parameters[Parameter.GATE];
+					if (currentGate === Gate.TRIGGER) {
+						const param = this.envelope.gain;
+						param.cancelAndHoldAtTime(time);
+						param.setValueAtTime(0, time);
+					}
+				}
 				for (let i = 0; i < this.gains.length; i++) {
 					if (value === i) {
 						this.gains[i].gain[changeType](1, time);
 					} else {
 						this.gains[i].gain[changeType](0, time);
-					}
-					if (value === 0 && gate === undefined) {
-						const currentGate = parameters[Parameter.GATE];
-						if (currentGate === Gate.TRIGGER || currentGate === Gate.RETRIGGER) {
-							const param = this.envelope.gain;
-							param.cancelAndHoldAtTime(time);
-							param.setValueAtTime(0, time);
-						}
 					}
 				}
 				break;
@@ -959,7 +957,7 @@ class SubtractiveSynthChannel {
 					}
 
 					if (tick % retriggerTicks === 0) {
-						this.gate(Gate.RETRIGGER, timeOfTick);
+						this.gate(Gate.TRIGGER, timeOfTick);
 					}
 					prevGlissandoAmount = glissandoAmount;
 					tick++;
