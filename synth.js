@@ -609,9 +609,10 @@ class SubtractiveSynthChannel {
 
 		const now = this.system.audioContext.currentTime;
 		if (step === undefined) {
-			step = Math.trunc((now - this.system.startTime) / TIME_STEP) + 1;
+			step = (now - this.system.startTime) / TIME_STEP + 1;
 		}
-		const time = this.system.startTime + Math.trunc(step) * TIME_STEP;
+		step = Math.trunc(step);
+		const time = this.system.startTime + step * TIME_STEP;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
 
@@ -995,6 +996,46 @@ class SubtractiveSynthChannel {
 
 }
 
+const keymap = new Map();
+keymap.set('KeyZ', 48);
+keymap.set('KeyS', 49);
+keymap.set('KeyX', 50);
+keymap.set('KeyD', 51);
+keymap.set('KeyC', 52);
+keymap.set('KeyV', 53);
+keymap.set('KeyG', 54);
+keymap.set('KeyB', 55);
+keymap.set('KeyH', 56);
+keymap.set('KeyN', 57);
+keymap.set('KeyJ', 58);
+keymap.set('KeyM', 59);
+keymap.set('Comma', 60);
+keymap.set('KeyL', 61);
+keymap.set('Period', 62);
+keymap.set('Semicolon', 63);
+keymap.set('Slash', 64);
+keymap.set('KeyQ', 60);
+keymap.set('Digit2', 61);
+keymap.set('KeyW', 62);
+keymap.set('Digit3', 63);
+keymap.set('KeyE', 64);
+keymap.set('KeyR', 65);
+keymap.set('Digit5', 66);
+keymap.set('KeyT', 67);
+keymap.set('Digit6', 68);
+keymap.set('KeyY', 69);
+keymap.set('Digit7', 70);
+keymap.set('KeyU', 71);
+keymap.set('KeyI', 72);
+keymap.set('Digit9', 73);
+keymap.set('KeyO', 74);
+keymap.set('Digit0', 75);
+keymap.set('KeyP', 76);
+keymap.set('BracketLeft', 77);
+keymap.set('Equal', 78);
+keymap.set('BracketRight', 79);
+
+
 global.Synth = {
 	Change: Change,
 	SubtractiveSynthChannel: SubtractiveSynthChannel,
@@ -1008,6 +1049,7 @@ global.Synth = {
 	Modulator: Modulator,
 	C64Oscillator: C64OscillatorNode,
 	LogNode: LogNode,
+	keymap: keymap,
 	noteFrequencies: noteFrequencies,
 };
 

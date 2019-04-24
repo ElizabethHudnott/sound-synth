@@ -73,8 +73,8 @@
 				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highshelf')">High Shelf</label>
 				<label><input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking</label><br>
 				<input type="range" oninput="set(Synth.Param.FILTERED_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
-				<input type="range" oninput="if (channels[0].parameters[Synth.Param.Gate] !== Synth.Gate.OPEN) set(Synth.Param.GATE, Synth.Gate.TRIGGER); set(Synth.Param.FILTER_FREQUENCY, parseFloat(this.value))" min="30" max="10000" value="4400" step="1">Frequency<br>
-				<input type="range" oninput="set(Synth.Param.FILTER_Q, parseFloat(this.value))" min="1" max="1000" value="1" step="1">Resonance<br>
+				<input type="range" oninput="if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) { tempOpen = true; set(Synth.Param.GATE, Synth.Gate.OPEN);} set(Synth.Param.FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="if (tempOpen) { set(Synth.Param.GATE, Synth.Gate.CLOSED); tempOpen = false;}" min="30" max="10000" value="4400" step="1">Frequency<br>
+				<input type="range" oninput="set(Synth.Param.FILTER_Q, parseFloat(this.value))" min="1" max="1000" value="1" step="1">Resonance / Width<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 			</fieldset>
 			<fieldset>
@@ -113,6 +113,7 @@
 			const audioContext = new AudioContext({sampleRate: 96000});
 			const system = new Synth.System(audioContext);
 			let stepNumber = 1;
+			let tempOpen = false;
 			let channels, timer;
 
 			function sampleLoaded(url, success, message) {
@@ -185,10 +186,12 @@
 					const interval = parseInt(chord[i], 36);
 					notes.push(noteNumber + interval - 1);
 				}
-				set(Synth.Param.NOTES, notes);
+				const parameterMap = new Map();
+				parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes));
 				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
-					set(Synth.Param.GATE, Synth.Gate.TRIGGER);
+					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
 				}
+				channels[0].setParameters(parameterMap);
 			}
 
 			function setLineTime(steps) {
@@ -204,6 +207,15 @@
 				const ticks = Math.round(lineTime / 50 * ticksPerSecond);
 				set(Synth.Param.TICKS, ticks);
 			}
+
+			document.addEventListener('keydown', function (event) {
+				const note = Synth.keymap.get(event.code);
+				if (note !== undefined) {
+					document.getElementById('note').value = note;
+					playNote();
+					event.preventDefault();
+				}
+			});
 		</script>
 	</body>
 </html>

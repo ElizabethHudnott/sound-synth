@@ -4,6 +4,7 @@ const TWO24 = 1<<24;
 const TWO23 = 1<<23;
 const MAX24 = (1<<24) - 1;
 const NOISE_BIT = 1<<22;
+const RATIO = TWO24 / sampleRate;
 
 class C64OscillatorProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
@@ -38,8 +39,8 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 
 	process(inputs, outputs, parameters) {
 		const output = outputs[0][0];
-		const frequency = parameters.frequency[0];
-		const step = Math.round((TWO24 / sampleRate) * frequency);
+		const frequency = parameters.frequency;
+		const step = Math.round(RATIO * frequency[0]);
 		const width = parameters.width[0];
 		const threshold = Math.round(MAX24 * width);
 		const type = this.type;
