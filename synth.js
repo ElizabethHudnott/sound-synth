@@ -90,6 +90,7 @@ const Gate = Object.freeze({
 });
 
 const Waveform = Object.freeze({
+	POP: 0,
 	TRIANGLE: 1,
 	SAWTOOTH: 2,
 	PULSE: 4,
