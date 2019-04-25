@@ -13,7 +13,7 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 				name: 'frequency',
 				automationRate: 'k-rate',
 				defaultValue: 440,
-				minValue: 1,
+				minValue: (1 / RATIO) * 1.5 - Number.EPSILON,
 				maxValue: sampleRate / 2,
 			},
 			{
@@ -35,8 +35,7 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		this.type = 1; // 1 = triangle, 2 = sawtooth, 4 = pulse, 8 = noise
 		this.accumulator = 0;
 		this.random = Math.random() * 2 - 1;
-		this.prevSync = 1;
-		this.oddEven = 0;
+		this.prevSync = 0;
 		const me = this;
 		this.port.onmessage = function (event) {
 			me.type = event.data;
@@ -45,6 +44,7 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 
 	process(inputs, outputs, parameters) {
 		const output = outputs[0][0];
+		const accumulatorOutput = outputs[1][0];
 		const frequency = parameters.frequency;
 		const step = Math.round(RATIO * frequency[0]);
 		const width = parameters.width[0];
@@ -54,25 +54,15 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		const constantSync = sync.length === 1;
 		let accumulator = this.accumulator;
 		let prevSync = this.prevSync;
-		let oddEven = this.oddEven;
 
 		if ((type & 8) === 0) {
 			for (let i = 0; i < 128; i++) {
-				if (!constantSync &&
-					((prevSync <= 0 && sync[i] >= 0) ||
-					(prevSync >= 0 && sync[i] <= 0))
-				) {
-					if (oddEven === 1) {
-						accumulator = 0;
-						oddEven = 0;
-						prevSync = sync[i];
-						output[i] = -1;
-						continue;
-					} else {
-						oddEven = 1;
-					}
+				if (!constantSync && prevSync > sync[i]) {
+					accumulator = 0;
+				} else {
+					accumulator = (accumulator + step) % TWO24;
 				}
-				accumulator = (accumulator + step) % TWO24;
+				accumulatorOutput[i] = accumulator;
 				let value = MAX24;
 				if ((type & 1) === 1) {
 					// triangle
@@ -103,6 +93,7 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 			let thisBit;
 			for (let i = 0; i < 128; i++) {
 				accumulator = (accumulator + step) % TWO24;
+				accumulatorOutput[i] = accumulator;
 				thisBit = accumulator & NOISE_BIT;
 				if (prevBit != thisBit) {
 					random = Math.random() * 2 - 1;
@@ -118,7 +109,6 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 
 		this.accumulator = accumulator;
 		this.prevSync = prevSync;
-		this.oddEven = oddEven;
 		return true;
 	}
 }

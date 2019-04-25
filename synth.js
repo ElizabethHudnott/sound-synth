@@ -315,7 +315,7 @@ class SynthSystem {
 
 class C64OscillatorNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'c64-oscillator-processor', {numberOfInputs: 0});
+		super(context, 'c64-oscillator-processor', {numberOfInputs: 0, numberOfOutputs: 2});
 		this._type = Waveform.TRIANGLE;
 	}
 
@@ -489,7 +489,7 @@ class SubtractiveSynthChannel {
 		const node = channel.ringInput;
 		this.filter.connect(node);
 		this.unfilteredPath.connect(node);
-		this.oscillator.connect(channel.syncGain);
+		this.oscillator.connect(channel.syncGain, 1);
 	}
 
 	start(when) {
