@@ -47,8 +47,8 @@ const Parameter = Object.freeze({
 	TREMOLO_WAVEFORM: 17, // 'sine', 'square', 'sawtooth' or 'triangle'
 	TREMOLO_RATE: 18, // in hertz
 	TREMOLO_AMOUNT: 19, // percentage
-	PANNED: 20,		// 0 or 1
-	SOURCE: 21,		// combinations of Source enum values
+	PAN: 20,		// -100 to 100
+	SOURCE: 21,		// 0 (oscillator) to 100 (samples)
 	PULSE_WIDTH: 22,// percentage
 	FILTERED_AMOUNT: 23, // percentage
 	FILTER_TYPE: 24, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
@@ -104,7 +104,7 @@ const Waveform = Object.freeze({
 
 const Source = Object.freeze({
 	OSCILLATOR: 0,
-	SAMPLE: 1,
+	SAMPLE: 100,
 });
 
 const Chord = Object.freeze({
@@ -352,7 +352,7 @@ class LogNode extends AudioWorkletNode {
 }
 
 class SubtractiveSynthChannel {
-	constructor(system, pannedLeft) {
+	constructor(system) {
 		const audioContext = system.audioContext;
 		this.system = system;
 		this.parameters = [
@@ -474,7 +474,6 @@ class SubtractiveSynthChannel {
 
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
-		this.panValue = pannedLeft? -1 : 1;
 		tremoloGain.connect(panner);
 
 		const volume = audioContext.createGain();
@@ -545,7 +544,7 @@ class SubtractiveSynthChannel {
 		const sustainLevel = this.sustain;
 		let endDecay, beginRelease, endTime;
 
-		const playSample = this.parameters[Parameter.SOURCE] === Source.SAMPLE;
+		const playSample = this.parameters[Parameter.SOURCE] > 0;
 		const gain = this.envelope.gain;
 		gain.cancelAndHoldAtTime(start);
 
@@ -770,10 +769,8 @@ class SubtractiveSynthChannel {
 				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
 				break;
 
-			case Parameter.PANNED:
-				value = Math.trunc(Math.abs(value)) % 2;
-				this.panner.pan.setValueAtTime(value * this.panValue, time);
-				parameters[Parameter.PANNED] = value;
+			case Parameter.PAN:
+				this.panner.pan.setValueAtTime(value / 100, time);
 				break;
 
 			case Parameter.SYNC:
@@ -791,13 +788,8 @@ class SubtractiveSynthChannel {
 						param.setValueAtTime(0, time);
 					}
 				}
-				for (let i = 0; i < this.gains.length; i++) {
-					if (value === i) {
-						this.gains[i].gain[changeType](1, time);
-					} else {
-						this.gains[i].gain[changeType](0, time);
-					}
-				}
+				this.gains[0].gain[changeType](1 - value / 100, time);
+				this.gains[1].gain[changeType](value / 100, time);
 				break;
 
 			case Parameter.PULSE_WIDTH:
@@ -1046,6 +1038,7 @@ class SubtractiveSynthChannel {
 }
 
 const keymap = new Map();
+keymap.set('IntlBackslash', 27);
 keymap.set('KeyZ', 48);
 keymap.set('KeyS', 49);
 keymap.set('KeyX', 50);
