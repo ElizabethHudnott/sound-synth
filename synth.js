@@ -114,12 +114,6 @@ const Chord = Object.freeze({
 	RANDOM: 3,
 })
 
-const noteFrequencies = [];
-
-for (let i = 0; i <= 127; i++) {
-	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
-}
-
 class Modulator {
 	constructor(audioContext, carrier) {
 		this.carriers = [carrier];
@@ -405,6 +399,7 @@ class SubtractiveSynthChannel {
 
 		// State information for processing chords
 		this.frequencies = [440];
+		this.detune = 1;
 		this.noteIndex = 0;
 		this.chordDir = 1;
 		this.noteRepeated = false;
@@ -480,8 +475,19 @@ class SubtractiveSynthChannel {
 		this.volume = volume;
 		panner.connect(volume);
 
+		this.noteFrequencies = [];
+		this.tune(440, 0);
+
 		volume.connect(system.volume);
 		system.addChannel(this);
+	}
+
+	tune(a4, stretch) {
+		const noteFrequencies = this.noteFrequencies;
+		const s = 1 + stretch / 100;
+		for (let i = 0; i <= 127; i++) {
+			noteFrequencies[i] = 2 ** ((i - 69) * s / 12) * a4;
+		}
 	}
 
 	connect(channel) {
@@ -604,7 +610,7 @@ class SubtractiveSynthChannel {
 	}
 
 	setFrequency(changeType, frequency, when) {
-		frequency = frequency * CENT ** this.parameters[Parameter.DETUNE];
+		frequency = frequency * this.detune;
 		const vibratoExtent = CENT ** (this.parameters[Parameter.VIBRATO_EXTENT] / 2);
 		this.vibrato.cancelAndHoldAtTime(when);
 		this.vibrato.setMinMax(changeType, frequency / vibratoExtent, frequency * vibratoExtent, when);
@@ -733,18 +739,21 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.NOTES:
-				frequency = noteFrequencies[value[0]];
+				frequency = this.noteFrequencies[value[0]];
 				this.setFrequency(changeType, frequency, time);
 				frequencySet = true;
 				this.frequencies[0] = frequency;
 				parameters[Parameter.FREQUENCY] = frequency;
 				for (let i = 1; i < value.length; i++) {
-					this.frequencies[i] = noteFrequencies[value[i]];
+					this.frequencies[i] = this.noteFrequencies[value[i]];
 				}
 				this.frequencies.splice(value.length);
 				break;
 
 			case Parameter.DETUNE:
+				this.detune = CENT ** value;
+				// fall through
+
 			case Parameter.VIBRATO_EXTENT:
 				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
 				break;
@@ -1092,7 +1101,6 @@ global.Synth = {
 	C64Oscillator: C64OscillatorNode,
 	LogNode: LogNode,
 	keymap: keymap,
-	noteFrequencies: noteFrequencies,
 	volumeCurve: volumeCurve,
 };
 

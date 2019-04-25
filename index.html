@@ -179,7 +179,7 @@
 
 			function playNote() {
 				const noteNumber = parseInt(document.getElementById('note').value);
-				document.getElementById('frequency').value = Synth.noteFrequencies[noteNumber];
+				document.getElementById('frequency').value = channels[0].noteFrequencies[noteNumber];
 				const notes = [noteNumber];
 				const chord = document.getElementById('chord').value;
 				for (let i = 0; i < chord.length; i++) {
