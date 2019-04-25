@@ -60,14 +60,15 @@ const Parameter = Object.freeze({
 	FILTER_Q: 30,	// 0.0001 to 1000
 	FILTER_GAIN: 31, // -40dB to 40dB
 	RING_MODULATION: 32, // 0 to 100
-	LINE_TIME: 33,	// in steps
-	TICKS: 34, // maximum number of events during a LINE_TIME
-	RETRIGGER: 35,	// number of ticks between retriggers
-	CHORD_SPEED: 36, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 37,
-	GLISSANDO_SIZE: 38, // number of steps
-	SAMPLE: 39,		// array index of the sample to play.
-	SAMPLE_OFFSET: 40, // in seconds
+	SYNC: 33,		// 0 or 1
+	LINE_TIME: 34,	// in steps
+	TICKS: 35, // maximum number of events during a LINE_TIME
+	RETRIGGER: 36,	// number of ticks between retriggers
+	CHORD_SPEED: 37, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 38,
+	GLISSANDO_SIZE: 39, // number of steps
+	SAMPLE: 40,		// array index of the sample to play.
+	SAMPLE_OFFSET: 41, // in seconds
 });
 
 const ChangeType = Object.freeze({
@@ -326,6 +327,10 @@ class C64OscillatorNode extends AudioWorkletNode {
 		return this.parameters.get('width');
 	}
 
+	get sync() {
+		return this.parameters.get('sync');
+	}
+
 	set type(value) {
 		this.port.postMessage(value);
 		this._type = value;
@@ -384,6 +389,7 @@ class SubtractiveSynthChannel {
 			1,		// filter Q
 			0,		// filter gain
 			0,		// ring modulation
+			0,		// sync
 			24,		// line time (125bpm, allegro)
 			24,		// number of ticks for broken chords, glissando and retrigger
 			0,		// retrigger time (ticks)
@@ -407,6 +413,11 @@ class SubtractiveSynthChannel {
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
+
+		const syncGain = audioContext.createGain();
+		syncGain.gain.value = 0;
+		syncGain.connect(oscillator.sync);
+		this.syncGain = syncGain;
 
 		this.samplePlayer = undefined;
 		const sampleGain = audioContext.createGain();
@@ -455,6 +466,7 @@ class SubtractiveSynthChannel {
 		envelope.connect(unfilteredPath);
 
 		const tremoloGain = audioContext.createGain();
+		this.tremoloGain = tremoloGain;
 		const tremoloModulator = new Modulator(audioContext, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
 		filter.connect(tremoloGain);
@@ -477,6 +489,7 @@ class SubtractiveSynthChannel {
 		const node = channel.ringInput;
 		this.filter.connect(node);
 		this.unfilteredPath.connect(node);
+		this.oscillator.connect(channel.syncGain);
 	}
 
 	start(when) {
@@ -761,6 +774,12 @@ class SubtractiveSynthChannel {
 				value = Math.trunc(Math.abs(value)) % 2;
 				this.panner.pan.setValueAtTime(value * this.panValue, time);
 				parameters[Parameter.PANNED] = value;
+				break;
+
+			case Parameter.SYNC:
+				value = Math.trunc(Math.abs(value)) % 2;
+				this.syncGain.gain.setValueAtTime(value, time);
+				parameters[Parameter.SYNC] = value;
 				break;
 
 			case Parameter.SOURCE:

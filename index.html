@@ -198,6 +198,9 @@
 			function setLineTime(steps) {
 				clearInterval(timer);
 				set(Synth.Param.LINE_TIME, steps, 0);
+				const ticksPerSecond = parseFloat(document.getElementById('ticks').value);
+				const ticks = Math.round(lineTime / 50 * ticksPerSecond);
+				set(Synth.Param.TICKS, ticks);
 				timer = setInterval(sendNewLine, steps * 20);
 				sendNewLine();
 			}

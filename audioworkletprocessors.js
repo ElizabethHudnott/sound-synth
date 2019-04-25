@@ -9,19 +9,23 @@ const RATIO = TWO24 / sampleRate;
 class C64OscillatorProcessor extends AudioWorkletProcessor {
 	static get parameterDescriptors() {
 		return [
-		{
-			name: 'frequency',
-			automationRate: 'k-rate',
-			defaultValue: 440,
-			minValue: 1,
-			maxValue: sampleRate / 2,
-		},
-		{
-			name: 'width',
-			automationRate: 'k-rate',
-			defaultValue: 0.5,
-			minValue: 0,
-			maxValue: 1,
+			{
+				name: 'frequency',
+				automationRate: 'k-rate',
+				defaultValue: 440,
+				minValue: 1,
+				maxValue: sampleRate / 2,
+			},
+			{
+				name: 'width',
+				automationRate: 'k-rate',
+				defaultValue: 0.5,
+				minValue: 0,
+				maxValue: 1,
+			},
+			{
+				name: 'sync',
+				defaultValue: 0,
 			}
 		];
 	}
@@ -31,6 +35,8 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		this.type = 1; // 1 = triangle, 2 = sawtooth, 4 = pulse, 8 = noise
 		this.accumulator = 0;
 		this.random = Math.random() * 2 - 1;
+		this.prevSync = 1;
+		this.oddEven = 0;
 		const me = this;
 		this.port.onmessage = function (event) {
 			me.type = event.data;
@@ -44,10 +50,28 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		const width = parameters.width[0];
 		const threshold = Math.round(MAX24 * width);
 		const type = this.type;
+		const sync = parameters.sync;
+		const constantSync = sync.length === 1;
 		let accumulator = this.accumulator;
+		let prevSync = this.prevSync;
+		let oddEven = this.oddEven;
 
 		if ((type & 8) === 0) {
 			for (let i = 0; i < 128; i++) {
+				if (!constantSync &&
+					((prevSync <= 0 && sync[i] >= 0) ||
+					(prevSync >= 0 && sync[i] <= 0))
+				) {
+					if (oddEven === 1) {
+						accumulator = 0;
+						oddEven = 0;
+						prevSync = sync[i];
+						output[i] = -1;
+						continue;
+					} else {
+						oddEven = 1;
+					}
+				}
 				accumulator = (accumulator + step) % TWO24;
 				let value = MAX24;
 				if ((type & 1) === 1) {
@@ -69,24 +93,32 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 					}
 				}
 				output[i] = value / TWO23 - 1;
+				if (!constantSync) {
+					prevSync = sync[i];
+				}
 			}
 		} else {
-			let prevBIT = accumulator & NOISE_BIT;
+			let prevBit = accumulator & NOISE_BIT;
 			let random = this.random;
-			let thisBIT;
+			let thisBit;
 			for (let i = 0; i < 128; i++) {
 				accumulator = (accumulator + step) % TWO24;
-				thisBIT = accumulator & NOISE_BIT;
-				if (prevBIT != thisBIT) {
+				thisBit = accumulator & NOISE_BIT;
+				if (prevBit != thisBit) {
 					random = Math.random() * 2 - 1;
 				}
 				output[i] = random;
-				prevBIT = thisBIT;
+				prevBit = thisBit;
+			}
+			if (!constantSync) {
+				prevSync = sync[127];
 			}
 			this.random = random;
 		}
 
 		this.accumulator = accumulator;
+		this.prevSync = prevSync;
+		this.oddEven = oddEven;
 		return true;
 	}
 }
