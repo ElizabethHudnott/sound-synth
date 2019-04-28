@@ -11,14 +11,12 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		return [
 			{
 				name: 'frequency',
-				automationRate: 'k-rate',
 				defaultValue: 440,
-				minValue: (1 / RATIO) * 1.5 - Number.EPSILON,
+				minValue: 1 / RATIO,
 				maxValue: sampleRate / 2,
 			},
 			{
 				name: 'width',
-				automationRate: 'k-rate',
 				defaultValue: 0.5,
 				minValue: 0,
 				maxValue: 1,
@@ -46,17 +44,30 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 		const output = outputs[0][0];
 		const accumulatorOutput = outputs[1][0];
 		const frequency = parameters.frequency;
-		const step = Math.round(RATIO * frequency[0]);
-		const width = parameters.width[0];
-		const threshold = Math.round(MAX24 * width);
-		const type = this.type;
+		const width = parameters.width;
 		const sync = parameters.sync;
+		const type = this.type;
 		const constantSync = sync.length === 1;
+
 		let accumulator = this.accumulator;
 		let prevSync = this.prevSync;
 
+		let step, threshold
+		let constantFrequency = false, constantWidth = false;
+		if (frequency.length === 1) {
+			constantFrequency = true;
+			step = Math.round(RATIO * frequency[0]);
+		}
+		if (width.length === 1) {
+			constantWidth = true;
+			threshold = Math.round(MAX24 * width[0]);
+		}
+
 		if ((type & 8) === 0) {
 			for (let i = 0; i < 128; i++) {
+				if (!constantFrequency) {
+					step = Math.round(RATIO * frequency[i]);
+				}
 				if (!constantSync && prevSync > sync[i]) {
 					accumulator = 0;
 				} else {
@@ -78,6 +89,9 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 				}
 				if ((type & 4) === 4) {
 					// pulse
+					if (!constantWidth) {
+						threshold = Math.round(MAX24 * width[i]);
+					}
 					if (accumulator < threshold) {
 						value = 0;
 					}
@@ -92,6 +106,9 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 			let random = this.random;
 			let thisBit;
 			for (let i = 0; i < 128; i++) {
+				if (!constantFrequency) {
+					step = Math.round(RATIO * frequency[i]);
+				}
 				accumulator = (accumulator + step) % TWO24;
 				accumulatorOutput[i] = accumulator;
 				thisBit = accumulator & NOISE_BIT;

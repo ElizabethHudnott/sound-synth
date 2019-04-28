@@ -80,7 +80,7 @@ const Parameter = Object.freeze({
 	TICKS: 50, // maximum number of events during a LINE_TIME
 	RETRIGGER: 51,	// number of ticks between retriggers
 	CHORD_SPEED: 52, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 53,
+	CHORD_PATTERN: 53, // A value from the Pattern enum
 	GLISSANDO_SIZE: 54, // number of steps
 	SAMPLE: 55,		// array index of the sample to play.
 	SAMPLE_OFFSET: 56, // in seconds
@@ -475,6 +475,11 @@ class SubtractiveSynthChannel {
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
 
+		oscillator.width.value = 0;
+		const pwm = new Modulator(audioContext, oscillator.width);
+		this.pwm = pwm;
+		pwm.setMinMax(ChangeType.SET, 0.5, 0.5, audioContext.currentTime);
+
 		const syncGain = audioContext.createGain();
 		syncGain.gain.value = 0;
 		syncGain.connect(oscillator.sync);
@@ -565,6 +570,7 @@ class SubtractiveSynthChannel {
 
 	start(when) {
 		if (!this.started) {
+			this.pwm.start(when);
 			this.vibrato.start(when);
 			this.tremolo.start(when);
 			this.filterLFO.start(when);
@@ -685,9 +691,10 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
+		let dirtyPWM = undefined; // holds change type
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
-		let dirtyFilterLFO = false;
+		let dirtyFilterLFO = undefined;  // holds change type
 		let dirtyNumTicks = false;
 		let frequencySet = false;
 		let sampleChanged = false;
@@ -779,6 +786,12 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
+			case Parameter.PWM_WAVEFORM:
+				callbacks.push(function () {
+					me.pwm.oscillator.type = value;
+				});
+				break;
+
 			case Parameter.VIBRATO_WAVEFORM:
 				callbacks.push(function () {
 					me.vibrato.oscillator.type = value;
@@ -825,6 +838,12 @@ class SubtractiveSynthChannel {
 
 			case Parameter.VOLUME:
 				this.volume.gain[changeType](volumeCurve(value), time);
+				break;
+
+			case Parameter.PWM_RATE:
+				value = clamp(value);
+				this.pwm.setFrequency(changeType, value, time);
+				parameters[Parameter.PWM_RATE] = value;
 				break;
 
 			case Parameter.VIBRATO_RATE:
@@ -890,7 +909,14 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.PULSE_WIDTH:
-				this.oscillator.width[changeType](value / 100, time);
+				this.pwm.setMinMax(changeType, value / 100, value / 100, time);
+				parameters[Parameter.MIN_PULSE_WIDTH] = value;
+				parameters[Parameter.MAX_PULSE_WIDTH] = value;
+				break;
+
+			case Parameter.MIN_PULSE_WIDTH:
+			case Parameter.MAX_PULSE_WIDTH:
+				dirtyPWM = changeType;
 				break;
 
 			case Parameter.FILTERED_AMOUNT:
@@ -912,7 +938,7 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FILTER_MIN_FREQUENCY:
 			case Parameter.FILTER_MAX_FREQUENCY:
-				dirtyFilterLFO = true;
+				dirtyFilterLFO = changeType;
 				break;
 
 			case Parameter.FILTER_LFO_RATE:
@@ -957,6 +983,9 @@ class SubtractiveSynthChannel {
 			} // end switch
 		} // end loop over each parameter
 
+		if (dirtyPWM) {
+			this.pwm.setMinMax(dirtyPWM, parameters[Parameter.MIN_PULSE_WIDTH] / 100, parameters[Parameter.MAX_PULSE_WIDTH] / 100, time);
+		}
 		if (dirtyEnvelope) {
 			this.calcEnvelope();
 		}
@@ -964,7 +993,7 @@ class SubtractiveSynthChannel {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
 		}
 		if (dirtyFilterLFO) {
-			this.filterLFO.setMinMax(changeType, parameters[Parameter.FILTER_MIN_FREQUENCY], parameters[Parameter.FILTER_MAX_FREQUENCY], time);
+			this.filterLFO.setMinMax(dirtyFilterLFO, parameters[Parameter.FILTER_MIN_FREQUENCY], parameters[Parameter.FILTER_MAX_FREQUENCY], time);
 		}
 		if (dirtyNumTicks) {
 			const numTicks = parameters[Parameter.TICKS];
