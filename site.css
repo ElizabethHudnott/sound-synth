@@ -2,3 +2,7 @@
 	display: none;
 	width: fit-content;
 }
+
+.flip-x {
+	transform: scaleX(-1);
+}
