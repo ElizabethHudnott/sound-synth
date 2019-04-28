@@ -22,7 +22,7 @@ function volumeCurve(value) {
 	if (value === 0) {
 		return 0;
 	} else {
-		return 10 ** (-2 * (100 - value) / 99);
+		return 10 ** (-1 * (100 - value) / 99);
 	}
 }
 
@@ -36,7 +36,7 @@ const Parameter = Object.freeze({
 	SUSTAIN: 6,		// percentage
 	RELEASE: 7,		// in milliseconds
 	RELEASE_SHAPE: 8, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
-	DURATION: 9,	// in milliseconds
+	DURATION: 9,	// in milliseconds (0 = auto)
 	GATE: 10,		// CLOSED, OPEN, TRIGGER or CUT
 	WAVEFORM: 11,	// combinations of Waveform enum values
 	FREQUENCY: 12,	// in hertz
@@ -58,10 +58,10 @@ const Parameter = Object.freeze({
 	PAN: 28,		// -100 to 100
 	SOURCE: 29,		// 0 (oscillator) to 100 (samples)
 	PULSE_WIDTH: 30,// percentage
-	MIN_PULSE_WIDTH: 31,
-	MAX_PULSE_WIDTH: 32,
-	PWM_WAVEFORM: 33,
-	PWM_RATE: 34,
+	MIN_PULSE_WIDTH: 31, // percentage
+	MAX_PULSE_WIDTH: 32, // percentage
+	PWM_WAVEFORM: 33, // 'sine', 'square', 'sawtooth' or 'triangle'
+	PWM_RATE: 34,	// in hertz
 	FILTERED_AMOUNT: 35, // percentage
 	FILTER_TYPE: 36, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	FILTER_FREQUENCY: 37, // in hertz
@@ -84,6 +84,8 @@ const Parameter = Object.freeze({
 	GLISSANDO_SIZE: 54, // number of steps
 	SAMPLE: 55,		// array index of the sample to play.
 	SAMPLE_OFFSET: 56, // in seconds
+	SCALE_AHD: 57,	// dimensionless (-1 or more)
+	SCALE_RELEASE: 58, // dimensionless (0 or less)
 });
 
 const ChangeType = Object.freeze({
@@ -228,6 +230,12 @@ class Modulator {
 
 }
 
+const noteFrequencies = [];
+for (let i = 0; i <= 127; i++) {
+	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
+}
+
+
 class SynthSystem {
 	constructor(audioContext, callback) {
 		const me = this;
@@ -330,6 +338,13 @@ class SynthSystem {
 
 	removeSample(number) {
 		this.samples[number] = undefined;
+	}
+
+	setSampledNote(sample, note) {
+		this.sampledNote[sample] = note;
+		for (let channel of this.channels) {
+			channel.computePlaybackRate();
+		}
 	}
 
 	getSamplePlayer(index) {
@@ -455,6 +470,8 @@ class SubtractiveSynthChannel {
 			0,		// glissando length
 			0,		// use first sample
 			0,		// no sample offset
+			0,		// envelope scaling for AHD portion of the envelope
+			0,		// envelope scaling for the release
 		];
 		this.velocity = 1;
 		this.delay = 0.001;
@@ -465,6 +482,7 @@ class SubtractiveSynthChannel {
 
 		// State information for processing chords
 		this.frequencies = [440];
+		this.distanceFromC = 9;
 		this.detune = 1;
 		this.noteIndex = 0;
 		this.chordDir = 1;
@@ -490,6 +508,7 @@ class SubtractiveSynthChannel {
 		sampleGain.gain.value = 0;
 		this.sampleGain = sampleGain;
 		const playRateMultiplier = audioContext.createGain();
+		playRateMultiplier.gain.value = 1 / 440;
 		this.playRateMultiplier = playRateMultiplier;
 		const samplePlaybackRate = audioContext.createConstantSource();
 		samplePlaybackRate.connect(playRateMultiplier);
@@ -588,6 +607,10 @@ class SubtractiveSynthChannel {
 		this.endDecay = endDecay / 1000;
 	}
 
+	computePlaybackRate() {
+		this.playRateMultiplier.gain.setValueAtTime(this.system.getSamplePeriod(this.parameters[Parameter.SAMPLE]), time);
+	}
+
 	playSample(time) {
 		if (this.samplePlayer !== undefined) {
 			this.samplePlayer.stop(time);
@@ -595,9 +618,7 @@ class SubtractiveSynthChannel {
 		const parameters = this.parameters;
 		const sampleNumber = parameters[Parameter.SAMPLE];
 		const samplePlayer = this.system.getSamplePlayer(sampleNumber);
-		const multiplier = this.playRateMultiplier;
-		multiplier.gain.setValueAtTime(this.system.getSamplePeriod(sampleNumber), time);
-		multiplier.connect(samplePlayer.playbackRate);
+		this.playRateMultiplier.connect(samplePlayer.playbackRate);
 		samplePlayer.connect(this.sampleGain);
 		samplePlayer.start(time, parameters[Parameter.SAMPLE_OFFSET]);
 		this.samplePlayer = samplePlayer;
@@ -617,6 +638,9 @@ class SubtractiveSynthChannel {
 		let endDecay, beginRelease, endTime;
 
 		const playSample = parameters[Parameter.SOURCE] > 0;
+		const velocityReduction = (100 - parameters[Parameter.VELOCITY]) / 100;
+		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
+		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
 		const gain = this.envelope.gain;
 		gain.cancelAndHoldAtTime(start);
 
@@ -624,14 +648,14 @@ class SubtractiveSynthChannel {
 		case Gate.OPEN:
 			gain.setTargetAtTime(0.01, start, delay * 2);
 			gain.setValueAtTime(0.01, endDelay);
-			gain.linearRampToValueAtTime(velocity, endDelay + this.endAttack);
+			gain.linearRampToValueAtTime(velocity, endDelay + scaleAHD * this.endAttack);
 			this.triggerLFOs(endDelay);
-			gain.setValueAtTime(velocity, endDelay + this.endHold);
-			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDelay + this.endDecay);
+			gain.setValueAtTime(velocity, endDelay + scaleAHD * this.endHold);
+			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDelay + scaleAHD * this.endDecay);
 			break;
 
 		case Gate.CLOSED:
-			endTime = start + this.release;
+			endTime = start + scaleRelease * this.release;
 			gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime - this.system.shortestTime);
 			gain.setValueAtTime(0, endTime);
 			if (this.samplePlayer !== undefined) {
@@ -646,20 +670,25 @@ class SubtractiveSynthChannel {
 			if (playSample) {
 				this.playSample(endDelay);
 			}
-			gain.linearRampToValueAtTime(velocity, endDelay + this.endAttack);
+			gain.linearRampToValueAtTime(velocity, endDelay + scaleAHD * this.endAttack);
 			this.triggerLFOs(endDelay);
-			gain.setValueAtTime(velocity, endDelay + this.endHold);
-			endDecay = endDelay + this.endDecay;
+			gain.setValueAtTime(velocity, endDelay + scaleAHD * this.endHold);
+			endDecay = endDelay + scaleAHD * this.endDecay;
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
 			if (!playSample) {
-				beginRelease = endDelay + this.duration;
-				if (endDecay < beginRelease) {
-					gain.setValueAtTime(sustainLevel, beginRelease);
+				const duration = this.duration;
+				if (duration > 0) {
+					beginRelease = endDelay + this.duration;
+					if (endDecay < beginRelease) {
+						gain.setValueAtTime(sustainLevel, beginRelease);
+					} else {
+						gain.cancelAndHoldAtTime(beginRelease);
+					}
 				} else {
-					gain.cancelAndHoldAtTime(beginRelease);
+					beginRelease = endDecay;
 				}
-				endTime = beginRelease + this.release;
+				endTime = beginRelease + scaleRelease * this.release;
 				gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime - this.system.shortestTime);
 				gain.setValueAtTime(0, endTime);
 			}
@@ -826,6 +855,7 @@ class SubtractiveSynthChannel {
 					this.frequencies[i] = this.noteFrequencies[value[i]];
 				}
 				this.frequencies.splice(value.length);
+				this.distanceFromC = value[0] - 60;
 				break;
 
 			case Parameter.DETUNE:
@@ -974,6 +1004,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.SAMPLE:
+				this.playRateMultiplier.gain.setValueAtTime(this.system.getSamplePeriod(value), time);
 				sampleChanged = true;
 				break;
 
