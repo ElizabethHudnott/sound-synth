@@ -32,10 +32,10 @@ const Parameter = Object.freeze({
 	ATTACK: 2,		// in milliseconds
 	HOLD: 3,		// in milliseconds
 	DECAY: 4,		// in milliseconds
-	DECAY_SHAPE: 5,
+	DECAY_SHAPE: 5, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	SUSTAIN: 6,		// percentage
 	RELEASE: 7,		// in milliseconds
-	RELEASE_SHAPE: 8,
+	RELEASE_SHAPE: 8, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	DURATION: 9,	// in milliseconds
 	GATE: 10,		// CLOSED, OPEN, TRIGGER or CUT
 	WAVEFORM: 11,	// combinations of Waveform enum values
@@ -603,13 +603,14 @@ class SubtractiveSynthChannel {
 	}
 
 	gate(state, start) {
+		const parameters = this.parameters;
 		const delay = this.delay;
 		const endDelay = start + delay;
 		const velocity = this.velocity;
 		const sustainLevel = this.sustain;
 		let endDecay, beginRelease, endTime;
 
-		const playSample = this.parameters[Parameter.SOURCE] > 0;
+		const playSample = parameters[Parameter.SOURCE] > 0;
 		const gain = this.envelope.gain;
 		gain.cancelAndHoldAtTime(start);
 
@@ -620,12 +621,12 @@ class SubtractiveSynthChannel {
 			gain.linearRampToValueAtTime(velocity, endDelay + this.endAttack);
 			this.triggerLFOs(endDelay);
 			gain.setValueAtTime(velocity, endDelay + this.endHold);
-			gain.linearRampToValueAtTime(sustainLevel, endDelay + this.endDecay);
+			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDelay + this.endDecay);
 			break;
 
 		case Gate.CLOSED:
 			endTime = start + this.release;
-			gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+			gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime - this.system.shortestTime);
 			gain.setValueAtTime(0, endTime);
 			if (this.samplePlayer !== undefined) {
 				this.samplePlayer.stop(endTime);
@@ -643,7 +644,7 @@ class SubtractiveSynthChannel {
 			this.triggerLFOs(endDelay);
 			gain.setValueAtTime(velocity, endDelay + this.endHold);
 			endDecay = endDelay + this.endDecay;
-			gain.linearRampToValueAtTime(sustainLevel, endDecay);
+			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
 			if (!playSample) {
 				beginRelease = endDelay + this.duration;
@@ -653,7 +654,7 @@ class SubtractiveSynthChannel {
 					gain.cancelAndHoldAtTime(beginRelease);
 				}
 				endTime = beginRelease + this.release;
-				gain.exponentialRampToValueAtTime(NEARLY_ZERO, endTime - this.system.shortestTime);
+				gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime - this.system.shortestTime);
 				gain.setValueAtTime(0, endTime);
 			}
 			break;
@@ -686,6 +687,7 @@ class SubtractiveSynthChannel {
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
+		let dirtyFilterLFO = false;
 		let dirtyNumTicks = false;
 		let frequencySet = false;
 		let sampleChanged = false;
@@ -909,11 +911,8 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_MIN_FREQUENCY:
-				this.filterLFO.setMinMax(changeType, value, parameters[Parameter.FILTER_MAX_FREQUENCY], time);
-				break;
-
 			case Parameter.FILTER_MAX_FREQUENCY:
-				this.filterLFO.setMinMax(changeType, parameters[Parameter.FILTER_MIN_FREQUENCY], value, time);
+				dirtyFilterLFO = true;
 				break;
 
 			case Parameter.FILTER_LFO_RATE:
@@ -963,6 +962,9 @@ class SubtractiveSynthChannel {
 		}
 		if (dirtySustain) {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
+		}
+		if (dirtyFilterLFO) {
+			this.filterLFO.setMinMax(changeType, parameters[Parameter.FILTER_MIN_FREQUENCY], parameters[Parameter.FILTER_MAX_FREQUENCY], time);
 		}
 		if (dirtyNumTicks) {
 			const numTicks = parameters[Parameter.TICKS];
