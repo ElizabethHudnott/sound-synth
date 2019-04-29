@@ -632,7 +632,6 @@ class SubtractiveSynthChannel {
 	gate(state, start) {
 		const parameters = this.parameters;
 		const delay = this.delay;
-		const endDelay = start + delay;
 		const velocity = this.velocity;
 		const sustainLevel = this.sustain;
 		let endDecay, beginRelease, endTime;
@@ -646,12 +645,12 @@ class SubtractiveSynthChannel {
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.setTargetAtTime(0.01, start, delay * 2);
-			gain.setValueAtTime(0.01, endDelay);
-			gain.linearRampToValueAtTime(velocity, endDelay + scaleAHD * this.endAttack);
-			this.triggerLFOs(endDelay);
-			gain.setValueAtTime(velocity, endDelay + scaleAHD * this.endHold);
-			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDelay + scaleAHD * this.endDecay);
+			gain.setTargetAtTime(0.01, start - delay, delay * 2);
+			gain.setValueAtTime(0.01, start);
+			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
+			this.triggerLFOs(start);
+			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
+			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, start + scaleAHD * this.endDecay);
 			break;
 
 		case Gate.CLOSED:
@@ -665,21 +664,21 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.TRIGGER:
-			gain.setTargetAtTime(0.01, start, delay * 2);
-			gain.setValueAtTime(0.01, endDelay);
+			gain.setTargetAtTime(0.01, start - delay, delay * 2);
+			gain.setValueAtTime(0.01, start);
 			if (playSample) {
-				this.playSample(endDelay);
+				this.playSample(start);
 			}
-			gain.linearRampToValueAtTime(velocity, endDelay + scaleAHD * this.endAttack);
-			this.triggerLFOs(endDelay);
-			gain.setValueAtTime(velocity, endDelay + scaleAHD * this.endHold);
-			endDecay = endDelay + scaleAHD * this.endDecay;
+			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
+			this.triggerLFOs(start);
+			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
+			endDecay = start + scaleAHD * this.endDecay;
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
 			if (!playSample) {
 				const duration = this.duration;
 				if (duration > 0) {
-					beginRelease = endDelay + this.duration;
+					beginRelease = start + this.duration;
 					if (endDecay < beginRelease) {
 						gain.setValueAtTime(sustainLevel, beginRelease);
 					} else {
@@ -696,9 +695,9 @@ class SubtractiveSynthChannel {
 
 		case Gate.CUT:
 			gain.setTargetAtTime(0, start, delay / 3);
-			gain.setValueAtTime(0, endDelay);
+			gain.setValueAtTime(0, start);
 			if (this.samplePlayer !== undefined) {
-				this.samplePlayer.stop(endDelay);
+				this.samplePlayer.stop(start);
 				this.samplePlayer = undefined;
 			}
 			break;
@@ -1195,7 +1194,7 @@ class SubtractiveSynthChannel {
 }
 
 const keymap = new Map();
-keymap.set('IntlBackslash', 27);
+keymap.set('IntlBackslash', 47);
 keymap.set('KeyZ', 48);
 keymap.set('KeyS', 49);
 keymap.set('KeyX', 50);
