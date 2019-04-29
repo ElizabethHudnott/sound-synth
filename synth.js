@@ -58,7 +58,7 @@ const Parameter = Object.freeze({
 	VIBRATO_EXTENT: 28, // in cents
 	VOLUME: 29,		// percentage
 	TREMOLO_LFO: 30, // which LFO to use (1 or 2)
-	TREMOLO_AMOUNT: 31, // percentage
+	TREMOLO_DEPTH: 31, // percentage
 	PAN: 32,		// -100 to 100
 	SOURCE: 33,		// 0 (oscillator) to 100 (samples)
 	PULSE_WIDTH: 34,// percentage
@@ -928,7 +928,7 @@ class SubtractiveSynthChannel {
 				parameters[Parameter.LFO2_RATE] = value;
 				break;
 
-			case Parameter.TREMOLO_AMOUNT:
+			case Parameter.TREMOLO_DEPTH:
 				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
 				break;
 
