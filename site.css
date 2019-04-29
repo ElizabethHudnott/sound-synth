@@ -1,9 +1,26 @@
+body {
+	font-family: sans-serif;
+	font-size: 11pt;
+	margin: 0 8px;
+}
+
+fieldset {
+	line-height: 1.6;
+	margin: 8px;
+}
+
+legend {
+	font-family: fantasy;
+}
+
 #controls {
+	align-content: center;
+	align-items: stretch;
 	display: none;
 	flex-direction: column;
 	flex-wrap: wrap;
 	height: 100vh;
-	width: fit-content;
+	justify-content: space-around;
 }
 
 .flip-x {

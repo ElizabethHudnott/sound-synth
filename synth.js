@@ -42,50 +42,51 @@ const Parameter = Object.freeze({
 	FREQUENCY: 12,	// in hertz
 	DETUNE: 13,		// in cents
 	NOTES: 14,		// MIDI note number
-	VIBRATO_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
-	VIBRATO_RATE: 16, // in hertz
-	VIBRATO_EXTENT: 17, // in cents
-	VIBRATO_DELAY: 18, // in milliseconds
-	VIBRATO_ATTACK: 19, // in milliseconds
-	VIBRATO_RATE_MOD: 20, // scaling factor for vibrato frequency at beginning of attack period
-	VOLUME: 21,		// percentage
-	TREMOLO_WAVEFORM: 22, // 'sine', 'square', 'sawtooth' or 'triangle'
-	TREMOLO_RATE: 23, // in hertz
-	TREMOLO_AMOUNT: 24, // percentage
-	TREMOLO_DELAY: 25, // in milliseconds
-	TREMOLO_ATTACK: 26, // in milliseconds
-	TREMOLO_RATE_MOD: 27, // scaling factor for tremolo frequency at beginning of attack period
-	PAN: 28,		// -100 to 100
-	SOURCE: 29,		// 0 (oscillator) to 100 (samples)
-	PULSE_WIDTH: 30,// percentage
-	MIN_PULSE_WIDTH: 31, // percentage
-	MAX_PULSE_WIDTH: 32, // percentage
-	PWM_WAVEFORM: 33, // 'sine', 'square', 'sawtooth' or 'triangle'
-	PWM_RATE: 34,	// in hertz
-	FILTERED_AMOUNT: 35, // percentage
-	FILTER_TYPE: 36, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 37, // in hertz
-	FILTER_MIN_FREQUENCY: 38, // in hertz
-	FILTER_MAX_FREQUENCY: 39, // in hertz
-	Q: 40,	// 0.0001 to 1000
-	MIN_Q: 41,
-	MAX_Q: 42,
-	FILTER_LFO_WAVEFORM: 43, // 'sine', 'square', 'sawtooth' or 'triangle'
-	FILTER_LFO_RATE: 44, // in hertz
-	FILTER_LFO_SYNC: 45,
-	FILTER_GAIN: 46, // -40dB to 40dB
-	RING_MODULATION: 47, // 0 to 100
-	SYNC: 48,		// 0 or 1
-	LINE_TIME: 49,	// in steps
-	TICKS: 50, // maximum number of events during a LINE_TIME
-	RETRIGGER: 51,	// number of ticks between retriggers
-	CHORD_SPEED: 52, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 53, // A value from the Pattern enum
-	GLISSANDO_SIZE: 54, // number of steps
-	SAMPLE: 55,		// array index of the sample to play.
-	SAMPLE_OFFSET: 56, // in seconds
-	SCALE_AHD: 57,	// dimensionless (-1 or more)
-	SCALE_RELEASE: 58, // dimensionless (0 or less)
+	LFO1_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
+	LFO1_RATE: 16, // in hertz
+	LFO1_DELAY: 17, // in milliseconds
+	LFO1_ATTACK: 18, // in milliseconds
+	LFO1_RATE_MOD: 19, // scaling factor for frequency at beginning of attack period
+	LFO1_SYNC: 20,
+	LFO2_WAVEFORM: 21, // 'sine', 'square', 'sawtooth' or 'triangle'
+	LFO2_RATE: 22, // in hertz
+	LFO2_DELAY: 23, // in milliseconds
+	LFO2_ATTACK: 24, // in milliseconds
+	LFO2_RATE_MOD: 25, // scaling factor for frequency at beginning of attack period
+	LFO2_SYNC: 26,
+	VIBRATO_LFO: 27,	// which LFO to use (1 or 2)
+	VIBRATO_EXTENT: 28, // in cents
+	VOLUME: 29,		// percentage
+	TREMOLO_LFO: 30, // which LFO to use (1 or 2)
+	TREMOLO_AMOUNT: 31, // percentage
+	PAN: 32,		// -100 to 100
+	SOURCE: 33,		// 0 (oscillator) to 100 (samples)
+	PULSE_WIDTH: 34,// percentage
+	MIN_PULSE_WIDTH: 35, // percentage
+	MAX_PULSE_WIDTH: 36, // percentage
+	PWM_LFO: 37,		// which LFO to use (1 or 2)
+	FILTERED_AMOUNT: 38, // percentage
+	FILTER_TYPE: 39, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 40, // in hertz
+	MIN_FILTER_FREQUENCY: 41, // in hertz
+	MAX_FILTER_FREQUENCY: 42, // in hertz
+	Q: 43,	// 0.0001 to 1000
+	MIN_Q: 44,
+	MAX_Q: 45,
+	FILTER_LFO: 46,	// which LFO to use (1 or 2)
+	FILTER_GAIN: 47, // -40dB to 40dB
+	RING_MODULATION: 48, // 0 to 100
+	SYNC: 49,		// 0 or 1
+	LINE_TIME: 50,	// in steps
+	TICKS: 51, // maximum number of events during a LINE_TIME
+	RETRIGGER: 52,	// number of ticks between retriggers
+	CHORD_SPEED: 53, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 54, // A value from the Pattern enum
+	GLISSANDO_SIZE: 55, // number of steps
+	SAMPLE: 56,		// array index of the sample to play.
+	SAMPLE_OFFSET: 57, // in seconds
+	SCALE_AHD: 58,	// dimensionless (-1 or more)
+	SCALE_RELEASE: 59, // dimensionless (0 or less)
 });
 
 const ChangeType = Object.freeze({
@@ -131,24 +132,16 @@ const Chord = Object.freeze({
 	RANDOM: 3,
 })
 
-class Modulator {
-	constructor(audioContext, carrier) {
-		this.carriers = [carrier];
-
+class LFO {
+	constructor(audioContext) {
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
 		oscillator.frequency.value = 5;
 		this.frequency = 5;
 
-		const rangeGain = audioContext.createGain();
-		this.rangeGain = rangeGain;
-		rangeGain.gain.value = 0;
-		oscillator.connect(rangeGain);
-
-		const envelopeGain = audioContext.createGain();
-		this.envelopeGain  = envelopeGain;
-		rangeGain.connect(envelopeGain);
-		envelopeGain.connect(carrier);
+		const envelope = audioContext.createGain();
+		this.envelope  = envelope;
+		oscillator.connect(envelope);
 
 		this.delay = 0;
 		this.attack = 0;
@@ -159,10 +152,57 @@ class Modulator {
 		this.oscillator.start(when);
 	}
 
+	setFrequency(changeType, frequency, time) {
+		const param = this.oscillator.frequency;
+		param.cancelAndHoldAtTime(time);
+		param[changeType](frequency, time);
+		this.frequency = frequency;
+	}
+
+	trigger(when) {
+		if (this.delay > 0 || this.attack > 0) {
+			const gain = this.envelope.gain;
+			gain.cancelAndHoldAtTime(when);
+			const endDelay = when + this.delay;
+			const endAttack = endDelay + this.attack;
+			gain.setValueAtTime(0, when);
+			gain.setValueAtTime(0, endDelay);
+			gain.linearRampToValueAtTime(1, endAttack);
+			if (this.rateMod !== 1) {
+				const frequency = this.oscillator.frequency;
+				frequency.cancelAndHoldAtTime(when);
+				frequency.setValueAtTime(this.frequency * this.rateMod, endDelay);
+				frequency.linearRampToValueAtTime(this.frequency, endAttack);
+			}
+		}
+	}
+
+	connect(destination) {
+		this.envelope.connect(destination.range);
+		destination.lfo = this;
+	}
+
+	disconnect(destination) {
+		this.envelope.disconnect(destination.range);
+	}
+
+}
+
+class Modulator {
+	constructor(audioContext, lfo, carrier) {
+		this.lfo = lfo;
+		this.carriers = [carrier];
+		const range = audioContext.createGain();
+		this.range = range;
+		range.gain.value = 0;
+		lfo.connect(this);
+		range.connect(carrier);
+	}
+
 	setMinMax(changeType, min, max, time) {
 		const multiplier = (max - min) / 2;
 		const centre = min + multiplier;
-		this.rangeGain.gain[changeType](multiplier, time);
+		this.range.gain[changeType](multiplier, time);
 
 		for (let carrier of this.carriers) {
 			carrier[changeType](centre, time);
@@ -170,7 +210,7 @@ class Modulator {
 	}
 
 	setRange(changeType, range, time) {
-		this.rangeGain.gain[changeType](range, time);
+		this.range.gain[changeType](range, time);
 	}
 
 	setCentre(changeType, centre, time) {
@@ -179,31 +219,8 @@ class Modulator {
 		}
 	}
 
-	setFrequency(changeType, frequency, time) {
-		this.frequency = frequency;
-		this.oscillator.frequency[changeType](frequency, time);
-	}
-
-	trigger(when) {
-		if (this.delay > 0 || this.attack > 0) {
-			const gain = this.envelopeGain.gain;
-			const frequency = this.oscillator.frequency;
-			gain.cancelAndHoldAtTime(when);
-			frequency.cancelAndHoldAtTime(when);
-			const endDelay = when + this.delay;
-			const endAttack = endDelay + this.attack;
-			gain.setValueAtTime(0, when);
-			gain.setValueAtTime(0, endDelay);
-			gain.linearRampToValueAtTime(1, endAttack);
-			if (this.rateMod !== 1) {
-				frequency.setValueAtTime(this.frequency * this.rateMod, endDelay);
-				frequency.linearRampToValueAtTime(this.frequency, endAttack);
-			}
-		}
-	}
-
 	connect(carrier) {
-		this.envelopeGain.connect(carrier);
+		this.range.connect(carrier);
 		const carriers = this.carriers;
 		if (!carriers.includes(carrier)) {
 			if (carriers.length > 0) {
@@ -213,16 +230,12 @@ class Modulator {
 		}
 	}
 
-	disconnect(carrier) {
-		const index = this.carriers.indexOf(carrier);
-		if (index !== -1) {
-			this.envelopeGain.disconnect(carrier);
-			this.carriers.splice(index, 1);
-		}
+	disconnect() {
+		this.lfo.disconnect(this);
 	}
 
 	cancelAndHoldAtTime(when) {
-		this.rangeGain.gain.cancelAndHoldAtTime(when);
+		this.range.gain.cancelAndHoldAtTime(when);
 		for (let carrier of this.carriers) {
 			carrier.cancelAndHoldAtTime(when);
 		}
@@ -428,26 +441,29 @@ class SubtractiveSynthChannel {
 			440,	// frequency
 			0,		// detune
 			[69],	// MIDI note numbers
-			'sine',	// vibrato shape
-			5,		// vibrato rate
+			'sine',	// LFO 1 shape
+			5,		// LFO 1 rate
+			0,		// LFO 1 delay
+			0,		// LFO 2 attack
+			1,		// LFO 1 at a constant frequency
+			0,		// LFO 1 not synced to tempo
+			'sine',	// LFO 2 shape
+			5,		// LFO 2 rate
+			0,		// LFO 2 delay
+			0,		// LFO 2 attack
+			1,		// LFO 2 at a constant frequency
+			0,		// LFO 2 not synced to tempo
+			2,		// vibrato uses LFO 2
 			0,		// vibrato extent
-			0,		// vibrato delay
-			0,		// vibrato attack
-			1,		// vibrato at a constant frequency
 			100,	//	volume
-			'sine', // tremolo shape
-			5,		// tremolo frequency
+			1,		// tremolo uses LFO 1
 			0,		// tremolo amount
-			0,		// tremolo delay
-			0,		// tremolo attack
-			1,		// constant amount of tremolo
 			0,		// pan
 			Source.OSCILLATOR,
 			50,		// pulse width
 			50,		// min pulse width
 			50,		// max pulse width
-			'sine',	// PWM waveform
-			5,		// PWM rate
+			1,		// PWM uses LFO 1
 			100,	// filter fully enabled
 			'lowpass', // filter type
 			4400,	// filter frequency
@@ -456,9 +472,7 @@ class SubtractiveSynthChannel {
 			1,		// filter Q
 			1,		// min filter Q
 			1,		// max filter Q
-			'sine',	// filter LFO shape
-			5,		// filter LFO frequency
-			0,		// filter sync off
+			1,		// filter uses LFO 1
 			0,		// filter gain
 			0,		// ring modulation
 			0,		// sync
@@ -488,21 +502,31 @@ class SubtractiveSynthChannel {
 		this.chordDir = 1;
 		this.noteRepeated = false;
 
+		const lfo1 = new LFO(audioContext);
+		this.lfo1 = lfo1;
+		const lfo2 = new LFO(audioContext);
+		this.lfo2 = lfo2;
+		this.lfos = [lfo1, lfo2];
+
+		// Oscillator and oscillator/sample switch
 		const oscillator = new C64OscillatorNode(audioContext);
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
 		oscillator.connect(oscillatorGain);
 
+		// Pulse width modulation
 		oscillator.width.value = 0;
-		const pwm = new Modulator(audioContext, oscillator.width);
+		const pwm = new Modulator(audioContext, lfo1, oscillator.width);
 		this.pwm = pwm;
 		pwm.setMinMax(ChangeType.SET, 0.5, 0.5, audioContext.currentTime);
 
+		// Hard sync
 		const syncGain = audioContext.createGain();
 		syncGain.gain.value = 0;
 		syncGain.connect(oscillator.sync);
 		this.syncGain = syncGain;
 
+		// Playing samples
 		this.samplePlayer = undefined;
 		const sampleGain = audioContext.createGain();
 		sampleGain.gain.value = 0;
@@ -514,52 +538,52 @@ class SubtractiveSynthChannel {
 		samplePlaybackRate.connect(playRateMultiplier);
 		samplePlaybackRate.start();
 
-		const vibrato = new Modulator(audioContext, oscillator.frequency);
+		// Vibrato
+		const vibrato = new Modulator(audioContext, lfo2, oscillator.frequency);
 		this.vibrato = vibrato;
 		vibrato.connect(samplePlaybackRate.offset);
 
+		// Ring modulation
 		const ringMod = audioContext.createGain();
 		const ringInput = audioContext.createGain();
 		ringInput.connect(ringMod.gain);
 		ringInput.gain.value = 0;
 		this.ringMod = ringMod;
 		this.ringInput = ringInput;
-
 		oscillatorGain.connect(ringMod);
 		sampleGain.connect(ringMod);
 		this.gains = [oscillatorGain, sampleGain];
 
-		const envelope = audioContext.createGain();
-		this.envelope = envelope;
-		envelope.gain.value = 0;
-		ringMod.connect(envelope);
-
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
-		const filterLFO = new Modulator(audioContext, filter.frequency);
+		const filterLFO = new Modulator(audioContext, lfo1, filter.frequency);
 		this.filterLFO = filterLFO;
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
-		envelope.connect(filteredPath);
+		ringMod.connect(filteredPath);
 		filteredPath.connect(filter);
 
 		const unfilteredPath = audioContext.createGain();
 		this.unfilteredPath = unfilteredPath;
 		unfilteredPath.gain.value = 0;
-		envelope.connect(unfilteredPath);
+		ringMod.connect(unfilteredPath);
 
 		const tremoloGain = audioContext.createGain();
-		this.tremoloGain = tremoloGain;
-		const tremoloModulator = new Modulator(audioContext, tremoloGain.gain);
+		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
 		filter.connect(tremoloGain);
 		unfilteredPath.connect(tremoloGain);
 
+		const envelope = audioContext.createGain();
+		this.envelope = envelope;
+		envelope.gain.value = 0;
+		tremoloGain.connect(envelope);
+
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
-		tremoloGain.connect(panner);
+		envelope.connect(panner);
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -589,10 +613,8 @@ class SubtractiveSynthChannel {
 
 	start(when) {
 		if (!this.started) {
-			this.pwm.start(when);
-			this.vibrato.start(when);
-			this.tremolo.start(when);
-			this.filterLFO.start(when);
+			this.lfo1.start(when);
+			this.lfo2.start(when);
 			this.started = true;
 		}
 	}
@@ -625,8 +647,8 @@ class SubtractiveSynthChannel {
 	}
 
 	triggerLFOs(when) {
-		this.vibrato.trigger(when);
-		this.tremolo.trigger(when);
+		this.lfo1.trigger(when);
+		this.lfo2.trigger(when);
 	}
 
 	gate(state, start) {
@@ -714,6 +736,7 @@ class SubtractiveSynthChannel {
 	setParameters(parameterMap, step) {
 		const me = this;
 		const parameters = this.parameters;
+		const numLFOs = this.lfos.length;
 		let gate = parameterMap.get(Parameter.GATE);
 		if (gate !== undefined) {
 			gate = gate.value;
@@ -814,27 +837,51 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
-			case Parameter.PWM_WAVEFORM:
+			case Parameter.LFO1_WAVEFORM:
 				callbacks.push(function () {
-					me.pwm.oscillator.type = value;
+					me.lfo1.oscillator.type = value;
 				});
 				break;
 
-			case Parameter.VIBRATO_WAVEFORM:
+			case Parameter.LFO2_WAVEFORM:
 				callbacks.push(function () {
-					me.vibrato.oscillator.type = value;
+					me.lfo2.oscillator.type = value;
 				});
 				break;
 
-			case Parameter.TREMOLO_WAVEFORM:
+			case Parameter.VIBRATO_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.VIBRATO_LFO] = value;
 				callbacks.push(function () {
-					me.tremolo.oscillator.type = value;
+					me.vibrato.disconnect();
+					me.lfos[value - 1].connect(me.vibrato);
 				});
 				break;
 
-			case Parameter.FILTER_LFO_WAVEFORM:
+			case Parameter.TREMOLO_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.TREMOLO_LFO] = value;
 				callbacks.push(function () {
-					me.filterLFO.oscillator.type = value;
+					me.tremolo.disconnect();
+					me.lfos[value - 1].connect(me.tremolo);
+				});
+				break;
+
+			case Parameter.PWM_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.PWM_LFO] = value;
+				callbacks.push(function () {
+					me.pwm.disconnect();
+					me.lfos[value - 1].connect(me.pwm);
+				});
+				break;
+
+			case Parameter.FILTER_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.FILTER_LFO] = value;
+				callbacks.push(function () {
+					me.filterLFO.disconnect();
+					me.lfos[value - 1].connect(me.filterLFO);
 				});
 				break;
 
@@ -869,49 +916,43 @@ class SubtractiveSynthChannel {
 				this.volume.gain[changeType](volumeCurve(value), time);
 				break;
 
-			case Parameter.PWM_RATE:
+			case Parameter.LFO1_RATE:
 				value = clamp(value);
-				this.pwm.setFrequency(changeType, value, time);
-				parameters[Parameter.PWM_RATE] = value;
+				this.lfo1.setFrequency(changeType, value, time);
+				parameters[Parameter.LFO1_RATE] = value;
 				break;
 
-			case Parameter.VIBRATO_RATE:
+			case Parameter.LFO2_RATE:
 				value = clamp(value);
-				this.vibrato.setFrequency(changeType, value, time);
-				parameters[Parameter.VIBRATO_FREQUENCY] = value;
-				break;
-
-			case Parameter.TREMOLO_RATE:
-				value = clamp(value);
-				this.tremolo.setFrequency(changeType, value, time);
-				parameters[Parameter.TREMOLO_RATE] = value;
+				this.lfo2.setFrequency(changeType, value, time);
+				parameters[Parameter.LFO2_RATE] = value;
 				break;
 
 			case Parameter.TREMOLO_AMOUNT:
 				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
 				break;
 
-			case Parameter.VIBRATO_DELAY:
-				this.vibrato.delay = value / 1000;
+			case Parameter.LFO1_DELAY:
+				this.lfo1.delay = value / 1000;
 				break;
 
-			case Parameter.TREMOLO_DELAY:
-				this.tremolo.delay = value / 1000;
+			case Parameter.LFO2_DELAY:
+				this.lfo2.delay = value / 1000;
 				break;
 
-			case Parameter.VIBRATO_ATTACK:
-				this.vibrato.attack = value / 1000;
+			case Parameter.LFO1_ATTACK:
+				this.lfo1.attack = value / 1000;
 				break;
 
-			case Parameter.TREMOLO_ATTACK:
-				this.tremolo.attack = value / 1000;
+			case Parameter.LFO2_ATTACK:
+				this.lfo2.attack = value / 1000;
 
-			case Parameter.VIBRATO_RATE_MOD:
-				this.vibrato.rateMod = value;
+			case Parameter.LFO1_RATE_MOD:
+				this.lfo1.rateMod = value;
 				break;
 
-			case Parameter.TREMOLO_RATE_MOD:
-				this.tremolo.rateMod = value;
+			case Parameter.LFO2_RATE_MOD:
+				this.lfo2.rateMod = value;
 				break;
 
 			case Parameter.PAN:
@@ -961,17 +1002,13 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FILTER_FREQUENCY:
 				this.filterLFO.setMinMax(changeType, value, value, time);
-				parameters[Parameter.FILTER_MIN_FREQUENCY] = value;
-				parameters[Parameter.FILTER_MAX_FREQUENCY] = value;
+				parameters[Parameter.MIN_FILTER_FREQUENCY] = value;
+				parameters[Parameter.MAX_FILTER_FREQUENCY] = value;
 				break;
 
-			case Parameter.FILTER_MIN_FREQUENCY:
-			case Parameter.FILTER_MAX_FREQUENCY:
+			case Parameter.MIN_FILTER_FREQUENCY:
+			case Parameter.MAX_FILTER_FREQUENCY:
 				dirtyFilterLFO = changeType;
-				break;
-
-			case Parameter.FILTER_LFO_RATE:
-				this.filterLFO.oscillator.frequency[changeType](value, time);
 				break;
 
 			case Parameter.Q:
@@ -1023,7 +1060,7 @@ class SubtractiveSynthChannel {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
 		}
 		if (dirtyFilterLFO) {
-			this.filterLFO.setMinMax(dirtyFilterLFO, parameters[Parameter.FILTER_MIN_FREQUENCY], parameters[Parameter.FILTER_MAX_FREQUENCY], time);
+			this.filterLFO.setMinMax(dirtyFilterLFO, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
 		}
 		if (dirtyNumTicks) {
 			const numTicks = parameters[Parameter.TICKS];
