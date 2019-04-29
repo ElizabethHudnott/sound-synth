@@ -35,8 +35,17 @@
 						<option value="0">Guitar</option>
 						<option value="1">Violin</option>
 					</select>
-
-				<input type="range" oninput="set(Synth.Param.PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Pulse Width
+			</fieldset>
+			<fieldset>
+				<legend>Pulse Width Modulation</legend>
+				<input type="radio" name="pwm-waveform" oninput="set(Synth.Param.PWM_WAVEFORM, 'sine')" checked>Sine
+				<input type="radio" name="pwm-waveform" oninput="set(Synth.Param.PWM_WAVEFORM, 'square')">Square
+				<input type="radio" name="pwm-waveform" oninput="set(Synth.Param.PWM_WAVEFORM, 'sawtooth')">Sawtooth
+				<input type="radio" name="pwm-waveform" oninput="set(Synth.Param.PWM_WAVEFORM, 'triangle')">Triangle
+				<br>
+				<input type="range" oninput="set(Synth.Param.MIN_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Min Pulse Width<br>
+				<input type="range" oninput="set(Synth.Param.MAX_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50" step="1">Max Pulse Width<br>
+				<input type="range" oninput="set(Synth.Param.PWM_RATE, parseFloat(this.value))" min="0" max="20" value="5" step="0.1">Rate<br>
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
@@ -166,7 +175,7 @@
 				system.loadSample(1, 'samples/violin.wav', sampleLoaded);
 				system.sampledNote[1] = 46;
 				document.getElementById('intro').style.display = 'none';
-				document.getElementById('controls').style.display = 'block';
+				document.getElementById('controls').style.display = 'flex';
 			}
 
 			function set(parameterNumber, value, delay, changeType, channelNumber) {

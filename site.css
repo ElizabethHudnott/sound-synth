@@ -1,5 +1,8 @@
 #controls {
 	display: none;
+	flex-direction: column;
+	flex-wrap: wrap;
+	height: 100vh;
 	width: fit-content;
 }
 
