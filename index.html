@@ -14,9 +14,10 @@
 			<fieldset>
 				<legend>Activation</legend>
 				<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
-				<button onmousedown="set(Synth.Param.GATE, Synth.Gate.OPEN)" onmouseup="set(Synth.Param.GATE, Synth.Gate.CLOSED)">Play Held Down</button>
 				<button onclick="set(Synth.Param.GATE, channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
-				<button onclick="set(Synth.Param.GATE, Synth.Gate.CUT)">Cut</button>
+				<br>
+				<small>You can also play notes using the computer keyboard.</small><br>
+				<input id="one-shot" type="checkbox" checked>One Shot
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
@@ -28,7 +29,7 @@
 				<br>
 				Source:
 				<input type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.OSCILLATOR)" checked>Oscillator
-				<input type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.SAMPLE)">Samples
+				<input id="samples" type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.SAMPLE)">Samples
 				<br>
 				Sample:
 					<select oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
@@ -72,7 +73,7 @@
 			<fieldset>
 				<legend>Frequency</legend>
 				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="8000" value="440" step="0.001">Frequency<br>
-				<input id="note" type="range" oninput="playNote()" min="21" max="108" value="69" step="1">Note<br>
+				<input id="note" type="range" oninput="playNote(Synth.Gate.TRIGGER)" min="21" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>
@@ -131,7 +132,7 @@
 				<legend>Sequencing</legend>
 				<input id="line-time" type="range" oninput="setLineTime(parseInt(this.value))" min="15" max="150" value="50" step="1">Playing Time<br>
 				<input id="ticks" type="range" oninput="calcTicks()" min="1" max="50" step="0.1" value="50">Ticks / second<br>
-				1<input type="text" id="chord" oninput="playNote()" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small><br>
+				1<input type="text" id="chord" oninput="playNote(Synth.Gate.TRIGGER)" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small><br>
 				<input type="range" oninput="set(Synth.Param.CHORD_SPEED, parseInt(this.value))" min="0" max="16" value="1" step="1">Chord rotation time<br>
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.CYCLE)">Cycle
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO)">To and Fro
@@ -157,6 +158,7 @@
 			const system = new Synth.System(audioContext);
 			let stepNumber = 1;
 			let tempOpen = false;
+			let octaveOffset = 0;
 			let channels, timer;
 
 			function sampleLoaded(url, success, message) {
@@ -220,7 +222,7 @@
 				set(Synth.Param.MIX, levels, 0, Synth.ChangeType.SET, channelNumber);
 			}
 
-			function playNote() {
+			function playNote(gate) {
 				const noteNumber = parseInt(document.getElementById('note').value);
 				document.getElementById('frequency').value = channels[0].noteFrequencies[noteNumber];
 				const notes = [noteNumber];
@@ -232,7 +234,7 @@
 				const parameterMap = new Map();
 				parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes));
 				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
-					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
+					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 				}
 				channels[0].setParameters(parameterMap);
 			}
@@ -255,6 +257,40 @@
 			}
 
 			document.addEventListener('keydown', function (event) {
+				if (event.repeat || event.shiftKey || event.altKey || event.ctrlKey ||
+					document.activeElement.type === 'text'
+				) {
+					return;
+				}
+
+				const code = event.code;
+
+				if (code === 'Quote') {
+					set(Synth.Param.GATE, Synth.Gate.CUT);
+					event.preventDefault();
+				} else if (code === 'NumpadDivide') {
+					octaveOffset--;
+					if (octaveOffset < -3) {
+						octaveOffset = -3;
+					}
+				} else if (code === 'NumpadMultiply') {
+					octaveOffset++;
+					if (octaveOffset > 4) {
+						octaveOffset = 4;
+					}
+				} else {
+					const note = Synth.keymap.get(code);
+					if (note !== undefined) {
+						document.getElementById('note').value = octaveOffset * 12 + note;
+						const gate = document.getElementById('one-shot').checked || document.getElementById('samples').checked?
+							Synth.Gate.TRIGGER : Synth.Gate.OPEN;
+						playNote(gate);
+						event.preventDefault();
+					}
+				}
+			});
+
+			document.addEventListener('keyup', function (event) {
 				if (event.shiftKey || event.altKey || event.ctrlKey ||
 					document.activeElement.type === 'text'
 				) {
@@ -263,9 +299,10 @@
 
 				const note = Synth.keymap.get(event.code);
 				if (note !== undefined) {
-					document.getElementById('note').value = note;
-					playNote();
-					event.preventDefault();
+					if (!document.getElementById('one-shot').checked) {
+						set(Synth.Param.GATE, Synth.Gate.CLOSED);
+						event.preventDefault();
+					}
 				}
 			});
 		</script>

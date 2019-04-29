@@ -60,33 +60,36 @@ const Parameter = Object.freeze({
 	TREMOLO_LFO: 30, // which LFO to use (1 or 2)
 	TREMOLO_DEPTH: 31, // percentage
 	PAN: 32,		// -100 to 100
-	SOURCE: 33,		// 0 (oscillator) to 100 (samples)
-	PULSE_WIDTH: 34,// percentage
-	MIN_PULSE_WIDTH: 35, // percentage
-	MAX_PULSE_WIDTH: 36, // percentage
-	PWM_LFO: 37,		// which LFO to use (1 or 2)
-	FILTERED_AMOUNT: 38, // percentage
-	FILTER_TYPE: 39, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 40, // in hertz
-	MIN_FILTER_FREQUENCY: 41, // in hertz
-	MAX_FILTER_FREQUENCY: 42, // in hertz
-	Q: 43,	// 0.0001 to 1000
-	MIN_Q: 44,
-	MAX_Q: 45,
-	FILTER_LFO: 46,	// which LFO to use (1 or 2)
-	FILTER_GAIN: 47, // -40dB to 40dB
-	RING_MODULATION: 48, // 0 to 100
-	SYNC: 49,		// 0 or 1
-	LINE_TIME: 50,	// in steps
-	TICKS: 51, // maximum number of events during a LINE_TIME
-	RETRIGGER: 52,	// number of ticks between retriggers
-	CHORD_SPEED: 53, // number of ticks between notes of a broken chord
-	CHORD_PATTERN: 54, // A value from the Pattern enum
-	GLISSANDO_SIZE: 55, // number of steps
-	SAMPLE: 56,		// array index of the sample to play.
-	SAMPLE_OFFSET: 57, // in seconds
-	SCALE_AHD: 58,	// dimensionless (-1 or more)
-	SCALE_RELEASE: 59, // dimensionless (0 or less)
+	LEFTMOST_PAN: 33,
+	RIGHTMOST_PAN: 34,
+	PAN_LFO: 35,
+	SOURCE: 36,		// 0 (oscillator) to 100 (samples)
+	PULSE_WIDTH: 37,// percentage
+	MIN_PULSE_WIDTH: 38, // percentage
+	MAX_PULSE_WIDTH: 39, // percentage
+	PWM_LFO: 40,		// which LFO to use (1 or 2)
+	FILTERED_AMOUNT: 41, // percentage
+	FILTER_TYPE: 42, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 43, // in hertz
+	MIN_FILTER_FREQUENCY: 44, // in hertz
+	MAX_FILTER_FREQUENCY: 45, // in hertz
+	Q: 46,	// 0.0001 to 1000
+	MIN_Q: 47,
+	MAX_Q: 48,
+	FILTER_LFO: 49,	// which LFO to use (1 or 2)
+	FILTER_GAIN: 50, // -40dB to 40dB
+	RING_MODULATION: 51, // 0 to 100
+	SYNC: 52,		// 0 or 1
+	LINE_TIME: 53,	// in steps
+	TICKS: 54, // maximum number of events during a LINE_TIME
+	RETRIGGER: 55,	// number of ticks between retriggers
+	CHORD_SPEED: 56, // number of ticks between notes of a broken chord
+	CHORD_PATTERN: 57, // A value from the Pattern enum
+	GLISSANDO_SIZE: 58, // number of steps
+	SAMPLE: 59,		// array index of the sample to play.
+	SAMPLE_OFFSET: 60, // in seconds
+	SCALE_AHD: 61,	// dimensionless (-1 or more)
+	SCALE_RELEASE: 62, // dimensionless (0 or less)
 });
 
 const ChangeType = Object.freeze({
@@ -459,6 +462,9 @@ class SubtractiveSynthChannel {
 			1,		// tremolo uses LFO 1
 			0,		// tremolo amount
 			0,		// pan
+			0,		// leftmost pan change
+			0,		// rightmost pan change
+			1,		// pan LFO
 			Source.OSCILLATOR,
 			50,		// pulse width
 			50,		// min pulse width
