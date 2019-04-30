@@ -116,18 +116,18 @@
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
-				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="0" max="500" value="2" step="1">Attack<br>
-				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Hold<br>
-				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="0" max="1000" value="50" step="1">Decay
+				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="1000" value="2" step="1">Attack<br>
+				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="2000" value="0" step="1">Hold<br>
+				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="0" max="2000" value="50" step="1">Decay
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
 				<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="75" step="1">Sustain<br>
-				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1000" value="300" step="1">Release
+				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="2000" value="300" step="1">Release
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
-				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="4000" value="200" step="1">Default Duration<br>
+				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="5000" value="200" step="1">Default Duration<br>
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
@@ -144,6 +144,7 @@
 				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO_SIZE, 0)">Reset</button>
 				<br>
 				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time<br>
+				<input type="checkbox" oninput="set(Synth.Param.MULTI_TRIGGER, this.checked ? 1 : 0)">Use Multi-Trigger
 			</fieldset>
 			<fieldset>
 				<legend>Pan</legend>
