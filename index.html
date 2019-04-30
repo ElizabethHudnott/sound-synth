@@ -18,6 +18,7 @@
 				<br>
 				<small>You can also play notes using the computer keyboard.</small><br>
 				<input id="one-shot" type="checkbox" checked>One Shot
+				<input id="retrigger" type="checkbox" checked>Retrigger
 			</fieldset>
 			<fieldset>
 				<legend>Generation</legend>
@@ -73,7 +74,7 @@
 			<fieldset>
 				<legend>Frequency</legend>
 				<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="8000" value="440" step="0.001">Frequency<br>
-				<input id="note" type="range" oninput="playNote(Synth.Gate.TRIGGER)" min="21" max="108" value="69" step="1">Note<br>
+				<input id="note" type="range" oninput="playNote(Synth.Gate.MULTI_TRIGGER)" min="21" max="108" value="69" step="1">Note<br>
 				<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 			</fieldset>
 			<fieldset>
@@ -290,8 +291,17 @@
 					const note = Synth.keymap.get(code);
 					if (note !== undefined) {
 						document.getElementById('note').value = octaveOffset * 12 + note;
-						const gate = document.getElementById('one-shot').checked || document.getElementById('samples').checked?
-							Synth.Gate.TRIGGER : Synth.Gate.OPEN;
+						let gate;
+						if (document.getElementById('one-shot').checked ||
+							document.getElementById('samples').checked
+						) {
+							gate = Synth.Gate.TRIGGER;
+						} else {
+							gate = Synth.Gate.OPEN;
+						}
+						if (!document.getElementById('retrigger').checked) {
+							gate = gate + Synth.Gate.MULTI_TRIGGERABLE;
+						}
 						playNote(gate);
 						event.preventDefault();
 					}

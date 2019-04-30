@@ -108,11 +108,19 @@ class Change {
 	}
 }
 
+/**
+ * 1 do release phase
+ * 2 do attack, hold & decay phases
+ * 4 don't start from 0 (retrigger off)
+ */
 const Gate = Object.freeze({
-	CLOSED: 0,
-	CUT: 1,
+	CUT: 0,
+	CLOSED: 5,
 	OPEN: 2,
 	TRIGGER: 3,
+	REOPEN: 6,
+	MULTI_TRIGGER: 7,
+	MULTI_TRIGGERABLE: 4,
 });
 
 const Waveform = Object.freeze({
@@ -669,12 +677,17 @@ class SubtractiveSynthChannel {
 		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
 		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
 		const gain = this.envelope.gain;
-		gain.cancelAndHoldAtTime(start - 0.001);
+
+		if ((state & 4) === 0) {
+			gain.cancelAndHoldAtTime(start - 0.001);
+			gain.linearRampToValueAtTime(0, start);
+		} else {
+			gain.cancelAndHoldAtTime(start);
+		}
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.linearRampToValueAtTime(0, start);
-			gain.setValueAtTime(0, start);
+		case Gate.REOPEN:
 			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
 			this.triggerLFOs(start);
 			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
@@ -692,8 +705,7 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.TRIGGER:
-			gain.linearRampToValueAtTime(0, start);
-			gain.setValueAtTime(0, start);
+		case Gate.MULTI_TRIGGER:
 			if (playSample) {
 				this.playSample(start);
 			}
@@ -722,7 +734,6 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.CUT:
-			gain.linearRampToValueAtTime(0, start);
 			gain.setValueAtTime(0, start);
 			if (this.samplePlayer !== undefined) {
 				this.samplePlayer.stop(start);
