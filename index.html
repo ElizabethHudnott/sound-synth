@@ -44,7 +44,7 @@
 				<input type="radio" name="lfo1-waveform" oninput="set(Synth.Param.LFO1_WAVEFORM, 'sawtooth')">Sawtooth
 				<input type="radio" name="lfo1-waveform" oninput="set(Synth.Param.LFO1_WAVEFORM, 'triangle')">Triangle
 				<br>
-				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0" max="20" value="5" step="0.1">Rate<br>
+				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Change<br>
@@ -56,7 +56,7 @@
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'sawtooth')">Sawtooth
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'triangle')">Triangle
 				<br>
-				<input type="range" oninput="set(Synth.Param.LFO2_RATE, parseFloat(this.value))" min="0" max="20" value="5" step="0.1">Rate<br>
+				<input type="range" oninput="set(Synth.Param.LFO2_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Change<br>
@@ -145,9 +145,17 @@
 				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time<br>
 			</fieldset>
 			<fieldset>
+				<legend>Pan</legend>
+				Oscillator:
+				<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 1)" checked>LFO 1
+				<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 2)">LFO 2
+				<br>
+				<input type="range" oninput="set(Synth.Param.LEFTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0" step="1">Leftmost Point<br>
+				<input type="range" oninput="set(Synth.Param.RIGHTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0" step="1">Rightmost Point<br>
+			</fieldset>
+			<fieldset>
 				<legend>Output</legend>
-				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume
-				<input type="range" oninput="set(Synth.Param.PAN, parseFloat(this.value))" min="-100" max="100" value="0" step="1">Pan
+				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume<br>
 			</fieldset>
 			<div style="flex-grow: 1"></div>
 		</div>

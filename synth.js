@@ -563,8 +563,8 @@ class SubtractiveSynthChannel {
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
-		const filterLFO = new Modulator(audioContext, lfo1, filter.frequency);
-		this.filterLFO = filterLFO;
+		const filterMod = new Modulator(audioContext, lfo1, filter.frequency);
+		this.filterMod = filterMod;
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
@@ -590,6 +590,8 @@ class SubtractiveSynthChannel {
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		envelope.connect(panner);
+		const panMod = new Modulator(audioContext, lfo1, panner.pan);
+		this.panMod = panMod;
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -748,10 +750,13 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
-		let dirtyPWM = undefined; // holds change type
+		// Each of these holds a change type
+		let dirtyPWM = undefined;
+		let dirtyFilterLFO = undefined;
+		let dirtyPan = undefined;
+
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
-		let dirtyFilterLFO = undefined;  // holds change type
 		let dirtyNumTicks = false;
 		let frequencySet = false;
 		let sampleChanged = false;
@@ -886,8 +891,17 @@ class SubtractiveSynthChannel {
 				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
 				parameters[Parameter.FILTER_LFO] = value;
 				callbacks.push(function () {
-					me.filterLFO.disconnect();
-					me.lfos[value - 1].connect(me.filterLFO);
+					me.filterMod.disconnect();
+					me.lfos[value - 1].connect(me.filterMod);
+				});
+				break;
+
+			case Parameter.PAN_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.PAN_LFO] = value;
+				callbacks.push(function () {
+					me.panMod.disconnect();
+					me.lfos[value - 1].connect(me.panMod);
 				});
 				break;
 
@@ -961,10 +975,6 @@ class SubtractiveSynthChannel {
 				this.lfo2.rateMod = value;
 				break;
 
-			case Parameter.PAN:
-				this.panner.pan.setValueAtTime(value / 100, time);
-				break;
-
 			case Parameter.SYNC:
 				value = Math.trunc(Math.abs(value)) % 2;
 				this.syncGain.gain.setValueAtTime(value, time);
@@ -1007,7 +1017,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
-				this.filterLFO.setMinMax(changeType, value, value, time);
+				this.filterMod.setMinMax(changeType, value, value, time);
 				parameters[Parameter.MIN_FILTER_FREQUENCY] = value;
 				parameters[Parameter.MAX_FILTER_FREQUENCY] = value;
 				break;
@@ -1023,6 +1033,17 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FILTER_GAIN:
 				this.filter.gain[changeType](value, time);
+				break;
+
+			case Parameter.PAN:
+				this.pannerMod.setMinMax(changeType, value / 100, value / 100, time);
+				parameters[Parameter.LEFTMOST_PAN] = value;
+				parameters[Parameter.RIGHTMOST_PAN] = value;
+				break;
+
+			case Parameter.LEFTMOST_PAN:
+			case Parameter.RIGHTMOST_PAN:
+				dirtyPan = changeType;
 				break;
 
 			case Parameter.RING_MODULATION:
@@ -1066,8 +1087,12 @@ class SubtractiveSynthChannel {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
 		}
 		if (dirtyFilterLFO) {
-			this.filterLFO.setMinMax(dirtyFilterLFO, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
+			this.filterMod.setMinMax(dirtyFilterLFO, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
 		}
+		if (dirtyPan) {
+			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
+		}
+
 		if (dirtyNumTicks) {
 			const numTicks = parameters[Parameter.TICKS];
 			if (numTicks > parameters[Parameter.LINE_TIME]) {
