@@ -671,12 +671,12 @@ class SubtractiveSynthChannel {
 		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
 		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
 		const gain = this.envelope.gain;
-		gain.cancelAndHoldAtTime(start);
+		gain.cancelAndHoldAtTime(start - delay);
 
 		switch (state) {
 		case Gate.OPEN:
-			gain.setTargetAtTime(0.01, start - delay, delay * 2);
-			gain.setValueAtTime(0.01, start);
+			gain.linearRampToValueAtTime(0, start);
+			gain.setValueAtTime(0, start);
 			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
 			this.triggerLFOs(start);
 			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
@@ -694,8 +694,8 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.TRIGGER:
-			gain.setTargetAtTime(0.01, start - delay, delay * 2);
-			gain.setValueAtTime(0.01, start);
+			gain.linearRampToValueAtTime(0, start);
+			gain.setValueAtTime(0, start);
 			if (playSample) {
 				this.playSample(start);
 			}
