@@ -28,61 +28,61 @@ function volumeCurve(value) {
 
 const Parameter = Object.freeze({
 	VELOCITY: 0,	// percentage
-	DELAY: 1,		// in milliseconds
-	ATTACK: 2,		// in milliseconds
-	HOLD: 3,		// in milliseconds
-	DECAY: 4,		// in milliseconds
-	DECAY_SHAPE: 5, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
-	SUSTAIN: 6,		// percentage
-	RELEASE: 7,		// in milliseconds
-	RELEASE_SHAPE: 8, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
-	DURATION: 9,	// in milliseconds (0 = auto)
-	GATE: 10,		// CLOSED, OPEN, TRIGGER or CUT
-	WAVEFORM: 11,	// combinations of Waveform enum values
-	FREQUENCY: 12,	// in hertz
-	DETUNE: 13,		// in cents
-	NOTES: 14,		// MIDI note number
-	LFO1_WAVEFORM: 15, // 'sine', 'square', 'sawtooth' or 'triangle'
-	LFO1_RATE: 16, // in hertz
-	LFO1_DELAY: 17, // in milliseconds
-	LFO1_ATTACK: 18, // in milliseconds
-	LFO1_RATE_MOD: 19, // scaling factor for frequency at beginning of attack period
-	LFO1_SYNC: 20,
-	LFO2_WAVEFORM: 21, // 'sine', 'square', 'sawtooth' or 'triangle'
-	LFO2_RATE: 22, // in hertz
-	LFO2_DELAY: 23, // in milliseconds
-	LFO2_ATTACK: 24, // in milliseconds
-	LFO2_RATE_MOD: 25, // scaling factor for frequency at beginning of attack period
-	LFO2_SYNC: 26,
-	VIBRATO_LFO: 27,	// which LFO to use (1 or 2)
-	VIBRATO_EXTENT: 28, // in cents
-	VOLUME: 29,		// percentage
-	TREMOLO_LFO: 30, // which LFO to use (1 or 2)
-	TREMOLO_DEPTH: 31, // percentage
-	PAN: 32,		// -100 to 100
-	LEFTMOST_PAN: 33,
-	RIGHTMOST_PAN: 34,
-	PAN_LFO: 35,
-	SOURCE: 36,		// 0 (oscillator) to 100 (samples)
-	PULSE_WIDTH: 37,// percentage
-	MIN_PULSE_WIDTH: 38, // percentage
-	MAX_PULSE_WIDTH: 39, // percentage
-	PWM_LFO: 40,		// which LFO to use (1 or 2)
-	FILTERED_AMOUNT: 41, // percentage
-	FILTER_TYPE: 42, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
-	FILTER_FREQUENCY: 43, // in hertz
-	MIN_FILTER_FREQUENCY: 44, // in hertz
-	MAX_FILTER_FREQUENCY: 45, // in hertz
-	Q: 46,	// 0.0001 to 1000
-	MIN_Q: 47,
-	MAX_Q: 48,
-	FILTER_LFO: 49,	// which LFO to use (1 or 2)
-	FILTER_GAIN: 50, // -40dB to 40dB
-	RING_MODULATION: 51, // 0 to 100
-	SYNC: 52,		// 0 or 1
-	LINE_TIME: 53,	// in steps
-	TICKS: 54, // maximum number of events during a LINE_TIME
-	RETRIGGER: 55,	// number of ticks between retriggers
+	ATTACK: 1,		// in milliseconds
+	HOLD: 2,		// in milliseconds
+	DECAY: 3,		// in milliseconds
+	DECAY_SHAPE: 4, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
+	SUSTAIN: 5,		// percentage
+	RELEASE: 6,		// in milliseconds
+	RELEASE_SHAPE: 7, // ChangeType.LINEAR or ChangeType.EXPONENTIAL
+	DURATION: 8,	// in milliseconds (0 = auto)
+	GATE: 9,		// CLOSED, OPEN, TRIGGER or CUT
+	WAVEFORM: 10,	// combinations of Waveform enum values
+	FREQUENCY: 11,	// in hertz
+	DETUNE: 12,		// in cents
+	NOTES: 13,		// MIDI note number
+	LFO1_WAVEFORM: 14, // 'sine', 'square', 'sawtooth' or 'triangle'
+	LFO1_RATE: 15, // in hertz
+	LFO1_DELAY: 16, // in milliseconds
+	LFO1_ATTACK: 17, // in milliseconds
+	LFO1_RATE_MOD: 18, // scaling factor for frequency at beginning of attack period
+	LFO1_SYNC: 19,
+	LFO2_WAVEFORM: 20, // 'sine', 'square', 'sawtooth' or 'triangle'
+	LFO2_RATE: 21, // in hertz
+	LFO2_DELAY: 22, // in milliseconds
+	LFO2_ATTACK: 23, // in milliseconds
+	LFO2_RATE_MOD: 24, // scaling factor for frequency at beginning of attack period
+	LFO2_SYNC: 25,
+	VIBRATO_LFO: 26,	// which LFO to use (1 or 2)
+	VIBRATO_EXTENT: 27, // in cents
+	VOLUME: 28,		// percentage
+	TREMOLO_LFO: 29, // which LFO to use (1 or 2)
+	TREMOLO_DEPTH: 30, // percentage
+	PAN: 31,		// -100 to 100
+	LEFTMOST_PAN: 32,
+	RIGHTMOST_PAN: 33,
+	PAN_LFO: 34,
+	SOURCE: 35,		// 0 (oscillator) to 100 (samples)
+	PULSE_WIDTH: 36,// percentage
+	MIN_PULSE_WIDTH: 37, // percentage
+	MAX_PULSE_WIDTH: 38, // percentage
+	PWM_LFO: 39,		// which LFO to use (1 or 2)
+	FILTERED_AMOUNT: 40, // percentage
+	FILTER_TYPE: 41, // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	FILTER_FREQUENCY: 42, // in hertz
+	MIN_FILTER_FREQUENCY: 43, // in hertz
+	MAX_FILTER_FREQUENCY: 44, // in hertz
+	Q: 45,	// 0.0001 to 1000
+	MIN_Q: 46,
+	MAX_Q: 47,
+	FILTER_LFO: 48,	// which LFO to use (1 or 2)
+	FILTER_GAIN: 49, // -40dB to 40dB
+	RING_MODULATION: 50, // 0 to 100
+	SYNC: 51,		// 0 or 1
+	LINE_TIME: 52,	// in steps
+	TICKS: 53, // maximum number of events during a LINE_TIME
+	RETRIGGER: 54,	// number of ticks between retriggers
+	MULTI_TRIGGER: 55, // 0 or 1
 	CHORD_SPEED: 56, // number of ticks between notes of a broken chord
 	CHORD_PATTERN: 57, // A value from the Pattern enum
 	GLISSANDO_SIZE: 58, // number of steps
@@ -430,7 +430,6 @@ class SubtractiveSynthChannel {
 		this.system = system;
 		this.parameters = [
 			100,	// velocity
-			1,		// delay
 			2,		// attack
 			0,		// hold
 			50,		// decay
@@ -485,6 +484,7 @@ class SubtractiveSynthChannel {
 			24,		// line time (125bpm, allegro)
 			24,		// number of ticks for broken chords, glissando and retrigger
 			0,		// retrigger time (ticks)
+			0,		// don't use multi-trigger
 			1,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
@@ -494,7 +494,6 @@ class SubtractiveSynthChannel {
 			0,		// envelope scaling for the release
 		];
 		this.velocity = 1;
-		this.delay = 0.001;
 		this.sustain = volumeCurve(70); // combined sustain and velocity
 		this.release = 0.3;
 		this.duration = 0.2;
@@ -661,7 +660,6 @@ class SubtractiveSynthChannel {
 
 	gate(state, start) {
 		const parameters = this.parameters;
-		const delay = this.delay;
 		const velocity = this.velocity;
 		const sustainLevel = this.sustain;
 		let endDecay, beginRelease, endTime;
@@ -671,7 +669,7 @@ class SubtractiveSynthChannel {
 		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
 		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
 		const gain = this.envelope.gain;
-		gain.cancelAndHoldAtTime(start - delay);
+		gain.cancelAndHoldAtTime(start - 0.001);
 
 		switch (state) {
 		case Gate.OPEN:
@@ -724,7 +722,7 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.CUT:
-			gain.setTargetAtTime(0, start, delay / 3);
+			gain.linearRampToValueAtTime(0, start);
 			gain.setValueAtTime(0, start);
 			if (this.samplePlayer !== undefined) {
 				this.samplePlayer.stop(start);
@@ -815,10 +813,6 @@ class SubtractiveSynthChannel {
 			}
 
 			switch (paramNumber) {
-			case Parameter.DELAY:
-				this.delay = value / 1000;
-				break;
-
 			case Parameter.ATTACK:
 			case Parameter.HOLD:
 			case Parameter.DECAY:
