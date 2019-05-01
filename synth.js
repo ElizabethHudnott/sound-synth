@@ -1,7 +1,6 @@
 (function (global) {
 'use strict';
 
-const NEARLY_ZERO = 1 / 65535;
 const SEMITONE = 2 ** (1 / 12);
 const CENT = 2 ** (1 / 1200);
 
@@ -37,6 +36,7 @@ function enumFromArray(array) {
 const Parameter = enumFromArray([
 	'VELOCITY',	// percentage
 	'ATTACK',		// in milliseconds
+	'ATTACK_CURVE', // 0.5 = linear approximation, 3 = good exponential choice
 	'HOLD',		// in milliseconds
 	'DECAY',		// in milliseconds
 	'DECAY_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
@@ -118,7 +118,7 @@ class Change {
 
 /**
  * 1 do release phase
- * 2 do attack, hold & decay phases
+ * 2 do attack, hold and decay phases
  * 4 don't start from 0 (retrigger off)
  */
 const Gate = Object.freeze({
@@ -173,7 +173,7 @@ class LFO {
 
 	setFrequency(changeType, frequency, time) {
 		const param = this.oscillator.frequency;
-		param.cancelAndHoldAtTime(time);
+		param.cancelScheduledValues(time);
 		param[changeType](frequency, time);
 		this.frequency = frequency;
 	}
@@ -190,7 +190,9 @@ class LFO {
 			if (this.rateMod !== 1) {
 				const frequency = this.oscillator.frequency;
 				frequency.cancelAndHoldAtTime(when);
-				frequency.setValueAtTime(this.frequency * this.rateMod, endDelay);
+				const startRate = this.frequency * this.rateMod;
+				frequency.setValueAtTime(startRate, when);
+				frequency.setValueAtTime(startRate, endDelay);
 				frequency.linearRampToValueAtTime(this.frequency, endAttack);
 			}
 		}
@@ -285,7 +287,6 @@ class SynthSystem {
 		this.sampleLoopEnd = [];
 		this.sampledNote = [];
 
-		this.shortestTime = 1 / audioContext.sampleRate;
 		this.startTime = audioContext.currentTime;
 		this.tempoChanged = 0;
 		this.systemParameters = [Parameter.LINE_TIME, Parameter.TICKS];
@@ -447,13 +448,14 @@ class SubtractiveSynthChannel {
 		this.parameters = [
 			100,	// velocity
 			2,		// attack
+			0.5,	// attack curve
 			0,		// hold
 			50,		// decay
 			ChangeType.LINEAR,	// decay shape
 			70,		// sustain
 			300,	// release
 			ChangeType.LINEAR, // release shape
-			200,	// duration
+			0,		// set duration to automatic
 			Gate.CLOSED, // gate
 			Waveform.TRIANGLE, // waveform
 			440,	// frequency
@@ -644,12 +646,15 @@ class SubtractiveSynthChannel {
 
 	calcEnvelope() {
 		const params = this.parameters;
-		const endAttack = params[Parameter.ATTACK];
-		const endHold = endAttack + params[Parameter.HOLD];
+		const attack = params[Parameter.ATTACK];
+		const endHold = attack + params[Parameter.HOLD];
 		const endDecay = endHold + params[Parameter.DECAY];
-		this.endAttack = endAttack / 1000;
+		this.endAttack = attack / 1000;
 		this.endHold = endHold / 1000;
 		this.endDecay = endDecay / 1000;
+		const attackCurve = params[Parameter.ATTACK_CURVE];
+		this.attackConstant = (attack / 1000) / attackCurve;
+		this.attackScale = 1 / (1 - Math.E ** -attackCurve);
 	}
 
 	computePlaybackRate() {
@@ -678,34 +683,49 @@ class SubtractiveSynthChannel {
 		const parameters = this.parameters;
 		const velocity = this.velocity;
 		const sustainLevel = this.sustain;
-		let endDecay, beginRelease, endTime;
+		let beginRelease, endTime;
 
 		const playSample = parameters[Parameter.SOURCE] > 0;
 		const velocityReduction = (100 - parameters[Parameter.VELOCITY]) / 100;
 		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
 		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
+		const releaseTime = scaleRelease * this.release;
 		const gain = this.envelope.gain;
+
+		const endAttack = start + scaleAHD * this.endAttack;
+		const attackConstant = this.attackConstant * scaleAHD;
+		const releaseConstant = 4;
 
 		if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
 			gain.cancelAndHoldAtTime(start - 0.001);
-			gain.linearRampToValueAtTime(0.01, start);
+			gain.setTargetAtTime(0, start - 0.001, 0.001 / 2);
+			if ((state & Gate.OPEN) !== 0) {
+				gain.setTargetAtTime(velocity * this.attackScale, start, attackConstant);
+				gain.setValueAtTime(velocity, endAttack);
+			}
 		} else {
 			gain.cancelAndHoldAtTime(start);
+			if ((state & Gate.OPEN) !== 0) {
+				gain.setTargetAtTime(velocity, start, (endAttack - start) / parameters[Parameter.ATTACK_CURVE]);
+			}
 		}
 
 		switch (state) {
 		case Gate.OPEN:
 		case Gate.REOPEN:
-			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
 			this.triggerLFOs(start);
 			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, start + scaleAHD * this.endDecay);
 			break;
 
 		case Gate.CLOSED:
-			endTime = start + scaleRelease * this.release;
-			gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime);
-			gain.setValueAtTime(0, endTime + this.system.shortestTime);
+			endTime = start + releaseTime;
+			gain.setTargetAtTime(0, start, releaseTime / releaseConstant);
+			if (parameters[Parameter.RELEASE_SHAPE] === ChangeType.EXPONENTIAL) {
+				gain.setTargetAtTime(0, start + releaseTime * 7 / releaseConstant, 0.0005);
+			} else {
+				gain.linearRampToValueAtTime(0, endTime);
+			}
 			if (this.samplePlayer !== undefined) {
 				this.samplePlayer.stop(endTime);
 				this.samplePlayer = undefined;
@@ -717,32 +737,41 @@ class SubtractiveSynthChannel {
 			if (playSample) {
 				this.playSample(start);
 			}
-			gain.linearRampToValueAtTime(velocity, start + scaleAHD * this.endAttack);
 			this.triggerLFOs(start);
-			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
-			endDecay = start + scaleAHD * this.endDecay;
+			let endHold = start + scaleAHD * this.endHold;
+			let endDecay = start + scaleAHD * this.endDecay;
+			const duration = this.duration;
+			if (duration > 0) {
+				beginRelease = start + this.duration;
+				if (beginRelease < endDecay) {
+					// shorten hold phase to accommodate short duration
+					let newEndHold = endHold - (endDecay - beginRelease);
+					if (newEndHold < endAttack) {
+						newEndHold = endAttack;
+					}
+					endDecay = endDecay - (endHold - newEndHold);
+					endHold = newEndHold;
+					beginRelease = endDecay;
+				}
+			} else {
+				beginRelease = endDecay;
+			}
+			gain.setValueAtTime(velocity, endHold);
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
 			if (!playSample) {
-				const duration = this.duration;
-				if (duration > 0) {
-					beginRelease = start + this.duration;
-					if (endDecay < beginRelease) {
-						gain.setValueAtTime(sustainLevel, beginRelease);
-					} else {
-						gain.cancelAndHoldAtTime(beginRelease);
-					}
+				gain.setValueAtTime(sustainLevel, beginRelease);
+				if (parameters[Parameter.RELEASE_SHAPE] === ChangeType.EXPONENTIAL) {
+					gain.setTargetAtTime(0, beginRelease, releaseTime / releaseConstant);
+					gain.setTargetAtTime(0, beginRelease + releaseTime * 7 / releaseConstant, 0.0005);
 				} else {
-					beginRelease = endDecay;
+					endTime = beginRelease + releaseTime;
+					gain.linearRampToValueAtTime(0, endTime);
 				}
-				endTime = beginRelease + scaleRelease * this.release;
-				gain[parameters[Parameter.RELEASE_SHAPE]](NEARLY_ZERO, endTime);
-				gain.setValueAtTime(0, endTime + this.system.shortestTime);
 			}
 			break;
 
 		case Gate.CUT:
-			gain.setValueAtTime(0, start);
 			if (this.samplePlayer !== undefined) {
 				this.samplePlayer.stop(start);
 				this.samplePlayer = undefined;
@@ -833,6 +862,7 @@ class SubtractiveSynthChannel {
 
 			switch (paramNumber) {
 			case Parameter.ATTACK:
+			case Parameter.ATTACK_CURVE:
 			case Parameter.HOLD:
 			case Parameter.DECAY:
 				dirtyEnvelope = true;
@@ -997,7 +1027,7 @@ class SubtractiveSynthChannel {
 			case Parameter.SOURCE:
 				if (value === 0 && gate === undefined) {
 					const currentGate = parameters[Parameter.GATE];
-					if (currentGate === Gate.TRIGGER) {
+					if ((currentGate & Gate.TRIGGER) === Gate.TRIGGER) {
 						const param = this.envelope.gain;
 						param.cancelAndHoldAtTime(time);
 						param.setValueAtTime(0, time);

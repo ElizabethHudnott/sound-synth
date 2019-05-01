@@ -98,9 +98,9 @@
 				<input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking
 				<br>
 				<input type="range" oninput="set(Synth.Param.FILTERED_AMOUNT, parseFloat(this.value))" min="0" max="100" value="0" step="1">Amount<br>
-				<input type="range" oninput="if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) { tempOpen = true; set(Synth.Param.GATE, Synth.Gate.OPEN);} set(Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="if (tempOpen) { set(Synth.Param.GATE, Synth.Gate.CLOSED); tempOpen = false;}" min="30" max="10000" value="4400" step="1">Min Frequency<br>
-				<input type="range" oninput="if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) { tempOpen = true; set(Synth.Param.GATE, Synth.Gate.OPEN);} set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="if (tempOpen) { set(Synth.Param.GATE, Synth.Gate.CLOSED); tempOpen = false;}" min="30" max="10000" value="4400" step="1">Max Frequency<br>
-				<input type="range" oninput="set(Synth.Param.FILTER_Q, parseFloat(this.value))" min="1" max="1000" value="1" step="1">Resonance / Width<br>
+				<input type="range" oninput="tempOpen(); set(Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1">Min Frequency<br>
+				<input type="range" oninput="tempOpen(); set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1">Max Frequency<br>
+				<input type="range" oninput="tempOpen(); set(Synth.Param.Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Resonance / Width<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 				Oscillator:
 				<input type="radio" name="filter-lfo" oninput="set(Synth.Param.FILTER_LFO, 1)" checked>LFO 1
@@ -116,9 +116,11 @@
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
-				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="1000" value="2" step="1">Attack<br>
+				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="1000" value="2" step="1">Attack
+				<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="6" value="0.25" step="0.25">Curve
+				<br>
 				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="2000" value="0" step="1">Hold<br>
-				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="0" max="2000" value="50" step="1">Decay
+				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="1" max="2000" value="50" step="1">Decay
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
@@ -127,7 +129,8 @@
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
-				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="5000" value="200" step="1">Default Duration<br>
+				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="5000" value="0" step="1">Default Duration
+				<small>(0 = auto)</small>
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
@@ -167,7 +170,7 @@
 			const audioContext = new AudioContext({sampleRate: 96000});
 			const system = new Synth.System(audioContext);
 			let stepNumber = 1;
-			let tempOpen = false;
+			let tempOpened = false;
 			let octaveOffset = 0;
 			let channels, timer;
 
@@ -197,6 +200,7 @@
 
 				system.start();
 				set(Synth.Param.FILTERED_AMOUNT, 0);
+				set(Synth.Param.FILTER_FREQUENCY, 4000);
 				set(Synth.Param.LINE_TIME, 50, 0);
 				timer = setInterval(sendNewLine, 1000);
 				sendNewLine();
@@ -226,10 +230,18 @@
 				channels[channelNumber].setParameters(parameterMap, time);
 			}
 
-			function mix(channelNumber, source, amount) {
-				const levels = channels[channelNumber].parameters[Synth.Param.MIX].slice();
-				levels.splice(source, 1, amount);
-				set(Synth.Param.MIX, levels, 0, Synth.ChangeType.SET, channelNumber);
+			function tempOpen() {
+				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
+					set(Synth.Param.GATE, Synth.Gate.OPEN);
+					tempOpened = true;
+				}
+			}
+
+			function endTempOpen() {
+				if (tempOpened) {
+					set(Synth.Param.GATE, Synth.Gate.CLOSED);
+					tempOpened = false;
+				}
 			}
 
 			function playNote(gate) {
