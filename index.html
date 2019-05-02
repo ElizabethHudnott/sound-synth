@@ -97,10 +97,12 @@
 				<input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highshelf')">High Shelf
 				<input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking
 				<br>
-				<input type="range" oninput="tempOpen(); set(Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1">Min Frequency<br>
-				<input type="range" oninput="tempOpen(); set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1">Max Frequency<br>
-				<input type="range" oninput="tempOpen(); set(Synth.Param.MIN_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Min Resonance / Width<br>
-				<input type="range" oninput="tempOpen(); set(Synth.Param.MAX_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Max Resonance / Width<br>
+				<input type="range" oninput="tempOpen(); set(document.getElementById('single-filter-frequency').checked? Synth.Param.FILTER_FREQUENCY : Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1">Min Frequency<br>
+				<input id="max-filter-frequency" type="range" oninput="tempOpen(); set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="4000" value="4400" step="1" disabled>Max Frequency
+				<input id="single-filter-frequency" type="checkbox" oninput="{let maxControl = document.getElementById('max-filter-frequency'); maxControl.disabled = this.checked; set(Synth.Param.MAX_FILTER_FREQUENCY, this.checked ? channels[0].parameters[Synth.Param.MIN_FILTER_FREQUENCY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<input type="range" oninput="tempOpen(); set(document.getElementById('single-Q').checked? Synth.Param.Q : Synth.Param.MIN_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Min Resonance / Width<br>
+				<input id="max-Q" type="range" oninput="tempOpen(); set(Synth.Param.MAX_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01" disabled>Max Resonance / Width
+				<input id="single-Q" type="checkbox" oninput="{let maxControl = document.getElementById('max-Q'); maxControl.disabled = this.checked; set(Synth.Param.MAX_Q, this.checked ? channels[0].parameters[Synth.Param.MIN_Q] : parseFloat(maxControl.value))}" checked>Max = Min<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_MIX, parseFloat(this.value))" min="0" max="200" value="0" step="1" style="width: 258px">Wet Mix<br>
 				<input type="range" oninput="set(Synth.Param.UNFILTERED_MIX, parseFloat(this.value))" min="0" max="100" value="100" step="1" style="width: 129px">Dry Mix<br>
