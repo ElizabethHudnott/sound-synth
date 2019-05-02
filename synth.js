@@ -34,64 +34,65 @@ function enumFromArray(array) {
 }
 
 const Parameter = enumFromArray([
-	'VELOCITY',	// percentage
+	'VELOCITY',		// percentage
 	'ATTACK',		// in milliseconds
 	'ATTACK_CURVE', // 0.5 = linear approximation, 3 = good exponential choice
-	'HOLD',		// in milliseconds
+	'HOLD',			// in milliseconds
 	'DECAY',		// in milliseconds
-	'DECAY_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
+	'DECAY_SHAPE',	// ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	'SUSTAIN',		// percentage
 	'RELEASE',		// in milliseconds
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
-	'DURATION',	// in milliseconds (0 = auto)
-	'GATE',		// CLOSED, OPEN, TRIGGER or CUT
-	'WAVEFORM',	// combinations of Waveform enum values
+	'DURATION',		// in milliseconds (0 = auto)
+	'GATE',			// CLOSED, OPEN, TRIGGER or CUT
+	'WAVEFORM',		// combinations of Waveform enum values
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// in cents
 	'NOTES',		// MIDI note number
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
-	'LFO1_RATE', // in hertz
-	'LFO1_DELAY', // in milliseconds
-	'LFO1_ATTACK', // in milliseconds
+	'LFO1_RATE',	// in hertz
+	'LFO1_DELAY',	// in milliseconds
+	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO1_SYNC',
 	'LFO2_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
-	'LFO2_RATE', // in hertz
-	'LFO2_DELAY', // in milliseconds
-	'LFO2_ATTACK', // in milliseconds
+	'LFO2_RATE',	// in hertz
+	'LFO2_DELAY',	// in milliseconds
+	'LFO2_ATTACK',	// in milliseconds
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO2_SYNC',
 	'VIBRATO_LFO',	// which LFO to use (1 or 2)
 	'VIBRATO_EXTENT', // in cents
 	'VOLUME',		// percentage
-	'TREMOLO_LFO', // which LFO to use (1 or 2)
+	'TREMOLO_LFO',	// which LFO to use (1 or 2)
 	'TREMOLO_DEPTH', // percentage
-	'PAN',		// -100 to 100
-	'LEFTMOST_PAN',
-	'RIGHTMOST_PAN',
-	'PAN_LFO',
+	'PAN',			// -100 to 100
+	'LEFTMOST_PAN',	// -100 to 100
+	'RIGHTMOST_PAN', // -100 to 100
+	'PAN_LFO',		// which LFO to use (1 or 2)
 	'SOURCE',		// 0 (oscillator) to 100 (samples)
-	'PULSE_WIDTH',// percentage
+	'PULSE_WIDTH',	// percentage
 	'MIN_PULSE_WIDTH', // percentage
 	'MAX_PULSE_WIDTH', // percentage
 	'PWM_LFO',		// which LFO to use (1 or 2)
-	'FILTERED_AMOUNT', // percentage
-	'FILTER_TYPE', // 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
+	'FILTER_TYPE',	// 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	'FILTER_FREQUENCY', // in hertz
 	'MIN_FILTER_FREQUENCY', // in hertz
 	'MAX_FILTER_FREQUENCY', // in hertz
-	'Q',	// 0.0001 to 1000
+	'Q',			// 0.0001 to 1000
 	'MIN_Q',
 	'MAX_Q',
 	'FILTER_LFO',	// which LFO to use (1 or 2)
-	'FILTER_GAIN', // -40dB to 40dB
+	'FILTER_GAIN',	// -40dB to 40dB
+	'FILTER_MIX', // percentage (may be more than 100)
+	'UNFILTERED_MIX', // percentage
 	'RING_MODULATION', // 0 to 100
-	'SYNC',		// 0 or 1
+	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
-	'TICKS', // maximum number of events during a LINE_TIME
+	'TICKS',		// maximum number of events during a LINE_TIME
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
-	'CHORD_SPEED', // number of ticks between notes of a broken chord
+	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO_SIZE', // number of steps
 	'SAMPLE',		// array index of the sample to play.
@@ -487,7 +488,6 @@ class SubtractiveSynthChannel {
 			50,		// min pulse width
 			50,		// max pulse width
 			1,		// PWM uses LFO 1
-			100,	// filter fully enabled
 			'lowpass', // filter type
 			4400,	// filter frequency
 			4400,	// minimum filter frequency
@@ -497,6 +497,8 @@ class SubtractiveSynthChannel {
 			1,		// max filter Q
 			1,		// filter uses LFO 1
 			0,		// filter gain
+			100,	// filter fully enabled
+			0,		// filter fully enabled
 			0,		// ring modulation
 			0,		// sync
 			24,		// line time (125bpm, allegro)
@@ -585,8 +587,8 @@ class SubtractiveSynthChannel {
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
-		ringMod.connect(filteredPath);
-		filteredPath.connect(filter);
+		ringMod.connect(filter);
+		filter.connect(filteredPath);
 
 		const unfilteredPath = audioContext.createGain();
 		this.unfilteredPath = unfilteredPath;
@@ -596,7 +598,7 @@ class SubtractiveSynthChannel {
 		const tremoloGain = audioContext.createGain();
 		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
-		filter.connect(tremoloGain);
+		filteredPath.connect(tremoloGain);
 		unfilteredPath.connect(tremoloGain);
 
 		const envelope = audioContext.createGain();
@@ -799,6 +801,7 @@ class SubtractiveSynthChannel {
 		// Each of these holds a change type
 		let dirtyPWM = undefined;
 		let dirtyFilterLFO = undefined;
+		let dirtyMix = undefined;
 		let dirtyPan = undefined;
 
 		let dirtyEnvelope = false;
@@ -1048,11 +1051,6 @@ class SubtractiveSynthChannel {
 				dirtyPWM = changeType;
 				break;
 
-			case Parameter.FILTERED_AMOUNT:
-				this.filteredPath.gain[changeType](value / 100, time);
-				this.unfilteredPath.gain[changeType](1 - value / 100, time);
-				break;
-
 			case Parameter.FILTER_TYPE:
 				callbacks.push(function () {
 					me.filter.type = value;
@@ -1076,6 +1074,11 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FILTER_GAIN:
 				this.filter.gain[changeType](value, time);
+				break;
+
+			case Parameter.FILTER_MIX:
+			case Parameter.UNFILTERED_MIX:
+				dirtyMix = changeType;
 				break;
 
 			case Parameter.PAN:
@@ -1136,6 +1139,17 @@ class SubtractiveSynthChannel {
 		}
 		if (dirtyFilterLFO) {
 			this.filterMod.setMinMax(dirtyFilterLFO, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
+		}
+		if (dirtyMix) {
+			let filtered = volumeCurve(parameters[Parameter.FILTER_MIX]);
+			let unfiltered = volumeCurve(parameters[Parameter.UNFILTERED_MIX]);
+			const total = filtered + unfiltered;
+			if (total < 1 && total > 0) {
+				filtered = filtered / total;
+				unfiltered = unfiltered / total;
+			}
+			this.filteredPath.gain[dirtyMix](filtered, time);
+			this.unfilteredPath.gain[dirtyMix](unfiltered, time);
 		}
 		if (dirtyPan) {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
