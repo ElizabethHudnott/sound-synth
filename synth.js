@@ -54,12 +54,14 @@ const Parameter = enumFromArray([
 	'LFO1_DELAY',	// in milliseconds
 	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
+	'LFO1_FADE', // one of the Direction enums
 	'LFO1_SYNC',
 	'LFO2_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO2_RATE',	// in hertz
 	'LFO2_DELAY',	// in milliseconds
 	'LFO2_ATTACK',	// in milliseconds
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
+	'LFO2_FADE', // one of the Direction enums
 	'LFO2_SYNC',
 	'VIBRATO_LFO',	// which LFO to use (1 or 2)
 	'VIBRATO_EXTENT', // in cents
@@ -150,7 +152,12 @@ const Chord = Object.freeze({
 	TO_AND_FRO: 1,
 	TO_AND_FRO_2: 2,
 	RANDOM: 3,
-})
+});
+
+const Direction = Object.freeze({
+	UP: 1,
+	DOWN: -1,
+});
 
 class LFO {
 	constructor(audioContext) {
@@ -166,6 +173,7 @@ class LFO {
 		this.delay = 0;
 		this.attack = 0;
 		this.rateMod = 1;
+		this.fadeDirection = Direction.UP;
 	}
 
 	start(when) {
@@ -174,28 +182,41 @@ class LFO {
 
 	setFrequency(changeType, frequency, time) {
 		const param = this.oscillator.frequency;
-		param.cancelScheduledValues(time);
+		param.cancelAndHoldAtTime(time);
 		param[changeType](frequency, time);
 		this.frequency = frequency;
 	}
 
 	trigger(when) {
-		if (this.delay > 0 || this.attack > 0) {
-			const gain = this.envelope.gain;
-			gain.cancelAndHoldAtTime(when);
-			const endDelay = when + this.delay;
-			const endAttack = endDelay + this.attack;
-			gain.setValueAtTime(0, when);
-			gain.setValueAtTime(0, endDelay);
-			gain.linearRampToValueAtTime(1, endAttack);
-			if (this.rateMod !== 1) {
-				const frequency = this.oscillator.frequency;
-				frequency.cancelAndHoldAtTime(when);
-				const startRate = this.frequency * this.rateMod;
-				frequency.setValueAtTime(startRate, when);
-				frequency.setValueAtTime(startRate, endDelay);
-				frequency.linearRampToValueAtTime(this.frequency, endAttack);
+		const gain = this.envelope.gain;
+		gain.cancelAndHoldAtTime(when);
+
+		const endDelay = when + this.delay;
+		const endAttack = endDelay + this.attack;
+
+		if (endAttack === when) {
+			gain.setValueAtTime(1, when);
+		} else {
+			const startValue = this.fadeDirection === Direction.UP ? 0 : 1;
+			const endValue = 1 - startValue;
+
+			gain.setValueAtTime(startValue, when);
+			gain.setValueAtTime(startValue, endDelay);
+			gain.linearRampToValueAtTime(endValue, endAttack);
+
+			const frequency = this.oscillator.frequency;
+			frequency.cancelAndHoldAtTime(when);
+			let startRate, endRate;
+			if (this.fadeDirection === Direction.UP) {
+				endRate = this.frequency;
+				startRate = endRate * this.rateMod;
+			} else {
+				startRate = this.frequency;
+				endRate = startRate * this.rateMod;
 			}
+			frequency.setValueAtTime(startRate, when);
+			frequency.setValueAtTime(startRate, endDelay);
+			frequency.linearRampToValueAtTime(endRate, endAttack);
 		}
 	}
 
@@ -467,12 +488,14 @@ class SubtractiveSynthChannel {
 			0,		// LFO 1 delay
 			0,		// LFO 2 attack
 			1,		// LFO 1 at a constant frequency
+			Direction.UP, // LFO 1 fades up (when an attack is set)
 			0,		// LFO 1 not synced to tempo
 			'sine',	// LFO 2 shape
 			5,		// LFO 2 rate
 			0,		// LFO 2 delay
 			0,		// LFO 2 attack
 			1,		// LFO 2 at a constant frequency
+			Direction.UP, // LFO 2 fades up (when an attack is set)
 			0,		// LFO 2 not synced to tempo
 			2,		// vibrato uses LFO 2
 			0,		// vibrato extent
@@ -1022,6 +1045,14 @@ class SubtractiveSynthChannel {
 				this.lfo2.rateMod = value;
 				break;
 
+			case Parameter.LFO1_FADE:
+				this.lfo1.fadeDirection = value;
+				break;
+
+			case Parameter.LFO2_FADE:
+				this.lfo2.fadeDirection = value;
+				break;
+
 			case Parameter.SYNC:
 				value = Math.trunc(Math.abs(value)) % 2;
 				this.syncGain.gain.setValueAtTime(value, time);
@@ -1381,6 +1412,7 @@ global.Synth = {
 	SubtractiveSynthChannel: SubtractiveSynthChannel,
 	System: SynthSystem,
 	ChangeType: ChangeType,
+	Direction: Direction,
 	Gate: Gate,
 	Pattern: Chord,
 	Param: Parameter,

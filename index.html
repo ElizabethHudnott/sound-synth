@@ -46,9 +46,10 @@
 				<input type="radio" name="lfo1-waveform" oninput="set(Synth.Param.LFO1_WAVEFORM, 'triangle')">Triangle
 				<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
-				<input type="range" oninput="set(Synth.Param.LFO1_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay<br>
-				<input type="range" oninput="set(Synth.Param.LFO1_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack<br>
-				<input type="range" oninput="set(Synth.Param.LFO1_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Change<br>
+				<input type="checkbox" oninput="set(Synth.Param.LFO1_FADE, this.checked ? Synth.Direction.UP : Synth.Direction.DOWN)" checked>Fade In / Out<br>
+				<input type="range" oninput="set(Synth.Param.LFO1_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
+				<input type="range" oninput="set(Synth.Param.LFO1_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
+				<input type="range" oninput="set(Synth.Param.LFO1_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation<br>
 			</fieldset>
 			<fieldset>
 				<legend>LFO 2</legend>
@@ -58,9 +59,10 @@
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'triangle')">Triangle
 				<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
-				<input type="range" oninput="set(Synth.Param.LFO2_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay<br>
-				<input type="range" oninput="set(Synth.Param.LFO2_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack<br>
-				<input type="range" oninput="set(Synth.Param.LFO2_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Change<br>
+				<input type="checkbox" oninput="set(Synth.Param.LFO2_FADE, this.checked ? Synth.Direction.UP : Synth.Direction.DOWN)" checked>Fade In / Out<br>
+				<input type="range" oninput="set(Synth.Param.LFO2_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
+				<input type="range" oninput="set(Synth.Param.LFO2_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
+				<input type="range" oninput="set(Synth.Param.LFO2_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation<br>
 			</fieldset>
 			<fieldset>
 				<legend>Pulse Width Modulation</legend>
