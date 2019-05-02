@@ -80,8 +80,8 @@ const Parameter = enumFromArray([
 	'MIN_FILTER_FREQUENCY', // in hertz
 	'MAX_FILTER_FREQUENCY', // in hertz
 	'Q',			// 0.0001 to 1000
-	'MIN_Q',
-	'MAX_Q',
+	'MIN_Q',		// 0.0001 to 1000
+	'MAX_Q',		// 0.0001 to 1000
 	'FILTER_LFO',	// which LFO to use (1 or 2)
 	'FILTER_GAIN',	// -40dB to 40dB
 	'FILTER_MIX', // percentage (may be more than 100)
@@ -582,8 +582,10 @@ class SubtractiveSynthChannel {
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
-		const filterMod = new Modulator(audioContext, lfo1, filter.frequency);
-		this.filterMod = filterMod;
+		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
+		this.filterFrequencyMod = filterFrequencyMod;
+		const filterQMod = new Modulator(audioContext, lfo1, filter.Q);
+		this.filterQMod = filterQMod;
 
 		const filteredPath = audioContext.createGain();
 		this.filteredPath = filteredPath;
@@ -798,11 +800,8 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
-		// Each of these holds a change type
-		let dirtyPWM = undefined;
-		let dirtyFilterLFO = undefined;
-		let dirtyMix = undefined;
-		let dirtyPan = undefined;
+		// Each of these holds a change type (or undefined for no change)
+		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyPan;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -937,8 +936,10 @@ class SubtractiveSynthChannel {
 				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
 				parameters[Parameter.FILTER_LFO] = value;
 				callbacks.push(function () {
-					me.filterMod.disconnect();
-					me.lfos[value - 1].connect(me.filterMod);
+					me.filterFrequencyMod.disconnect();
+					me.filterQMod.disconnect()
+					me.lfos[value - 1].connect(me.filterFrequencyMod);
+					me.lfos[value - 1].connect(me.filterQMod);
 				});
 				break;
 
@@ -1058,18 +1059,25 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_FREQUENCY:
-				this.filterMod.setMinMax(changeType, value, value, time);
+				this.filterFrequencyMod.setMinMax(changeType, value, value, time);
 				parameters[Parameter.MIN_FILTER_FREQUENCY] = value;
 				parameters[Parameter.MAX_FILTER_FREQUENCY] = value;
 				break;
 
 			case Parameter.MIN_FILTER_FREQUENCY:
 			case Parameter.MAX_FILTER_FREQUENCY:
-				dirtyFilterLFO = changeType;
+				dirtyFilterFrequency = changeType;
 				break;
 
 			case Parameter.Q:
-				this.filter.Q[changeType](value, time);
+				this.filterQMod.setMinMax(changeType, value, value, time);
+				parameters[Parameter.MIN_Q] = value;
+				parameters[Parameter.MAX_Q] = value;
+				break;
+
+			case Parameter.MIN_Q:
+			case Parameter.MAX_Q:
+				dirtyFilterQ = changeType;
 				break;
 
 			case Parameter.FILTER_GAIN:
@@ -1137,8 +1145,11 @@ class SubtractiveSynthChannel {
 		if (dirtySustain) {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
 		}
-		if (dirtyFilterLFO) {
-			this.filterMod.setMinMax(dirtyFilterLFO, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
+		if (dirtyFilterFrequency) {
+			this.filterFrequencyMod.setMinMax(dirtyFilterFrequency, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
+		}
+		if (dirtyFilterQ) {
+			this.filterQMod.setMinMax(dirtyFilterQ, parameters[Parameter.MIN_Q], parameters[Parameter.MAX_Q], time);
 		}
 		if (dirtyMix) {
 			let filtered = volumeCurve(parameters[Parameter.FILTER_MIX]);
