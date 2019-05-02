@@ -1,12 +1,15 @@
 body {
 	font-family: sans-serif;
 	font-size: 11pt;
-	margin: 0 8px;
+	margin: 8px 0;
 }
 
 fieldset {
+	break-inside: avoid;
+	box-sizing: border-box;
 	line-height: 1.6;
-	margin: 8px;
+	margin: 8px auto;
+	width: 407px;
 }
 
 legend {
@@ -14,13 +17,11 @@ legend {
 }
 
 #controls {
-	align-content: center;
-	align-items: stretch;
+	column-width: 407px;
 	display: none;
-	flex-direction: column;
-	flex-wrap: wrap;
-	height: 100vh;
-	justify-content: space-around;
+	column-gap: 2vw;
+	margin-left: 2vw;
+	margin-right: 2vw;
 }
 
 .flip-x {

@@ -48,7 +48,7 @@
 				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.UP)" checked>Fade In
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.DOWN)">Fade Out
-
+				<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation<br>
@@ -172,7 +172,6 @@
 				<legend>Output</legend>
 				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume<br>
 			</fieldset>
-			<div style="flex-grow: 1"></div>
 		</div>
 
 		<script src="synth.js"></script>
@@ -220,7 +219,7 @@
 				system.loadSample(1, 'samples/violin.wav', sampleLoaded);
 				system.sampledNote[1] = 46;
 				document.getElementById('intro').style.display = 'none';
-				document.getElementById('controls').style.display = 'flex';
+				document.getElementById('controls').style.display = 'block';
 			}
 
 			function set(parameterNumber, value, delay, changeType, channelNumber) {
