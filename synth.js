@@ -88,6 +88,12 @@ const Parameter = enumFromArray([
 	'FILTER_GAIN',	// -40dB to 40dB
 	'FILTER_MIX', // percentage (may be more than 100)
 	'UNFILTERED_MIX', // percentage
+	'DELAY',		// milliseconds
+	'MIN_DELAY',	// milliseconds
+	'MAX_DELAY',	// milliseconds
+	'DELAY_LFO',	// which LFO to use (1 or 2)
+	'DELAY_MIX',	// percentage (may be more than 100)
+	'FEEDBACK',		// percentage
 	'RING_MODULATION', // 0 to 100
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
@@ -522,6 +528,12 @@ class SubtractiveSynthChannel {
 			0,		// filter gain
 			100,	// filter fully enabled
 			0,		// filter fully enabled
+			0, 		// no delay
+			0,		// no delay
+			0,		// no delay
+			1,		// delay uses LFO 1
+			100,	// delay mix
+			0,		// feedback
 			0,		// ring modulation
 			0,		// sync
 			24,		// line time (125bpm, allegro)
@@ -550,6 +562,7 @@ class SubtractiveSynthChannel {
 		this.chordDir = 1;
 		this.noteRepeated = false;
 
+		// LFOs
 		const lfo1 = new LFO(audioContext);
 		this.lfo1 = lfo1;
 		const lfo2 = new LFO(audioContext);
@@ -591,6 +604,39 @@ class SubtractiveSynthChannel {
 		this.vibrato = vibrato;
 		vibrato.connect(samplePlaybackRate.offset);
 
+		// Filter
+		const filter = audioContext.createBiquadFilter();
+		this.filter = filter;
+		filter.frequency.value = 4400;
+		oscillatorGain.connect(filter);
+		sampleGain.connect(filter);
+		this.gains = [oscillatorGain, sampleGain];
+
+		// Filter modulation
+		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
+		this.filterFrequencyMod = filterFrequencyMod;
+		const filterQMod = new Modulator(audioContext, lfo1, filter.Q);
+		this.filterQMod = filterQMod;
+
+		// Filter output
+		const filteredPath = audioContext.createGain();
+		this.filteredPath = filteredPath;
+		filter.connect(filteredPath);
+
+		// Filter bypass
+		const unfilteredPath = audioContext.createGain();
+		this.unfilteredPath = unfilteredPath;
+		unfilteredPath.gain.value = 0;
+		oscillatorGain.connect(unfilteredPath);
+		sampleGain.connect(unfilteredPath);
+
+		// Envelope
+		const envelope = audioContext.createGain();
+		this.envelope = envelope;
+		envelope.gain.value = 0;
+		filteredPath.connect(envelope);
+		unfilteredPath.connect(envelope);
+
 		// Ring modulation
 		const ringMod = audioContext.createGain();
 		const ringInput = audioContext.createGain();
@@ -598,45 +644,47 @@ class SubtractiveSynthChannel {
 		ringInput.gain.value = 0;
 		this.ringMod = ringMod;
 		this.ringInput = ringInput;
-		oscillatorGain.connect(ringMod);
-		sampleGain.connect(ringMod);
-		this.gains = [oscillatorGain, sampleGain];
+		envelope.connect(ringMod);
 
-		const filter = audioContext.createBiquadFilter();
-		this.filter = filter;
-		filter.frequency.value = 4400;
-		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
-		this.filterFrequencyMod = filterFrequencyMod;
-		const filterQMod = new Modulator(audioContext, lfo1, filter.Q);
-		this.filterQMod = filterQMod;
-
-		const filteredPath = audioContext.createGain();
-		this.filteredPath = filteredPath;
-		ringMod.connect(filter);
-		filter.connect(filteredPath);
-
-		const unfilteredPath = audioContext.createGain();
-		this.unfilteredPath = unfilteredPath;
-		unfilteredPath.gain.value = 0;
-		ringMod.connect(unfilteredPath);
-
-		const envelope = audioContext.createGain();
-		this.envelope = envelope;
-		envelope.gain.value = 0;
-		filteredPath.connect(envelope);
-		unfilteredPath.connect(envelope);
-
+		// Tremolo
 		const tremoloGain = audioContext.createGain();
 		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
-		envelope.connect(tremoloGain);
+		ringMod.connect(tremoloGain);
 
+		// Delay effect
+		const delay = audioContext.createDelay(0.25);
+		this.delay = delay;
+		const delayedPath = audioContext.createGain();
+		this.delayedPath = delayedPath;
+		delay.connect(delayedPath);
+		const undelayedPath = audioContext.createGain();
+		this.undelayedPath = undelayedPath;
+		undelayedPath.gain.value = 0;
+		tremoloGain.connect(delay)
+		tremoloGain.connect(undelayedPath);
+		const feedback = audioContext.createGain();
+		this.feedback = feedback;
+		feedback.gain.value = 0;
+		delayedPath.connect(feedback);
+		undelayedPath.connect(feedback);
+		feedback.connect(delay);
+		feedback.connect(undelayedPath);
+		const delayOutput = audioContext.createGain();
+		this.delayOutput = delayOutput;
+		delayedPath.connect(delayOutput);
+		undelayedPath.connect(delayOutput);
+		const flanger = new Modulator(audioContext, lfo1, delay.delayTime);
+		this.flanger = flanger;
+
+		// Panning
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
-		tremoloGain.connect(panner);
+		delayOutput.connect(panner);
 		const panMod = new Modulator(audioContext, lfo1, panner.pan);
 		this.panMod = panMod;
 
+		// Volume
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		panner.connect(volume);
@@ -658,7 +706,8 @@ class SubtractiveSynthChannel {
 
 	connect(channel) {
 		const node = channel.ringInput;
-		this.envelope.connect(node);
+		this.filteredPath.connect(node);
+		this.unfilteredPath.connect(node);
 		this.oscillator.connect(channel.syncGain, 1);
 	}
 
@@ -823,7 +872,7 @@ class SubtractiveSynthChannel {
 		}
 
 		// Each of these holds a change type (or undefined for no change)
-		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyPan;
+		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -965,6 +1014,15 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
+			case Parameter.DELAY_LFO:
+				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				parameters[Parameter.DELAY_LFO] = value;
+				callbacks.push(function () {
+					me.flanger.disconnect();
+					me.lfos[value - 1].connect(me.flanger);
+				});
+				break;
+
 			case Parameter.PAN_LFO:
 				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
 				parameters[Parameter.PAN_LFO] = value;
@@ -1005,6 +1063,10 @@ class SubtractiveSynthChannel {
 				this.volume.gain[changeType](volumeCurve(value), time);
 				break;
 
+			case Parameter.TREMOLO_DEPTH:
+				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
+				break;
+
 			case Parameter.LFO1_RATE:
 				value = clamp(value);
 				this.lfo1.setFrequency(changeType, value, time);
@@ -1015,10 +1077,6 @@ class SubtractiveSynthChannel {
 				value = clamp(value);
 				this.lfo2.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO2_RATE] = value;
-				break;
-
-			case Parameter.TREMOLO_DEPTH:
-				this.tremolo.setMinMax(changeType, 1 - value / 100, 1, time);
 				break;
 
 			case Parameter.LFO1_DELAY:
@@ -1119,6 +1177,27 @@ class SubtractiveSynthChannel {
 				dirtyMix = changeType;
 				break;
 
+			case Parameter.DELAY:
+				this.flanger.setMinMax(changeType, value / 1000, value / 1000, time);
+				parameters[Parameter.MIN_DELAY] = value;
+				parameters[Parameter.MAX_DELAY] = value;
+				break;
+
+			case Parameter.MIN_DELAY:
+			case Parameter.MAX_DELAY:
+				dirtyDelay = changeType;
+				break;
+
+			case Parameter.DELAY_MIX:
+				this.delayedPath.gain[changeType](value / 100, time);
+				this.undelayedPath.gain[changeType](1 - value / 100, time);
+				break;
+
+			case Parameter.FEEDBACK:
+				this.feedback.gain[changeType](value / 100, time);
+				this.delayOutput.gain[changeType](1 / (1 - value / 100), time);
+				break;
+
 			case Parameter.PAN:
 				this.pannerMod.setMinMax(changeType, value / 100, value / 100, time);
 				parameters[Parameter.LEFTMOST_PAN] = value;
@@ -1191,6 +1270,9 @@ class SubtractiveSynthChannel {
 			}
 			this.filteredPath.gain[dirtyMix](filtered, time);
 			this.unfilteredPath.gain[dirtyMix](unfiltered, time);
+		}
+		if (dirtyDelay) {
+			this.flanger.setMinMax(dirtyDelay, parameters[Parameter.MIN_DELAY] / 1000, parameters[Parameter.MAX_DELAY] / 1000, time);
 		}
 		if (dirtyPan) {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
