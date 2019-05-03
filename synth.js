@@ -620,20 +620,20 @@ class SubtractiveSynthChannel {
 		unfilteredPath.gain.value = 0;
 		ringMod.connect(unfilteredPath);
 
-		const tremoloGain = audioContext.createGain();
-		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
-		this.tremolo = tremoloModulator;
-		filteredPath.connect(tremoloGain);
-		unfilteredPath.connect(tremoloGain);
-
 		const envelope = audioContext.createGain();
 		this.envelope = envelope;
 		envelope.gain.value = 0;
-		tremoloGain.connect(envelope);
+		filteredPath.connect(envelope);
+		unfilteredPath.connect(envelope);
+
+		const tremoloGain = audioContext.createGain();
+		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
+		this.tremolo = tremoloModulator;
+		envelope.connect(tremoloGain);
 
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
-		envelope.connect(panner);
+		tremoloGain.connect(panner);
 		const panMod = new Modulator(audioContext, lfo1, panner.pan);
 		this.panMod = panMod;
 
@@ -658,8 +658,7 @@ class SubtractiveSynthChannel {
 
 	connect(channel) {
 		const node = channel.ringInput;
-		this.filter.connect(node);
-		this.unfilteredPath.connect(node);
+		this.envelope.connect(node);
 		this.oscillator.connect(channel.syncGain, 1);
 	}
 
