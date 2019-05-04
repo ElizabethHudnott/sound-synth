@@ -51,32 +51,40 @@ const Parameter = enumFromArray([
 	'NOTES',		// MIDI note number
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
+	'LFO1_MIN_RATE', // in hertz
+	'LFO1_MAX_RATE', // in hertz
 	'LFO1_DELAY',	// in milliseconds
 	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO1_FADE', // one of the Direction enums
-	'LFO1_SYNC',
 	'LFO2_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO2_RATE',	// in hertz
+	'LFO2_MIN_RATE', // in hertz
+	'LFO2_MAX_RATE', // in hertz
 	'LFO2_DELAY',	// in milliseconds
 	'LFO2_ATTACK',	// in milliseconds
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO2_FADE', // one of the Direction enums
-	'LFO2_SYNC',
-	'VIBRATO_LFO',	// which LFO to use (1 or 2)
+	'LFO3_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
+	'LFO3_RATE',	// in hertz
+	'LFO3_DELAY',	// in milliseconds
+	'LFO3_ATTACK',	// in milliseconds
+	'LFO3_RATE_MOD', // scaling factor for frequency at beginning of attack period
+	'LFO3_FADE', // one of the Direction enums
+	'VIBRATO_LFO',	// which LFO to use
 	'VIBRATO_EXTENT', // in cents
 	'VOLUME',		// percentage
-	'TREMOLO_LFO',	// which LFO to use (1 or 2)
+	'TREMOLO_LFO',	// which LFO to use
 	'TREMOLO_DEPTH', // percentage
 	'PAN',			// -100 to 100
 	'LEFTMOST_PAN',	// -100 to 100
 	'RIGHTMOST_PAN', // -100 to 100
-	'PAN_LFO',		// which LFO to use (1 or 2)
+	'PAN_LFO',		// which LFO to use
 	'SOURCE',		// 0 (oscillator) to 100 (samples)
 	'PULSE_WIDTH',	// percentage
 	'MIN_PULSE_WIDTH', // percentage
 	'MAX_PULSE_WIDTH', // percentage
-	'PWM_LFO',		// which LFO to use (1 or 2)
+	'PWM_LFO',		// which LFO to use
 	'FILTER_TYPE',	// 'lowpass', 'highpass', 'bandpass', 'notch', 'allpass', 'lowshelf', 'highshelf' or 'peaking'
 	'FILTER_FREQUENCY', // in hertz
 	'MIN_FILTER_FREQUENCY', // in hertz
@@ -84,14 +92,14 @@ const Parameter = enumFromArray([
 	'Q',			// 0.0001 to 1000
 	'MIN_Q',		// 0.0001 to 1000
 	'MAX_Q',		// 0.0001 to 1000
-	'FILTER_LFO',	// which LFO to use (1 or 2)
+	'FILTER_LFO',	// which LFO to use
 	'FILTER_GAIN',	// -40dB to 40dB
 	'FILTER_MIX', // percentage (may be more than 100)
 	'UNFILTERED_MIX', // percentage
 	'DELAY',		// milliseconds
 	'MIN_DELAY',	// milliseconds
 	'MAX_DELAY',	// milliseconds
-	'DELAY_LFO',	// which LFO to use (1 or 2)
+	'DELAY_LFO',	// which LFO to use
 	'DELAY_MIX',	// percentage (may be more than 100)
 	'FEEDBACK',		// percentage
 	'RING_MODULATION', // 0 to 100
@@ -259,7 +267,7 @@ class Modulator {
 	}
 
 	setRange(changeType, range, time) {
-		this.range.gain[changeType](range, time);
+		this.range.gain[changeType](range / 2, time);
 	}
 
 	setCentre(changeType, centre, time) {
@@ -491,19 +499,27 @@ class SubtractiveSynthChannel {
 			[69],	// MIDI note numbers
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
+			5,		// LFO 1 min rate
+			5,		// LFO 1 max rate
 			0,		// LFO 1 delay
 			0,		// LFO 2 attack
 			1,		// LFO 1 at a constant frequency
 			Direction.UP, // LFO 1 fades up (when an attack is set)
-			0,		// LFO 1 not synced to tempo
 			'sine',	// LFO 2 shape
 			5,		// LFO 2 rate
+			5,		// LFO 2 min rate
+			5,		// LFO 2 max rate
 			0,		// LFO 2 delay
 			0,		// LFO 2 attack
 			1,		// LFO 2 at a constant frequency
 			Direction.UP, // LFO 2 fades up (when an attack is set)
-			0,		// LFO 2 not synced to tempo
-			2,		// vibrato uses LFO 2
+			'sine',	// LFO 3 shape
+			5,		// LFO 3 rate
+			0,		// LFO 3 delay
+			0,		// LFO 3 attack
+			1,		// LFO 3 at a constant frequency
+			Direction.UP, // LFO 3 fades up (when an attack is set)
+			1,		// vibrato uses LFO 1
 			0,		// vibrato extent
 			100,	//	volume
 			1,		// tremolo uses LFO 1
@@ -567,7 +583,11 @@ class SubtractiveSynthChannel {
 		this.lfo1 = lfo1;
 		const lfo2 = new LFO(audioContext);
 		this.lfo2 = lfo2;
-		this.lfos = [lfo1, lfo2];
+		const lfo3 = new LFO(audioContext);
+		this.lfo3 = lfo3;
+		this.lfo1Mod = new Modulator(audioContext, lfo3, lfo1.oscillator.frequency);
+		this.lfo2Mod = new Modulator(audioContext, lfo3, lfo2.oscillator.frequency);
+		this.lfos = [lfo1, lfo2, lfo3];
 
 		// Oscillator and oscillator/sample switch
 		const oscillator = new C64OscillatorNode(audioContext);
@@ -600,7 +620,7 @@ class SubtractiveSynthChannel {
 		samplePlaybackRate.start();
 
 		// Vibrato
-		const vibrato = new Modulator(audioContext, lfo2, oscillator.frequency);
+		const vibrato = new Modulator(audioContext, lfo1, oscillator.frequency);
 		this.vibrato = vibrato;
 		vibrato.connect(samplePlaybackRate.offset);
 
@@ -715,6 +735,7 @@ class SubtractiveSynthChannel {
 		if (!this.started) {
 			this.lfo1.start(when);
 			this.lfo2.start(when);
+			this.lfo3.start(when);
 			this.started = true;
 		}
 	}
@@ -752,6 +773,7 @@ class SubtractiveSynthChannel {
 	triggerLFOs(when) {
 		this.lfo1.trigger(when);
 		this.lfo2.trigger(when);
+		this.lfo3.trigger(when);
 	}
 
 	gate(state, start) {
@@ -873,6 +895,7 @@ class SubtractiveSynthChannel {
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
+		let dirtyLFO1Rate, dirtyLFO2Rate;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -976,6 +999,12 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
+			case Parameter.LFO3_WAVEFORM:
+				callbacks.push(function () {
+					me.lfo3.oscillator.type = value;
+				});
+				break;
+
 			case Parameter.VIBRATO_LFO:
 				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
 				parameters[Parameter.VIBRATO_LFO] = value;
@@ -1071,12 +1100,42 @@ class SubtractiveSynthChannel {
 				value = clamp(value);
 				this.lfo1.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO1_RATE] = value;
+				parameters[Parameter.LFO1_MIN_RATE] = value;
+				parameters[Parameter.LFO1_MAX_RATE] = value;
+				break;
+
+			case Parameter.LFO1_MIN_RATE:
+				parameters[Parameter.LFO1_MIN_RATE] = clamp(value);
+				dirtyLFO1Rate = changeType;
+				break;
+
+			case Parameter.LFO1_MAX_RATE:
+				parameters[Parameter.LFO1_MAX_RATE] = clamp(value);
+				dirtyLFO1Rate = changeType;
 				break;
 
 			case Parameter.LFO2_RATE:
 				value = clamp(value);
 				this.lfo2.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO2_RATE] = value;
+				parameters[Parameter.LFO2_MIN_RATE] = value;
+				parameters[Parameter.LFO2_MAX_RATE] = value;
+				break;
+
+			case Parameter.LFO2_MIN_RATE:
+				parameters[Parameter.LFO2_MIN_RATE] = clamp(value);
+				dirtyLFO2Rate = changeType;
+				break;
+
+			case Parameter.LFO2_MAX_RATE:
+				parameters[Parameter.LFO2_MAX_RATE] = clamp(value);
+				dirtyLFO2Rate = changeType;
+				break;
+
+			case Parameter.LFO3_RATE:
+				value = clamp(value);
+				this.lfo3.setFrequency(changeType, value, time);
+				parameters[Parameter.LFO3_RATE] = value;
 				break;
 
 			case Parameter.LFO1_DELAY:
@@ -1087,12 +1146,19 @@ class SubtractiveSynthChannel {
 				this.lfo2.delay = value / 1000;
 				break;
 
+			case Parameter.LFO3_DELAY:
+				this.lfo3.delay = value / 1000;
+				break;
+
 			case Parameter.LFO1_ATTACK:
 				this.lfo1.attack = value / 1000;
 				break;
 
 			case Parameter.LFO2_ATTACK:
 				this.lfo2.attack = value / 1000;
+
+			case Parameter.LFO3_ATTACK:
+				this.lfo3.attack = value / 1000;
 
 			case Parameter.LFO1_RATE_MOD:
 				this.lfo1.rateMod = value;
@@ -1102,12 +1168,20 @@ class SubtractiveSynthChannel {
 				this.lfo2.rateMod = value;
 				break;
 
+			case Parameter.LFO3_RATE_MOD:
+				this.lfo3.rateMod = value;
+				break;
+
 			case Parameter.LFO1_FADE:
 				this.lfo1.fadeDirection = value;
 				break;
 
 			case Parameter.LFO2_FADE:
 				this.lfo2.fadeDirection = value;
+				break;
+
+			case Parameter.LFO3_FADE:
+				this.lfo3.fadeDirection = value;
 				break;
 
 			case Parameter.SYNC:
@@ -1245,6 +1319,12 @@ class SubtractiveSynthChannel {
 			} // end switch
 		} // end loop over each parameter
 
+		if (dirtyLFO1Rate) {
+			this.lfo1Mod.setMinMax(dirtyLFO1Rate, parameters[Parameter.LFO1_MIN_RATE], parameters[Parameter.LFO1_MAX_RATE], time);
+		}
+		if (dirtyLFO2Rate) {
+			this.lfo2Mod.setMinMax(dirtyLFO2Rate, parameters[Parameter.LFO2_MIN_RATE], parameters[Parameter.LFO2_MAX_RATE], time);
+		}
 		if (dirtyPWM) {
 			this.pwm.setMinMax(dirtyPWM, parameters[Parameter.MIN_PULSE_WIDTH] / 100, parameters[Parameter.MAX_PULSE_WIDTH] / 100, time);
 		}
