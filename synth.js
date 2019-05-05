@@ -55,6 +55,7 @@ const Parameter = enumFromArray([
 	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO1_FADE', // one of the Direction enums
+	'LFO1_RETRIGGER', // 0 or 1
 	'LFO2_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO2_RATE',	// in hertz
 	'LFO2_MIN_RATE', // in hertz
@@ -69,6 +70,7 @@ const Parameter = enumFromArray([
 	'LFO3_ATTACK',	// in milliseconds
 	'LFO3_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO3_FADE', // one of the Direction enums
+	'LFO3_RETRIGGER', // 0 or 1
 	'VIBRATO_LFO',	// which LFO to use
 	'VIBRATO_EXTENT', // in cents
 	'VOLUME',		// percentage
@@ -173,30 +175,66 @@ const Direction = Object.freeze({
 
 class LFO {
 	constructor(audioContext) {
+		this.audioContext = audioContext;
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
 		oscillator.frequency.value = 5;
 		this.frequency = 5;
 
+		const delayNode = audioContext.createDelay();
+		this.delayNode = delayNode;
+
 		const envelope = audioContext.createGain();
 		this.envelope  = envelope;
+		delayNode.connect(envelope);
 		oscillator.connect(envelope);
 
 		this.delay = 0;
 		this.attack = 0;
 		this.rateMod = 1;
 		this.fadeDirection = Direction.UP;
+		this.retrigger = 0; // i.e. false
+		this.zeroPoint = undefined;
 	}
 
 	start(when) {
 		this.oscillator.start(when);
+		this.zeroPoint = when;
 	}
 
 	setFrequency(changeType, frequency, time) {
+		if (this.retrigger) {
+			const period = 1 / this.frequency;
+			const phase = (time - this.zeroPoint) % period;
+			time = time + period - phase;
+			this.zeroPoint = time;
+			changeType = ChangeType.SET;
+		}
 		const param = this.oscillator.frequency;
 		param.cancelAndHoldAtTime(time);
 		param[changeType](frequency, time);
 		this.frequency = frequency;
+	}
+
+	setRetrigger(value, time) {
+		if (value && !this.retrigger) {
+			const oldOscillator = this.oscillator;
+			oldOscillator.stop(time);
+			const newOscillator = this.audioContext.createOscillator();
+			this.oscillator = newOscillator;
+			newOscillator.frequency.value = this.frequency;
+			newOscillator.start(time);
+			newOscillator.connect(this.delayNode);
+			this.zeroPoint = time;
+			this.rateMod = 1;
+
+			const callbackDelay = Math.trunc((time - this.audioContext.currentTime) * 1000) + 1;
+			const me = this;
+			setTimeout(function () {
+				oldOscillator.disconnect();
+			}, callbackDelay);
+		}
+		this.retrigger = value;
 	}
 
 	trigger(when) {
@@ -205,6 +243,12 @@ class LFO {
 
 		const endDelay = when + this.delay;
 		const endAttack = endDelay + this.attack;
+
+		if (this.retrigger) {
+			const period = 1 / this.frequency;
+			const phase = (when - this.zeroPoint) % period;
+			this.delayNode.delayTime.setValueAtTime(phase, when);
+		}
 
 		if (endAttack === when) {
 			gain.setValueAtTime(1, when);
@@ -216,19 +260,21 @@ class LFO {
 			gain.setValueAtTime(startValue, endDelay);
 			gain.linearRampToValueAtTime(endValue, endAttack);
 
-			const frequency = this.oscillator.frequency;
-			frequency.cancelAndHoldAtTime(when);
-			let startRate, endRate;
-			if (this.fadeDirection === Direction.UP) {
-				endRate = this.frequency;
-				startRate = endRate * this.rateMod;
-			} else {
-				startRate = this.frequency;
-				endRate = startRate * this.rateMod;
+			if (this.rateMod !== 1) {
+				const frequency = this.oscillator.frequency;
+				frequency.cancelAndHoldAtTime(when);
+				let startRate, endRate;
+				if (this.fadeDirection === Direction.UP) {
+					endRate = this.frequency;
+					startRate = endRate * this.rateMod;
+				} else {
+					startRate = this.frequency;
+					endRate = startRate * this.rateMod;
+				}
+				frequency.setValueAtTime(startRate, when);
+				frequency.setValueAtTime(startRate, endDelay);
+				frequency.linearRampToValueAtTime(endRate, endAttack);
 			}
-			frequency.setValueAtTime(startRate, when);
-			frequency.setValueAtTime(startRate, endDelay);
-			frequency.linearRampToValueAtTime(endRate, endAttack);
 		}
 	}
 
@@ -501,6 +547,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 2 attack
 			1,		// LFO 1 at a constant frequency
 			Direction.UP, // LFO 1 fades up (when an attack is set)
+			0,		// LFO 1 doesn't retrigger
 			'sine',	// LFO 2 shape
 			5,		// LFO 2 rate
 			5,		// LFO 2 min rate
@@ -515,6 +562,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 3 attack
 			1,		// LFO 3 at a constant frequency
 			Direction.UP, // LFO 3 fades up (when an attack is set)
+			0,		// LFO 3 doesn't retrigger
 			1,		// vibrato uses LFO 1
 			0,		// vibrato extent
 			100,	//	volume
@@ -1165,6 +1213,24 @@ class SubtractiveSynthChannel {
 
 			case Parameter.LFO3_FADE:
 				this.lfo3.fadeDirection = value;
+				break;
+
+			case Parameter.LFO1_RETRIGGER:
+				value = Math.trunc(Math.abs(value)) % 2;
+				this.lfo1.setRetrigger(value, time);
+				parameters[Parameter.LFO1_RETRIGGER] = value;
+				if (value === 1) {
+					parameters[Parameter.LFO1_RATE_MOD] = 1;
+				}
+				break;
+
+			case Parameter.LFO3_RETRIGGER:
+				value = Math.trunc(Math.abs(value)) % 2;
+				this.lfo3.setRetrigger(value, time);
+				parameters[Parameter.LFO3_RETRIGGER] = value;
+				if (value === 1) {
+					parameters[Parameter.LFO3_RATE_MOD] = 1;
+				}
 				break;
 
 			case Parameter.SYNC:
