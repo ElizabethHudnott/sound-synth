@@ -51,8 +51,6 @@ const Parameter = enumFromArray([
 	'NOTES',		// MIDI note number
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
-	'LFO1_MIN_RATE', // in hertz
-	'LFO1_MAX_RATE', // in hertz
 	'LFO1_DELAY',	// in milliseconds
 	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
@@ -499,8 +497,6 @@ class SubtractiveSynthChannel {
 			[69],	// MIDI note numbers
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
-			5,		// LFO 1 min rate
-			5,		// LFO 1 max rate
 			0,		// LFO 1 delay
 			0,		// LFO 2 attack
 			1,		// LFO 1 at a constant frequency
@@ -585,7 +581,6 @@ class SubtractiveSynthChannel {
 		this.lfo2 = lfo2;
 		const lfo3 = new LFO(audioContext);
 		this.lfo3 = lfo3;
-		this.lfo1Mod = new Modulator(audioContext, lfo3, lfo1.oscillator.frequency);
 		this.lfo2Mod = new Modulator(audioContext, lfo3, lfo2.oscillator.frequency);
 		this.lfos = [lfo1, lfo2, lfo3];
 
@@ -895,7 +890,7 @@ class SubtractiveSynthChannel {
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
-		let dirtyLFO1Rate, dirtyLFO2Rate;
+		let dirtyLFO2Rate;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -1100,18 +1095,6 @@ class SubtractiveSynthChannel {
 				value = clamp(value);
 				this.lfo1.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO1_RATE] = value;
-				parameters[Parameter.LFO1_MIN_RATE] = value;
-				parameters[Parameter.LFO1_MAX_RATE] = value;
-				break;
-
-			case Parameter.LFO1_MIN_RATE:
-				parameters[Parameter.LFO1_MIN_RATE] = clamp(value);
-				dirtyLFO1Rate = changeType;
-				break;
-
-			case Parameter.LFO1_MAX_RATE:
-				parameters[Parameter.LFO1_MAX_RATE] = clamp(value);
-				dirtyLFO1Rate = changeType;
 				break;
 
 			case Parameter.LFO2_RATE:
@@ -1319,9 +1302,6 @@ class SubtractiveSynthChannel {
 			} // end switch
 		} // end loop over each parameter
 
-		if (dirtyLFO1Rate) {
-			this.lfo1Mod.setMinMax(dirtyLFO1Rate, parameters[Parameter.LFO1_MIN_RATE], parameters[Parameter.LFO1_MAX_RATE], time);
-		}
 		if (dirtyLFO2Rate) {
 			this.lfo2Mod.setMinMax(dirtyLFO2Rate, parameters[Parameter.LFO2_MIN_RATE], parameters[Parameter.LFO2_MAX_RATE], time);
 		}

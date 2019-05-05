@@ -131,26 +131,3 @@ class C64OscillatorProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor('c64-oscillator-processor', C64OscillatorProcessor);
-
-class LogProcessor extends AudioWorkletProcessor {
-	static get parameterDescriptors() {
-		return [{
-			name: 'steps',
-			automationRate: 'k-rate',
-			defaultValue: 3,
-			minValue: 1,
-			maxValue: 128,
-		}];
-	}
-
-	process(inputs, outputs, parameters) {
-		const input = inputs[0][0];
-		const steps = parameters.steps[0];
-		const step = Math.round(128 / steps);
-		for (let i = 0; i < steps; i++) {
-			console.log(input[i * step]);
-		}
-	}
-}
-
-registerProcessor('log-processor', LogProcessor);

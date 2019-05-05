@@ -45,10 +45,7 @@
 				<input type="radio" name="lfo1-waveform" oninput="set(Synth.Param.LFO1_WAVEFORM, 'sawtooth')">Sawtooth
 				<input type="radio" name="lfo1-waveform" oninput="set(Synth.Param.LFO1_WAVEFORM, 'triangle')">Triangle
 				<br>
-				<input type="range" oninput="set(document.getElementById('single-lfo1-rate').checked ? Synth.Param.LFO1_RATE : Synth.Param.LFO1_MIN_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Min Rate<br>
-				<input id="max-lfo1-rate" type="range" oninput="set(Synth.Param.LFO1_MAX_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Max Rate
-				<input id="single-lfo1-rate" type="checkbox" oninput="{let maxControl = document.getElementById('max-lfo1-rate'); maxControl.disabled = this.checked; set(Synth.Param.LFO1_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO1_MIN_RATE] : parseFloat(maxControl.value))}" checked>Max = Min
-				<br>
+				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.UP)" checked>Fade In
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.DOWN)">Fade Out
 				<br>
@@ -63,10 +60,11 @@
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'sawtooth')">Sawtooth
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'triangle')">Triangle
 				<br>
-				<input type="range" oninput="set(document.getElementById('single-lfo2-rate').checked ? Synth.Param.LFO2_RATE : Synth.Param.LFO2_MIN_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Min Rate<br>
-				<input id="max-lfo2-rate" type="range" oninput="set(Synth.Param.LFO2_MAX_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Max Rate
-				<input id="single-lfo2-rate" type="checkbox" oninput="{let maxControl = document.getElementById('max-lfo2-rate'); maxControl.disabled = this.checked; set(Synth.Param.LFO2_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO2_MIN_RATE] : parseFloat(maxControl.value))}" checked>Max = Min
-				<br>
+				<input type="range" oninput="set(document.getElementById('single-lfo2-rate').checked ? Synth.Param.LFO2_RATE : Synth.Param.LFO2_MIN_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Min Rate
+				<input id="single-lfo2-rate" type="checkbox" oninput="{let maxControl = document.getElementById('max-lfo2-rate'); maxControl.parentElement.classList.toggle('hidden', this.checked); set(Synth.Param.LFO2_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO2_MIN_RATE] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<div class="hidden">
+					<input id="max-lfo2-rate" type="range" oninput="set(Synth.Param.LFO2_MAX_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Max Rate
+				</div>
 				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.UP)" checked>Fade In
 				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.DOWN)">Fade Out
 				<br>
@@ -126,12 +124,16 @@
 				<input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'highshelf')">High Shelf
 				<input type="radio" name="filter-type" oninput="set(Synth.Param.FILTER_TYPE, 'peaking')">Peaking
 				<br>
-				<input type="range" oninput="tempOpen(); set(document.getElementById('single-filter-frequency').checked? Synth.Param.FILTER_FREQUENCY : Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="5500" value="4400" step="1">Min Frequency<br>
-				<input id="max-filter-frequency" type="range" oninput="tempOpen(); set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="5500" value="4400" step="1" disabled>Max Frequency
-				<input id="single-filter-frequency" type="checkbox" oninput="{let maxControl = document.getElementById('max-filter-frequency'); maxControl.disabled = this.checked; set(Synth.Param.MAX_FILTER_FREQUENCY, this.checked ? channels[0].parameters[Synth.Param.MIN_FILTER_FREQUENCY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
-				<input type="range" oninput="tempOpen(); set(document.getElementById('single-Q').checked? Synth.Param.Q : Synth.Param.MIN_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Min Resonance / Width<br>
-				<input id="max-Q" type="range" oninput="tempOpen(); set(Synth.Param.MAX_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01" disabled>Max Resonance / Width
-				<input id="single-Q" type="checkbox" oninput="{let maxControl = document.getElementById('max-Q'); maxControl.disabled = this.checked; set(Synth.Param.MAX_Q, this.checked ? channels[0].parameters[Synth.Param.MIN_Q] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<input type="range" oninput="tempOpen(); set(document.getElementById('single-filter-frequency').checked? Synth.Param.FILTER_FREQUENCY : Synth.Param.MIN_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="5500" value="4400" step="1">Min Frequency
+				<input id="single-filter-frequency" type="checkbox" oninput="{let maxControl = document.getElementById('max-filter-frequency'); maxControl.parentElement.classList.toggle('hidden', this.checked); set(Synth.Param.MAX_FILTER_FREQUENCY, this.checked ? channels[0].parameters[Synth.Param.MIN_FILTER_FREQUENCY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<div class="hidden">
+					<input id="max-filter-frequency" type="range" oninput="tempOpen(); set(Synth.Param.MAX_FILTER_FREQUENCY, parseFloat(this.value))" onmouseup="endTempOpen()" min="30" max="5500" value="4400" step="1">Max Frequency
+				</div>
+				<input type="range" oninput="tempOpen(); set(document.getElementById('single-Q').checked? Synth.Param.Q : Synth.Param.MIN_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Min Resonance / Width
+				<input id="single-Q" type="checkbox" oninput="{let maxControl = document.getElementById('max-Q'); maxControl.parentElement.classList.toggle('hidden', this.checked); set(Synth.Param.MAX_Q, this.checked ? channels[0].parameters[Synth.Param.MIN_Q] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<div class="hidden">
+					<input id="max-Q" type="range" oninput="tempOpen(); set(Synth.Param.MAX_Q, 10 ** parseFloat(this.value))" onmouseup="endTempOpen()" min="-2" max="2" value="0" step="0.01">Max Resonance / Width
+				</div>
 				<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0" step="1">Gain<br>
 				<input type="range" oninput="set(Synth.Param.FILTER_MIX, parseFloat(this.value))" min="0" max="200" value="0" step="1" style="width: 258px">Wet Mix<br>
 				<input type="range" oninput="set(Synth.Param.UNFILTERED_MIX, parseFloat(this.value))" min="0" max="100" value="100" step="1" style="width: 129px">Dry Mix<br>
@@ -174,10 +176,11 @@
 				<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 2)">LFO 2
 				<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 3)">LFO 3
 				<br>
-				<input type="range" oninput="set(document.getElementById('single-delay').checked ? Synth.Param.DELAY : Synth.Param.MIN_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Min Delay<br>
-				<input id="max-delay" type="range" oninput="set(Synth.Param.MAX_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01" disabled>Max Delay
-				<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.disabled = this.checked; set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : parseFloat(maxControl.value))}" checked>Max = Min
-				<br>
+				<input type="range" oninput="set(document.getElementById('single-delay').checked ? Synth.Param.DELAY : Synth.Param.MIN_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Min Delay
+				<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.parentElement.classList.toggle('hidden', this.checked); set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<div class="hidden">
+					<input id="max-delay" type="range" oninput="set(Synth.Param.MAX_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Max Delay
+				</div>
 				<input type="range" oninput="set(Synth.Param.DELAY_MIX, parseFloat(this.value))" min="0" max="100" value="100" step="1">Delay Mix<br>
 				<input type="range" oninput="set(Synth.Param.FEEDBACK, parseFloat(this.value))" min="0" max="99" value="0" step="1">Feedback<br>
 			</fieldset>
