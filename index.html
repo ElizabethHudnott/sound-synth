@@ -48,7 +48,7 @@
 				<input type="range" oninput="set(Synth.Param.LFO1_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.UP)" checked>Fade In
 				<input type="radio" name="lfo1-fade" oninput="set(Synth.Param.LFO1_FADE, Synth.Direction.DOWN)">Fade Out
-				<input type="checkbox" oninput="{ set(Synth.Param.LFO1_RETRIGGER, this.checked); let control = document.getElementById('lfo1-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1}">Retrigger
+				<input type="checkbox" oninput="{ set(Synth.Param.LFO1_RETRIGGER, this.checked); let control = document.getElementById('lfo1-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1 }">Retrigger
 				<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
 				<input type="range" oninput="set(Synth.Param.LFO1_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
@@ -63,17 +63,19 @@
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'sawtooth')">Sawtooth
 				<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'triangle')">Triangle
 				<br>
-				<input type="range" oninput="set(document.getElementById('single-lfo2-rate').checked ? Synth.Param.LFO2_RATE : Synth.Param.LFO2_MIN_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Min Rate
-				<input id="single-lfo2-rate" type="checkbox" oninput="{let maxControl = document.getElementById('max-lfo2-rate'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.LFO2_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO2_MIN_RATE] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+				<input type="range" oninput="{ let singleRate = document.getElementById('single-lfo2-rate').checked; set(singleRate ? Synth.Param.LFO2_RATE : Synth.Param.LFO2_MIN_RATE, parseFloat(this.value)); if (!singleRate) { document.getElementById('lfo2-retrigger').checked = false; document.getElementById('lfo2-rate-mod').parentElement.classList.toggle('hidden', false); } }" min="0.1" max="20" value="5" step="0.1">Min Rate
+				<input id="single-lfo2-rate" type="checkbox" oninput="{ let maxControl = document.getElementById('max-lfo2-rate'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.LFO2_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO2_MIN_RATE] : parseFloat(maxControl.value)) }" checked>Max = Min<br>
 				<div class="hidden">
-					<input id="max-lfo2-rate" type="range" oninput="set(Synth.Param.LFO2_MAX_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Max Rate
+					<input id="max-lfo2-rate" type="range" oninput="set(Synth.Param.LFO2_MAX_RATE, parseFloat(this.value)); document.getElementById('lfo2-retrigger').checked = false; document.getElementById('lfo2-rate-mod').parentElement.classList.toggle('hidden', false)" min="0.1" max="20" value="5" step="0.1">Max Rate
 				</div>
 				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.UP)" checked>Fade In
 				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.DOWN)">Fade Out
-				<br>
+				<input id="lfo2-retrigger" type="checkbox" oninput="{ set(Synth.Param.LFO2_RETRIGGER, this.checked); let control = document.getElementById('lfo2-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1 }">Retrigger<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
 				<input type="range" oninput="set(Synth.Param.LFO2_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
-				<input type="range" oninput="set(Synth.Param.LFO2_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation<br>
+				<div>
+					<input id="lfo2-rate-mod" type="range" oninput="set(Synth.Param.LFO2_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation
+				</div>
 			</fieldset>
 			<fieldset>
 				<legend>LFO 3</legend>
@@ -83,9 +85,9 @@
 				<input type="radio" name="lfo3-waveform" oninput="set(Synth.Param.LFO3_WAVEFORM, 'triangle')">Triangle
 				<br>
 				<input type="range" oninput="set(Synth.Param.LFO3_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
-				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.UP)" checked>Fade In
-				<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.DOWN)">Fade Out
-				<input type="checkbox" oninput="{ set(Synth.Param.LFO3_RETRIGGER, this.checked); let control = document.getElementById('lfo3-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1}">Retrigger
+				<input type="radio" name="lfo3-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.UP)" checked>Fade In
+				<input type="radio" name="lfo3-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.DOWN)">Fade Out
+				<input type="checkbox" oninput="{ set(Synth.Param.LFO3_RETRIGGER, this.checked); let control = document.getElementById('lfo3-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1 }">Retrigger
 				<br>
 				<input type="range" oninput="set(Synth.Param.LFO3_DELAY, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Delay / Hold<br>
 				<input type="range" oninput="set(Synth.Param.LFO3_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0" step="1">Attack / Decay<br>
@@ -151,7 +153,7 @@
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
 				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="1000" value="2" step="1">Attack
-				<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="6" value="0.25" step="0.25">Curve
+				<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="6" value="0.5" step="0.25">Curve
 				<br>
 				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="2000" value="0" step="1">Hold<br>
 				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="1" max="2000" value="50" step="1">Decay
@@ -204,7 +206,7 @@
 				<input id="glissando" type="range" oninput="set(Synth.Param.GLISSANDO_SIZE, parseInt(this.value))" min="-12" max="12" value="0" step="1">Glissando
 				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO_SIZE, 0)">Reset</button>
 				<br>
-				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time<br>
+				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time
 				<input type="checkbox" oninput="set(Synth.Param.MULTI_TRIGGER, this.checked ? 1 : 0)">Use Multi-Trigger
 			</fieldset>
 			<fieldset>

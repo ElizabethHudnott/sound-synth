@@ -64,6 +64,7 @@ const Parameter = enumFromArray([
 	'LFO2_ATTACK',	// in milliseconds
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO2_FADE', // one of the Direction enums
+	'LFO2_RETRIGGER', // 0 or 1
 	'LFO3_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO3_RATE',	// in hertz
 	'LFO3_DELAY',	// in milliseconds
@@ -556,6 +557,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 2 attack
 			1,		// LFO 2 at a constant frequency
 			Direction.UP, // LFO 2 fades up (when an attack is set)
+			0,		// LFO 2 doesn't retrigger
 			'sine',	// LFO 3 shape
 			5,		// LFO 3 rate
 			0,		// LFO 3 delay
@@ -1147,20 +1149,24 @@ class SubtractiveSynthChannel {
 
 			case Parameter.LFO2_RATE:
 				value = clamp(value);
-				this.lfo2.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO2_RATE] = value;
 				parameters[Parameter.LFO2_MIN_RATE] = value;
 				parameters[Parameter.LFO2_MAX_RATE] = value;
+				dirtyLFO2Rate = changeType;
 				break;
 
 			case Parameter.LFO2_MIN_RATE:
 				parameters[Parameter.LFO2_MIN_RATE] = clamp(value);
 				dirtyLFO2Rate = changeType;
+				this.lfo2.setRetrigger(0, time);
+				parameters[Parameter.LFO2_RETRIGGER] = 0;
 				break;
 
 			case Parameter.LFO2_MAX_RATE:
 				parameters[Parameter.LFO2_MAX_RATE] = clamp(value);
 				dirtyLFO2Rate = changeType;
+				this.lfo2.setRetrigger(0, time);
+				parameters[Parameter.LFO2_RETRIGGER] = 0;
 				break;
 
 			case Parameter.LFO3_RATE:
@@ -1222,6 +1228,20 @@ class SubtractiveSynthChannel {
 				if (value === 1) {
 					parameters[Parameter.LFO1_RATE_MOD] = 1;
 				}
+				break;
+
+			case Parameter.LFO2_RETRIGGER:
+				value = Math.trunc(Math.abs(value)) % 2;
+				if (value === 1) {
+					parameters[Parameter.LFO2_RATE_MOD] = 1;
+					const frequency = parameters[Parameter.LFO2_MIN_RATE];
+					this.lfo2.setFrequency(ChangeType.SET, frequency, time);
+					parameters[Parameter.LFO2_RATE] = frequency;
+					parameters[Parameter.LFO2_MAX_RATE] = frequency;
+					dirtyLFO2Rate = dirtyLFO2Rate || ChangeType.SET;
+				}
+				this.lfo2.setRetrigger(value, time);
+				parameters[Parameter.LFO2_RETRIGGER] = value;
 				break;
 
 			case Parameter.LFO3_RETRIGGER:
