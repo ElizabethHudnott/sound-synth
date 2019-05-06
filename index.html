@@ -111,6 +111,10 @@
 				<input type="range" oninput="set(Synth.Param.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0" step="1">Extent<br>
 			</fieldset>
 			<fieldset>
+				<legend>Siren</legend>
+				<input type="range" oninput="set(Synth.Param.SIREN_EXTENT, parseFloat(this.value))" min="0" max="12" value="0" step="1">Extent
+			</fieldset>
+			<fieldset>
 				<legend>Pulse Width Modulation</legend>
 				Oscillator:
 				<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 1)" checked>LFO 1

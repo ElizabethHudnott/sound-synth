@@ -74,6 +74,7 @@ const Parameter = enumFromArray([
 	'LFO3_RETRIGGER', // 0 or 1
 	'VIBRATO_LFO',	// which LFO to use
 	'VIBRATO_EXTENT', // in cents
+	'SIREN_EXTENT',	// in semitones
 	'VOLUME',		// percentage
 	'TREMOLO_LFO',	// which LFO to use
 	'TREMOLO_DEPTH', // percentage
@@ -567,6 +568,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 3 doesn't retrigger
 			1,		// vibrato uses LFO 1
 			0,		// vibrato extent
+			0,		// siren extent
 			100,	//	volume
 			1,		// tremolo uses LFO 1
 			0,		// tremolo amount
@@ -668,6 +670,11 @@ class SubtractiveSynthChannel {
 		const vibrato = new Modulator(audioContext, lfo1, oscillator.frequency);
 		this.vibrato = vibrato;
 		vibrato.connect(samplePlaybackRate.offset);
+
+		// Siren
+		const siren = new Modulator(audioContext, lfo3, oscillator.frequency);
+		this.siren = siren;
+		siren.connect(samplePlaybackRate.offset);
 
 		// Filter
 		const filter = audioContext.createBiquadFilter();
@@ -927,6 +934,9 @@ class SubtractiveSynthChannel {
 		const vibratoExtent = CENT ** (this.parameters[Parameter.VIBRATO_EXTENT] / 2);
 		this.vibrato.cancelAndHoldAtTime(when);
 		this.vibrato.setMinMax(changeType, frequency / vibratoExtent, frequency * vibratoExtent, when);
+		const sirenExtent = SEMITONE ** (this.parameters[Parameter.SIREN_EXTENT] / 2);
+		this.siren.cancelAndHoldAtTime(when);
+		this.siren.setMinMax(changeType, frequency / sirenExtent, frequency * sirenExtent, when);
 	}
 
 	setParameters(parameterMap, step) {
@@ -1130,6 +1140,7 @@ class SubtractiveSynthChannel {
 				// fall through
 
 			case Parameter.VIBRATO_EXTENT:
+			case Parameter.SIREN_EXTENT:
 				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
 				break;
 
