@@ -936,7 +936,8 @@ class SubtractiveSynthChannel {
 		this.vibrato.setMinMax(changeType, frequency / vibratoExtent, frequency * vibratoExtent, when);
 		const sirenExtent = SEMITONE ** (this.parameters[Parameter.SIREN_EXTENT] / 2);
 		this.siren.cancelAndHoldAtTime(when);
-		this.siren.setMinMax(changeType, frequency / sirenExtent, frequency * sirenExtent, when);
+		// The siren's waveform is inverted, so it's still interesting when siren and vibrato use the same LFO.
+		this.siren.setMinMax(changeType, frequency * sirenExtent, frequency / sirenExtent, when);
 	}
 
 	setParameters(parameterMap, step) {
