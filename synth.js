@@ -51,6 +51,7 @@ const Parameter = enumFromArray([
 	'NOTES',		// MIDI note number
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
+	'LFO1_GAIN',	// -100 to 100
 	'LFO1_DELAY',	// in milliseconds
 	'LFO1_ATTACK',	// in milliseconds
 	'LFO1_RATE_MOD', // scaling factor for frequency at beginning of attack period
@@ -60,6 +61,7 @@ const Parameter = enumFromArray([
 	'LFO2_RATE',	// in hertz
 	'LFO2_MIN_RATE', // in hertz
 	'LFO2_MAX_RATE', // in hertz
+	'LFO2_GAIN',	// -100 to 100
 	'LFO2_DELAY',	// in milliseconds
 	'LFO2_ATTACK',	// in milliseconds
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
@@ -67,6 +69,7 @@ const Parameter = enumFromArray([
 	'LFO2_RETRIGGER', // 0 or 1
 	'LFO3_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO3_RATE',	// in hertz
+	'LFO3_GAIN',	// -100 to 100
 	'LFO3_DELAY',	// in milliseconds
 	'LFO3_ATTACK',	// in milliseconds
 	'LFO3_RATE_MOD', // scaling factor for frequency at beginning of attack period
@@ -191,6 +194,7 @@ class LFO {
 		delayNode.connect(envelope);
 		oscillator.connect(envelope);
 
+		this.gain = 1;
 		this.delay = 0;
 		this.attack = 0;
 		this.rateMod = 1;
@@ -253,10 +257,16 @@ class LFO {
 		}
 
 		if (endAttack === when) {
-			gain.setValueAtTime(1, when);
+			gain.setValueAtTime(this.gain, when);
 		} else {
-			const startValue = this.fadeDirection === Direction.UP ? 0 : 1;
-			const endValue = 1 - startValue;
+			let startValue, endValue;
+			if (this.fadeDirection === Direction.UP) {
+				startValue =  0;
+				endValue = this.gain;
+			} else {
+				startValue = this.gain;
+				endValue = 0;
+			}
 
 			gain.setValueAtTime(startValue, when);
 			gain.setValueAtTime(startValue, endDelay);
@@ -545,6 +555,7 @@ class SubtractiveSynthChannel {
 			[69],	// MIDI note numbers
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
+			100,	// LFO 1 gain
 			0,		// LFO 1 delay
 			0,		// LFO 2 attack
 			1,		// LFO 1 at a constant frequency
@@ -554,6 +565,7 @@ class SubtractiveSynthChannel {
 			5,		// LFO 2 rate
 			5,		// LFO 2 min rate
 			5,		// LFO 2 max rate
+			100,	// LFO 2 gain
 			0,		// LFO 2 delay
 			0,		// LFO 2 attack
 			1,		// LFO 2 at a constant frequency
@@ -561,6 +573,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 2 doesn't retrigger
 			'sine',	// LFO 3 shape
 			5,		// LFO 3 rate
+			100,	// LFO 3 gain
 			0,		// LFO 3 delay
 			0,		// LFO 3 attack
 			1,		// LFO 3 at a constant frequency
@@ -1185,6 +1198,18 @@ class SubtractiveSynthChannel {
 				value = clamp(value);
 				this.lfo3.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO3_RATE] = value;
+				break;
+
+			case Parameter.LFO1_GAIN:
+				this.lfo1.gain = value / 100;
+				break;
+
+			case Parameter.LFO2_GAIN:
+				this.lfo2.gain = value / 100;
+				break;
+
+			case Parameter.LFO3_GAIN:
+				this.lfo3.gain = value / 100;
 				break;
 
 			case Parameter.LFO1_DELAY:
