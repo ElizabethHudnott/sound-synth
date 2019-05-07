@@ -523,16 +523,6 @@ class C64OscillatorNode extends AudioWorkletNode {
 	}
 }
 
-class LogNode extends AudioWorkletNode {
-	constructor(context) {
-		super(context, 'log-processor', {numberOfOutputs: 0});
-	}
-
-	get steps() {
-		return this.parameters('steps');
-	}
-}
-
 class SubtractiveSynthChannel {
 	constructor(system) {
 		const audioContext = system.audioContext;
@@ -1683,8 +1673,7 @@ global.Synth = {
 	Source: Source,
 	Waveform: Waveform,
 	Modulator: Modulator,
-	C64Oscillator: C64OscillatorNode,
-	LogNode: LogNode,
+	Oscillator: C64OscillatorNode,
 	enumFromArray: enumFromArray,
 	keymap: keymap,
 	volumeCurve: volumeCurve,
