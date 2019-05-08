@@ -259,7 +259,7 @@
 				if (success) {
 					console.log('Loaded ' + url);
 				} else {
-					console.log('Failed to load ' + url + '. ' + message);
+					console.error('Failed to load ' + url + '. ' + message);
 				}
 			}
 
@@ -445,13 +445,9 @@
 					dropDown.appendChild(option);
 				}
 
-				function fileLoaded(files, index, success, message) {
+				function fileLoaded(files, index) {
 					const name = files[index].name;
-					if (success) {
-						console.log('Loaded ' + name);
-					} else {
-						console.log('Failed to load ' + name + '. ' + message);
-					}
+					console.log('Loaded ' + name);
 				}
 
 				system.loadSamplesFromHTML(2, files, fileLoaded);

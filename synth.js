@@ -437,13 +437,16 @@ class SynthSystem {
 
 		request.addEventListener('load', function (event) {
 	  		if (request.status < 400) {
-		  		me.audioContext.decodeAudioData(request.response)
+	  			const arr = request.response;
+	  			const arrCopy = arr.slice(0);
+		  		me.audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
 		  			me.samples[number] = buffer;
 		  			callback(url, true, '');
 
 		  		}).catch(function (error) {
-		  			callback(url, false, error.message);
+		  			me.samples[number] = decodeSampleData(arrCopy);
+		  			callback(url, true, '');
 		  		});
 		  	} else {
 		  		callback(url, false, request.status + ' - ' + request.statusText);
@@ -470,13 +473,15 @@ class SynthSystem {
 		function decodeSample(index) {
 			return function (event) {
 				const arr = event.target.result;
+				const arrCopy = arr.slice(0);
 		  		me.audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
 		  			me.samples[firstSampleNumber + index] = buffer;
-		  			callback(fileList, index, true, '');
+		  			callback(fileList, index);
 
 		  		}).catch(function (error) {
-		  			callback(fileList, index, false, error.message);
+		  			me.samples[firstSampleNumber + index] = decodeSampleData(arrCopy);
+		  			callback(fileList, index);
 		  		});
 			}
 		}
@@ -1740,6 +1745,21 @@ class SubtractiveSynthChannel {
 
 }
 
+function decodeSampleData(arr) {
+	const length = arr.byteLength;
+	const buffer = new AudioBuffer({
+		length: length,
+		numberOfChannels: 1,
+		sampleRate: 8192,
+	});
+	const view = new DataView(arr);
+	const channelData = buffer.getChannelData(0);
+	for (let i = 0; i < length; i++) {
+		channelData[i] = view.getInt8(i) / 128;
+	}
+	return buffer;
+}
+
 const keymap = new Map();
 keymap.set('IntlBackslash', 47);
 keymap.set('KeyZ', 48);
@@ -1794,6 +1814,7 @@ global.Synth = {
 	Waveform: Waveform,
 	Modulator: Modulator,
 	Oscillator: C64OscillatorNode,
+	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	keymap: keymap,
 	volumeCurve: volumeCurve,
