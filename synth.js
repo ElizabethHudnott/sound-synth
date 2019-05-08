@@ -391,7 +391,6 @@ class SynthSystem {
 		this.outputStreamNode = outputStreamNode;
 		this.appendRecording = false;
 		this.ondatarecorded = undefined;
-		this.recordedChunks = [];
 		this.setRecordingFormat(undefined, undefined);
 	}
 
@@ -503,13 +502,14 @@ class SynthSystem {
 	}
 
 	setRecordingFormat(mimeType, bitRate) {
-		const me = this;
-		this.recordCommand = 0; // 0 = accumulate data, 1 = accumulate data and call callback, 2 = delete existing data
-
 		if (this.recorder !== undefined && this.recorder.state !== 'inactive') {
 			this.recorder.ondataavailable = undefined;
 			this.recorder.stop();
 		}
+
+		const me = this;
+		this.recordedChunks = [];
+		this.recordCommand = 0; // 0 = accumulate data, 1 = accumulate data and call callback, 2 = delete existing data
 
 		const recorder = new MediaRecorder(this.outputStreamNode.stream, {
 			mimeType: mimeType,
@@ -523,10 +523,12 @@ class SynthSystem {
 			} else {
 				me.recordedChunks.push(event.data);
 				if (me.recordCommand === 1) {
-					const blob = new Blob(me.recordedChunks, {
-						type: me.recorder.mimeType,
-					});
-					me.ondatarecorded(blob);
+					if (me.ondatarecorded) {
+						const blob = new Blob(me.recordedChunks, {
+							type: me.recorder.mimeType,
+						});
+						me.ondatarecorded(blob);
+					}
 					me.recordCommand = 0;
 				}
 			}
@@ -574,10 +576,13 @@ class SynthSystem {
 			this.recordCommand = 1;
 			this.recorder.requestData();
 		} else {
-			const blob = new Blob(this.recordedChunks, {
-				type: this.recorder.mimeType,
+			const me = this;
+			setTimeout(function () {
+				const blob = new Blob(me.recordedChunks, {
+					type: me.recorder.mimeType,
+				});
+				me.ondatarecorded(blob);
 			});
-			this.ondatarecorded(blob);
 		}
 	}
 
