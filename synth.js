@@ -386,9 +386,18 @@ class SynthSystem {
 		const volume = audioContext.createGain();
 		this.volume = volume;
 		volume.connect(audioContext.destination);
+
+		const outputStreamNode = audioContext.createMediaStreamDestination();
+		this.outputStreamNode = outputStreamNode;
+		this.appendRecording = false;
+		this.ondatarecorded = undefined;
+		this.recordedChunks = [];
+		this.setRecordingFormat(undefined, undefined);
 	}
 
-	addChannel(channel) {
+	addChannel(channel, output) {
+		output.connect(this.volume);
+		output.connect(this.outputStreamNode);
 		this.channels.push(channel);
 	}
 
@@ -491,6 +500,89 @@ class SynthSystem {
 
 	getSamplePeriod(index) {
 		return 1 / noteFrequencies[this.sampledNote[index]];
+	}
+
+	setRecordingFormat(mimeType, bitRate) {
+		const me = this;
+		this.recordCommand = 0; // 0 = accumulate data, 1 = accumulate data and call callback, 2 = delete existing data
+
+		if (this.recorder !== undefined && this.recorder.state !== 'inactive') {
+			this.recorder.ondataavailable = undefined;
+			this.recorder.stop();
+		}
+
+		const recorder = new MediaRecorder(this.outputStreamNode.stream, {
+			mimeType: mimeType,
+			audioBitsPerSecond: bitRate,
+		});
+		this.recorder = recorder;
+
+		recorder.ondataavailable = function (event) {
+			if (me.recordCommand === 2) {
+				me.recordedChunks = [];
+			} else {
+				me.recordedChunks.push(event.data);
+				if (me.recordCommand === 1) {
+					const blob = new Blob(me.recordedChunks, {
+						type: me.recorder.mimeType,
+					});
+					me.ondatarecorded(blob);
+					me.recordCommand = 0;
+				}
+			}
+		};
+
+		recorder.onstart = function (event) {
+			if (!me.appendRecording) {
+				me.recordedChunks = [];
+			}
+		};
+
+	}
+
+	startRecording() {
+		this.recorder.start();
+	}
+
+	stopRecording() {
+		this.recordCommand = 1;
+		this.recorder.stop();
+	}
+
+	cancelRecording() {
+		if (this.recorder.state === 'inactive') {
+			this.recordedChunks = [];
+		} else {
+			this.recordCommand = 2;
+			this.recorder.stop();
+		}
+	}
+
+	pauseRecording() {
+		if (this.recorder.state === 'recording') {
+			this.recorder.requestData();
+		}
+		this.recorder.pause();
+	}
+
+	resumeRecording() {
+		this.recorder.resume();
+	}
+
+	requestRecording() {
+		if (this.recorder.state === 'recording') {
+			this.recordCommand = 1;
+			this.recorder.requestData();
+		} else {
+			const blob = new Blob(this.recordedChunks, {
+				type: this.recorder.mimeType,
+			});
+			this.ondatarecorded(blob);
+		}
+	}
+
+	get recordingState() {
+		return this.recorder.state;
 	}
 
 }
@@ -767,8 +859,7 @@ class SubtractiveSynthChannel {
 		this.noteFrequencies = [];
 		this.tune(440, 0);
 
-		volume.connect(system.volume);
-		system.addChannel(this);
+		system.addChannel(this, volume);
 	}
 
 	tune(a4, stretch) {

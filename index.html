@@ -230,6 +230,15 @@
 				<legend>Output</legend>
 				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume<br>
 			</fieldset>
+			<fieldset>
+				<legend>Recording</legend>
+				<button onclick="system.startRecording()"><img src="img/record.png"></button>
+				<button onclick="pauseRecording()"><img src="img/pause.png"></button>
+				<button onclick="system.stopRecording()"><img src="img/stop.png"></button>
+				<input type="checkbox" oninput="system.appendRecording = this.checked">Append
+				<br>
+				<audio id="recording" controls></audio>
+			</fieldset>
 		</div>
 
 		<script src="synth.js"></script>
@@ -240,6 +249,10 @@
 			let tempOpened = false;
 			let octaveOffset = 0;
 			let channels, timer;
+
+			system.ondatarecorded = function (blob) {
+				document.getElementById('recording').src = URL.createObjectURL(blob);
+			}
 
 			function sampleLoaded(url, success, message) {
 				if (success) {
@@ -266,11 +279,14 @@
 				channels = [channel1, channel2];
 
 				system.start();
-				set(Synth.Param.FILTER_MIX, 0);
-				set(Synth.Param.UNFILTERED_MIX, 100);
-				set(Synth.Param.LINE_TIME, 50);
-				set(Synth.Param.ATTACK_CURVE, 3);
-				set(Synth.Param.DELAY, 1);
+				const parameterMap = new Map();
+				parameterMap.set(Synth.Param.FILTER_MIX, new Synth.Change(Synth.ChangeType.SET, 0));
+				parameterMap.set(Synth.Param.UNFILTERED_MIX, new Synth.Change(Synth.ChangeType.SET, 100));
+				parameterMap.set(Synth.Param.LINE_TIME, new Synth.Change(Synth.ChangeType.SET, 50));
+				parameterMap.set(Synth.Param.ATTACK_CURVE, new Synth.Change(Synth.ChangeType.SET, 3));
+				parameterMap.set(Synth.Param.DELAY, new Synth.Change(Synth.ChangeType.SET, 1));
+				channels[0].setParameters(parameterMap);
+
 				timer = setInterval(sendNewLine, 1000);
 				sendNewLine();
 				system.loadSample(0, 'samples/guitar-strum.wav', sampleLoaded);
@@ -405,6 +421,15 @@
 					}
 				}
 			});
+
+			function pauseRecording() {
+				if (system.recordingState === 'paused') {
+					system.resumeRecording();
+				} else {
+					system.requestRecording();
+					system.pauseRecording();
+				}
+			}
 		</script>
 	</body>
 </html>
