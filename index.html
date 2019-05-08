@@ -33,10 +33,11 @@
 				<input id="samples" type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.SAMPLE)">Samples
 				<br>
 				Sample:
-					<select oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
-						<option value="0">Guitar</option>
-						<option value="1">Violin</option>
-					</select>
+				<select id="sample-list" oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
+					<option value="0">Guitar</option>
+					<option value="1">Violin</option>
+				</select>
+				<input id="sample-upload" type="file" accept="audio/*" multiple oninput="uploadSamples()">
 			</fieldset>
 			<fieldset>
 				<legend>LFO 1</legend>
@@ -289,9 +290,9 @@
 
 				timer = setInterval(sendNewLine, 1000);
 				sendNewLine();
-				system.loadSample(0, 'samples/guitar-strum.wav', sampleLoaded);
+				system.loadSampleFromURL(0, 'samples/guitar-strum.wav', sampleLoaded);
 				system.sampledNote[0] = 55;
-				system.loadSample(1, 'samples/violin.wav', sampleLoaded);
+				system.loadSampleFromURL(1, 'samples/violin.wav', sampleLoaded);
 				system.sampledNote[1] = 46;
 				document.getElementById('intro').style.display = 'none';
 				document.getElementById('controls').style.display = 'block';
@@ -429,6 +430,31 @@
 					system.requestRecording();
 					system.pauseRecording();
 				}
+			}
+
+			function uploadSamples() {
+				const files = document.getElementById('sample-upload').files;
+				const dropDown = document.getElementById('sample-list');
+				for (let i = 2; i < dropDown.children.length; i++) {
+					dropDown.removeChild(dropDown.children[i]);
+				}
+				for (let i = 0; i < files.length; i++) {
+					const option = document.createElement('option');
+					option.value = 2 + i;
+					option.appendChild(document.createTextNode(files[i].name));
+					dropDown.appendChild(option);
+				}
+
+				function fileLoaded(files, index, success, message) {
+					const name = files[index].name;
+					if (success) {
+						console.log('Loaded ' + name);
+					} else {
+						console.log('Failed to load ' + name + '. ' + message);
+					}
+				}
+
+				system.loadSamplesFromHTML(2, files, fileLoaded);
 			}
 		</script>
 	</body>

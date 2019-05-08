@@ -418,16 +418,18 @@ class SynthSystem {
 		this.startTime = startTime;
 	}
 
-	loadSample(number, url, callback) {
-		const me = this;
-
+	initSample(number) {
 		if (this.samples[number] === undefined) {
 			this.loopSample[number] = false;
 			this.sampleLoopStart[number] = 0;
 			this.sampleLoopEnd[number] = Number.MAX_VALUE;
 			this.sampledNote[number] = 69;
 		}
+	}
 
+	loadSampleFromURL(number, url, callback) {
+		const me = this;
+		this.initSample(number);
 		const request = new XMLHttpRequest();
 		request.open('GET', url);
 		request.responseType = 'arraybuffer';
@@ -441,7 +443,7 @@ class SynthSystem {
 		  			callback(url, true, '');
 
 		  		}).catch(function (error) {
-		  			callback(url, false, error.message)
+		  			callback(url, false, error.message);
 		  		});
 		  	} else {
 		  		callback(url, false, request.status + ' - ' + request.statusText);
@@ -459,13 +461,35 @@ class SynthSystem {
 	 	request.send();
 	}
 
-	setSample(number, buffer) {
-		if (this.samples[number] === undefined) {
-			this.loopSample[number] = false;
-			this.sampleLoopStart[number] = 0;
-			this.sampleLoopEnd[number] = Number.MAX_VALUE;
-			this.sampledNote[number] = 69;
+	loadSamplesFromHTML(firstSampleNumber, fileList, callback) {
+		for (let i = 0; i < fileList.length; i++) {
+			this.initSample(firstSampleNumber + i);
 		}
+
+		const me = this;
+		function decodeSample(index) {
+			return function (event) {
+				const arr = event.target.result;
+		  		me.audioContext.decodeAudioData(arr)
+		  		.then(function(buffer) {
+		  			me.samples[firstSampleNumber + index] = buffer;
+		  			callback(fileList, index, true, '');
+
+		  		}).catch(function (error) {
+		  			callback(fileList, index, false, error.message);
+		  		});
+			}
+		}
+
+		for (let i = 0; i < fileList.length; i++) {
+			const reader = new FileReader();
+			reader.readAsArrayBuffer(fileList[i]);
+			reader.onloadend = decodeSample(i);
+		}
+	}
+
+	setSample(number, buffer) {
+		initSample(number);
 		this.samples[number] = buffer;
 	}
 
