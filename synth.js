@@ -1747,17 +1747,93 @@ class SubtractiveSynthChannel {
 
 function decodeSampleData(arr) {
 	const length = arr.byteLength;
-	const buffer = new AudioBuffer({
-		length: length,
-		numberOfChannels: 1,
-		sampleRate: 8192,
-	});
 	const view = new DataView(arr);
-	const channelData = buffer.getChannelData(0);
-	for (let i = 0; i < length; i++) {
-		channelData[i] = view.getInt8(i) / 128;
+	const buffers = [];
+	if (length >= 12 && view.getUint32(0) === 0x464f524d && view.getUint32(8) === 0x38535658) {
+		// i.e. An IFF file: FORM <length> 8SVX
+		const fileLength = view.getUint32(4) + 8;
+		let offset = 12;
+		let numOneShotSamples, numRepeatSamples, totalNumSamples, totalAllOctaves, samplesPerHiCycle;
+		let sampleRate = 8192;
+		let numOctaves = 1;
+		let compressionMethod = 0;
+		let volume = 1;
+		let isStereo = false;
+
+		while (offset < fileLength) {
+			const chunkName = view.getUint32(offset);
+			const chunkLength = view.getUint32(offset + 4);
+
+			switch (chunkName) {
+			case 0x56484452: // VHDR
+				numOneShotSamples = view.getUint32(offset + 8);
+				numRepeatSamples = view.getUint32(offset + 12);
+				totalNumSamples = numOneShotSamples + numRepeatSamples;
+				samplesPerHiCycle = view.getUint32(offset + 16);
+				sampleRate = view.getUint16(offset + 20);
+				numOctaves = view.getUint8(offset + 22);
+				totalAllOctaves = totalNumSamples * (2 ** numOctaves - 1);
+				compressionMethod = view.getUint8(offset + 23);
+				volume = view.getUint32(offset + 24) / 65536;
+				break;
+
+			case 0x424f4459: // BODY
+				if (totalNumSamples === undefined) {
+					// No VHDR header chunk
+					totalNumSamples = chunkLength;
+				} else {
+					isStereo = chunkLength === 2 * totalAllOctaves;
+				}
+				let numSamplesInOctave = totalNumSamples;
+				let subOffset = offset + 8;
+				for (let i = 0; i < numOctaves; i++) {
+					const buffer = new AudioBuffer({
+						length: numSamplesInOctave,
+						numberOfChannels: isStereo ? 2 : 1,
+						sampleRate: sampleRate,
+					});
+					buffers[i] = buffer;
+
+					let channelData = buffer.getChannelData(0);
+					for (let j = 0; j < numSamplesInOctave; j++) {
+						channelData[j] = view.getInt8(subOffset + j) / 128;
+					}
+					if (isStereo) {
+						channelData = buffer.getChannelData(1);
+						for (let j = 0; j < numSamplesInOctave; j++) {
+							channelData[j] = view.getInt8(subOffset + totalAllOctaves + j) / 128;
+						}
+					}
+
+					subOffset += numSamplesInOctave;
+					numSamplesInOctave *= 2;
+				}
+				break;
+			}
+
+			offset += chunkLength + 8;
+			if (chunkLength % 2 === 1) {
+				// Pad byte
+				offset++;
+			}
+		}
+
+	} else {
+
+		// Interpret as a RAW file.
+		const buffer = new AudioBuffer({
+			length: length,
+			numberOfChannels: 1,
+			sampleRate: 8192,
+		});
+		buffers[0] = buffer;
+		const channelData = buffer.getChannelData(0);
+		for (let i = 0; i < length; i++) {
+			channelData[i] = view.getInt8(i) / 128;
+		}
+
 	}
-	return buffer;
+	return buffers[0];
 }
 
 const keymap = new Map();
