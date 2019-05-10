@@ -111,6 +111,7 @@ const Parameter = enumFromArray([
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
 	'TICKS',		// maximum number of events during a LINE_TIME
+	'DELAY_TICKS',	// in ticks
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
@@ -735,6 +736,7 @@ class SubtractiveSynthChannel {
 			0,		// sync
 			24,		// line time (125bpm, allegro)
 			24,		// number of ticks for broken chords, glissando and retrigger
+			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
 			1,		// broken chord speed
@@ -1076,9 +1078,54 @@ class SubtractiveSynthChannel {
 		const me = this;
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
+
 		let gate = parameterMap.get(Parameter.GATE);
 		if (gate !== undefined) {
 			gate = gate.value;
+		}
+
+		let lineTime = parameters[Parameter.LINE_TIME];
+		let numTicks = parameters[Parameter.TICKS];
+		let delay = parameters[Parameter.DELAY_TICKS];
+		let dirtyNumTicks = false;
+		if (parameterMap.has(Parameter.LINE_TIME)) {
+			const change = parameterMap.get(Parameter.LINE_TIME);
+			if (change.type === ChangeType.DELTA) {
+				lineTime += change.value;
+			} else {
+				lineTime = change.value;
+			}
+			dirtyNumTicks = true;
+		}
+
+		if (parameterMap.has(Parameter.TICKS)) {
+			const change = parameterMap.get(Parameter.TICKS);
+			if (change.type === ChangeType.DELTA) {
+				numTicks += change.value;
+			} else {
+				numTicks = change.value;
+			}
+			dirtyNumTicks = true;
+		}
+
+		if (numTicks > lineTime) {
+			numTicks = lineTime;
+		} else if (numTicks < 1) {
+			numTicks = 1;
+		}
+
+		const tickTime = (lineTime * TIME_STEP) / numTicks;
+
+		if (parameterMap.has(Parameter.DELAY_TICKS)) {
+			const change = parameterMap.get(Parameter.DELAY_TICKS);
+			if (change.type === ChangeType.DELTA) {
+				delay += change.value;
+			} else {
+				delay = change.value;
+			}
+			if (delay >= numTicks) {
+				delay = numTicks - 1;
+			}
 		}
 
 		// Each of these holds a change type (or undefined for no change)
@@ -1087,7 +1134,6 @@ class SubtractiveSynthChannel {
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
-		let dirtyNumTicks = false;
 		let frequencySet = false;
 		let sampleChanged = false;
 
@@ -1096,7 +1142,7 @@ class SubtractiveSynthChannel {
 			step = (now - this.system.startTime) / TIME_STEP + 1;
 		}
 		step = Math.trunc(step);
-		const time = this.system.startTime + step * TIME_STEP;
+		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
 
@@ -1515,11 +1561,15 @@ class SubtractiveSynthChannel {
 
 			case Parameter.LINE_TIME:
 				this.system.tempoChanged = step;
-				dirtyNumTicks = true;
+				parameters[Parameter.LINE_TIME] = lineTime;
 				break;
 
 			case Parameter.TICKS:
-				dirtyNumTicks = true;
+				parameters[Parameter.TICKS] = numTicks;
+				break;
+
+			case Parameter.DELAY_TICKS:
+				parameters[Parameter.DELAY_TICKS] = delay;
 				break;
 
 			case Parameter.CHORD_PATTERN:
@@ -1579,14 +1629,7 @@ class SubtractiveSynthChannel {
 		if (dirtyPan) {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
 		}
-
 		if (dirtyNumTicks) {
-			const numTicks = parameters[Parameter.TICKS];
-			if (numTicks > parameters[Parameter.LINE_TIME]) {
-				parameters[Parameter.TICKS] = parameters[Parameter.LINE_TIME];
-			} else if (numTicks < 1) {
-				parameters[Parameter.TICKS] = 1;
-			}
 			this.copyParameters([Parameter.LINE_TIME, Parameter.TICKS]);
 		}
 
@@ -1628,8 +1671,7 @@ class SubtractiveSynthChannel {
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
 				const chordTicks = parameters[Parameter.CHORD_SPEED];
-				const numTicks = parameters[Parameter.TICKS];
-				const tickTime = (parameters[Parameter.LINE_TIME] * TIME_STEP) / numTicks;
+				numTicks = numTicks - delay;
 
 				let glissandoPerTick;
 				if (glissandoSteps === 0) {

@@ -6,7 +6,7 @@ class Song {
 	constructor() {
 		this.patterns = [];
 		this.song = [];
-		this.initialParameters = new Map();
+		this.initialParameters = [];
 	}
 
 	play() {
@@ -71,7 +71,10 @@ class Pattern {
 		this.numLines = value;
 	}
 
-	play(system, step) {
+	play(system, channelMask, step) {
+		if (channelMask === undefined) {
+			channelMask = -1
+		}
 		if (step === undefined) {
 			step = system.nextStep();
 		}
@@ -82,9 +85,11 @@ class Pattern {
 		for (let row of this.rows) {
 			if (row !== undefined) {
 				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
-					const changes = row[columnNumber];
-					if (changes !== undefined) {
-						changes.play(system.channels[this.channelNumbers[columnNumber]], step);
+					if ((channelMask & (1 << columnNumber)) !== 0) {
+						const changes = row[columnNumber];
+						if (changes !== undefined) {
+							changes.play(system.channels[this.channelNumbers[columnNumber]], step);
+						}
 					}
 				}
 				lineTime = Changes.getTempo(row, lineTime);
