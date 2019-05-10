@@ -116,6 +116,8 @@ class Pattern {
 			}
 			step += lineTime;
 		}
+		step += lineTime * (this.numLines - this.rows.length);
+		return step;
 	}
 
 }
