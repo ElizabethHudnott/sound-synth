@@ -107,7 +107,7 @@ const Parameter = enumFromArray([
 	'DELAY_LFO',	// which LFO to use
 	'DELAY_MIX',	// percentage (may be more than 100)
 	'FEEDBACK',		// percentage
-	'RING_MODULATION', // 0 to 100
+	'RING_MOD', // 0 to 100
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
 	'TICKS',		// maximum number of events during a LINE_TIME
@@ -1558,7 +1558,7 @@ class SubtractiveSynthChannel {
 				dirtyPan = changeType;
 				break;
 
-			case Parameter.RING_MODULATION:
+			case Parameter.RING_MOD:
 				this.ringMod.gain[changeType](1 - value / 100, time);
 				this.ringInput.gain[changeType](value / 100, time);
 				break;
