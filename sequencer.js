@@ -81,12 +81,32 @@ class Pattern {
 		const numColumns = this.channelNumbers.length;
 		const globalParameters = system.channels[0].parameters;
 		let lineTime = globalParameters[Synth.Param.LINE_TIME];
+		let loopStart = 0, loopIndex = 1;
 
-		for (let row of this.rows) {
+		let nextRowNum = 0;
+		while (nextRowNum < this.rows.length) {
+			const row = this.rows[nextRowNum];
+			nextRowNum++;
 			if (row !== undefined) {
-				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
+				let changes = row[0];
+				if (changes !== undefined) {
+					if (changes.changes.has(Synth.Param.LOOP_START)) {
+						loopStart = nextRowNum - 1; // invert nextRowNum++ above
+					}
+					if (changes.changes.has(Synth.Param.LOOPS)) {
+						const numLoops = changes.changes.get(Synth.Param.LOOPS).value;
+						if (loopIndex < numLoops) {
+							nextRowNum = loopStart;
+							loopIndex++;
+						} else {
+							loopIndex = 1;
+						}
+					}
+					changes.play(system.channels[this.channelNumbers[0]], step);
+				}
+				for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
 					if ((channelMask & (1 << columnNumber)) !== 0) {
-						const changes = row[columnNumber];
+						changes = row[columnNumber];
 						if (changes !== undefined) {
 							changes.play(system.channels[this.channelNumbers[columnNumber]], step);
 						}

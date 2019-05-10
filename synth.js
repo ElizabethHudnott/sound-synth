@@ -121,6 +121,8 @@ const Parameter = enumFromArray([
 	'SAMPLE_OFFSET', // in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'SCALE_RELEASE', // dimensionless (0 or less)
+	'LOOP_START',	// anything (presence of the parameter is all that matters)
+	'LOOPS',			// a positive integer
 ]);
 
 const ChangeType = Object.freeze({
@@ -137,6 +139,8 @@ class Change {
 		this.type = type;
 		this.value = value;
 	}
+
+	static Mark = new Change(ChangeType.SET, 1);
 }
 
 /**
