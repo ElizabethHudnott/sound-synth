@@ -419,7 +419,7 @@ class SynthSystem {
 
 
 	nextStep() {
-		return (this.audioContext.currentTime - this.startTime) / TIME_STEP + 1;
+		return Math.trunc((this.audioContext.currentTime - this.startTime) / TIME_STEP) + 1;
 	}
 
 	initSample(number) {

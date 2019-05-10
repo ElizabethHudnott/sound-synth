@@ -56,7 +56,7 @@ class Pattern {
 		}
 		let cell = row[columnNumber];
 		if (cell === undefined) {
-			cell = new ChangeList();
+			cell = new Changes();
 			row[columnNumber] = cell;
 		}
 		return cell;
@@ -81,13 +81,13 @@ class Pattern {
 
 		for (let row of this.rows) {
 			if (row !== undefined) {
-				lineTime = ChangeList.getTempo(row, lineTime);
 				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
 					const changes = row[columnNumber];
 					if (changes !== undefined) {
 						changes.play(system.channels[this.channelNumbers[columnNumber]], step);
 					}
 				}
+				lineTime = Changes.getTempo(row, lineTime);
 			}
 			step += lineTime;
 		}
@@ -95,51 +95,25 @@ class Pattern {
 
 }
 
-class ChangeList {
+class Changes {
 
 	constructor() {
-		this.delay = 0;
 		this.instrument = undefined;
-		this.changes = 	[];
-		this.changeTimes = [];
+		this.changes = new Map();
 	}
 
-	getChangesAtTime(step) {
-		return this.changes[this.changeTimes.indexOf(step)];
-	}
-
-	addChangesAtTime(changes, step) {
-		let i = 0;
-		while (i < this.changeTimes.length && step < this.changeTimes[i]) {
-			i++;
-		}
-		this.changeTimes.splice(i, 0, step);
-		this.changes.splice(i, 0, changes);
-	}
-
-	removeChangesAtTime(step) {
-
-	}
-
-	changeTime(oldStep, newStep) {
-
-	}
-
-	play(channel, startStep) {
-		startStep = startStep + this.delay;
-		for (let i = 0; i < this.changeTimes.length; i++) {
-			channel.setParameters(this.changes[i], startStep + this.changeTimes[i]);
-		}
+	play(channel, step) {
+		channel.setParameters(this.changes, step);
 	}
 
 	static getTempo(row, lineTime) {
 		let i = row.length - 1;
 		while (i >= 0) {
-			const changeList = row[i];
-			if (changeList !== undefined) {
-				const changes = changeList.changes[0];
-				if (changes !== undefined) {
-					const lineTimeChange = changes.get(Synth.Param.LINE_TIME);
+			const changes = row[i];
+			if (changes !== undefined) {
+				const parameterMap = changes.changes;
+				if (parameterMap !== undefined) {
+					const lineTimeChange = parameterMap.get(Synth.Param.LINE_TIME);
 					if (lineTimeChange !== undefined) {
 						switch (lineTimeChange.type) {
 						case Synth.ChangeType.DELTA:
