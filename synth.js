@@ -44,7 +44,7 @@ const Parameter = enumFromArray([
 	'RELEASE',		// in milliseconds
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	'DURATION',		// in milliseconds (0 = auto)
-	'GATE',			// CLOSED, OPEN, TRIGGER or CUT
+	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// combinations of Waveform enum values
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// in cents
@@ -381,7 +381,6 @@ class SynthSystem {
 
 		this.startTime = audioContext.currentTime;
 		this.tempoChanged = 0;
-		this.systemParameters = [Parameter.LINE_TIME, Parameter.TICKS];
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -416,6 +415,11 @@ class SynthSystem {
 			channel.start(startTime);
 		}
 		this.startTime = startTime;
+	}
+
+
+	nextStep() {
+		return (this.audioContext.currentTime - this.startTime) / TIME_STEP + 1;
 	}
 
 	initSample(number) {

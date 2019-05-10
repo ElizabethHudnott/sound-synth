@@ -4,7 +4,6 @@
 class Song {
 
 	constructor() {
-		this.lineTime = 24; // TODO read default value directly from the synth.
 		this.patterns = [];
 		this.song = [];
 		this.initialParameters = new Map();
@@ -18,20 +17,21 @@ class Song {
 
 class Pattern {
 
-	constructor(numLines) {
+	constructor() {
 		this.rows = [];
 		this.channelNumbers = [];
-		this.numLines = numLines;
+		this.numLines = 64;
 	}
 
-	addColumn(channelNumber, columnNumber) {
-		if (columnNumber === undefined) {
-			this.channelNumbers.push(channelNumber);
-		} else {
-			for (let row of this.rows) {
-				row.splice(columnNumber, 0, undefined);
-			}
-			this.channelNumbers.splice(columnNumber, 0, channelNumber);
+	addColumn(channelNumber) {
+		let columnNumber = this.channelNumbers.length;
+		while (channelNumber < this.channelNumbers[columnNumber - 1]) {
+			columnNumber--;
+		}
+
+		this.channelNumbers.splice(columnNumber, 0, channelNumber);
+		for (let row of this.rows) {
+			row.splice(columnNumber, 0, undefined);
 		}
 	}
 
@@ -72,9 +72,16 @@ class Pattern {
 	}
 
 	play(system, step) {
+		if (step === undefined) {
+			step = system.nextStep();
+		}
 		const numColumns = this.channelNumbers.length;
+		const globalParameters = system.channels[0].parameters;
+		let lineTime = globalParameters[Synth.Param.LINE_TIME];
+
 		for (let row of this.rows) {
 			if (row !== undefined) {
+				lineTime = ChangeList.getTempo(row, lineTime);
 				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
 					const changes = row[columnNumber];
 					if (changes !== undefined) {
@@ -82,7 +89,7 @@ class Pattern {
 					}
 				}
 			}
-			step += 24;
+			step += lineTime;
 		}
 	}
 
@@ -97,24 +104,24 @@ class ChangeList {
 		this.changeTimes = [];
 	}
 
-	getChangesAtTime(ticks) {
-		return this.changes[this.changeTimes.indexOf(ticks)];
+	getChangesAtTime(step) {
+		return this.changes[this.changeTimes.indexOf(step)];
 	}
 
-	addChangesAtTime(changes, ticks) {
+	addChangesAtTime(changes, step) {
 		let i = 0;
-		while (i < this.changeTimes.length && i < this.changeTimes[i]) {
+		while (i < this.changeTimes.length && step < this.changeTimes[i]) {
 			i++;
 		}
-		this.changeTimes.splice(i, 0, ticks);
+		this.changeTimes.splice(i, 0, step);
 		this.changes.splice(i, 0, changes);
 	}
 
-	removeChangesAtTime(ticks) {
+	removeChangesAtTime(step) {
 
 	}
 
-	changeTime(oldTicks, newTicks) {
+	changeTime(oldStep, newStep) {
 
 	}
 
@@ -123,6 +130,33 @@ class ChangeList {
 		for (let i = 0; i < this.changeTimes.length; i++) {
 			channel.setParameters(this.changes[i], startStep + this.changeTimes[i]);
 		}
+	}
+
+	static getTempo(row, lineTime) {
+		let i = row.length - 1;
+		while (i >= 0) {
+			const changeList = row[i];
+			if (changeList !== undefined) {
+				const changes = changeList.changes[0];
+				if (changes !== undefined) {
+					const lineTimeChange = changes.get(Synth.Param.LINE_TIME);
+					if (lineTimeChange !== undefined) {
+						switch (lineTimeChange.type) {
+						case Synth.ChangeType.DELTA:
+							return lineTime + lineTimeChange.value;
+
+						case Synth.ChangeType.MULTIPLY:
+							return lineTime * lineTimeChange.value;
+
+						default:
+							return lineTimeChange.value;
+						}
+					}
+				}
+			}
+			i--;
+		}
+		return lineTime;
 	}
 
 }

@@ -322,8 +322,8 @@
 			}
 
 			function tempOpen() {
-				if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
-					set(Synth.Param.GATE, Synth.Gate.OPEN);
+				if (channels[0].parameters[Synth.Param.GATE] & 3 !== Synth.Gate.OPEN) {
+					set(Synth.Param.GATE, Synth.Gate.REOPEN);
 					tempOpened = true;
 				}
 			}
