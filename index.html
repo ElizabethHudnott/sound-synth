@@ -307,8 +307,7 @@
 			function set(parameterNumber, value, delay, changeType, channelNumber) {
 				let time;
 				if (delay !== undefined) {
-					system.begin();
-					time = delay;
+					time = system.nextStep() + delay;
 					stepNumber = 1;
 				}
 				if (changeType === undefined) {

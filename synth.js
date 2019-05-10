@@ -1938,11 +1938,13 @@ global.Synth = {
 	Param: Parameter,
 	Source: Source,
 	Waveform: Waveform,
+	keymap: keymap,
+
+	// Internals exposed as generic reusable code
 	Modulator: Modulator,
 	Oscillator: C64OscillatorNode,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
-	keymap: keymap,
 	volumeCurve: volumeCurve,
 };
 

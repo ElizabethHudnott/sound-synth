@@ -4,13 +4,69 @@
 class Song {
 
 	constructor() {
-		this.patterns = [];
-		this.song = [];
+		this.patterns = [new Pattern()];
+		this.song = [0];
+		this.offsets = [0];
 		this.initialParameters = [];
+		this.loopFrom = undefined;
 	}
 
-	play() {
+	getPattern(number) {
+		return this.patterns[number];
+	}
 
+	get numberOfPatterns() {
+		return this.patterns.length;
+	}
+
+	addPattern(pattern) {
+		this.patterns.push(pattern);
+		return this.patterns.length - 1;
+	}
+
+	removePattern(number) {
+		this.patterns.splice(number, 1);
+		const song = this.song;
+		for (let i = 0; i < song.length; i++) {
+			const patternNumber = song[i];
+			if (patternNumber === number) {
+				song[i] = undefined;
+			} else if (patternNumber > number) {
+				song[i]--;
+			}
+		}
+	}
+
+	getPatternNumber(position) {
+		return this.song[position];
+	}
+
+	getOffset(position) {
+		return this.offsets[position];
+	}
+
+	get songLength() {
+		return this.song.length;
+	}
+
+	insertPatternNumber(position) {
+		this.song.splice(position, 0, 0);
+		this.offsets.splice(position, 0, 0);
+	}
+
+	removePatternNumber(position) {
+		this.song.splice(position, 1);
+		this.offsets.splice(position, 1);
+	}
+
+	play(system, channelMask) {
+		let step = system.nextStep();
+		for (let i = 0 < this.song.length; i++) {
+			const patternNumber = this.song[i];
+			if (patternNumber !== undefined) {
+				step = this.patterns[patternNumber].play(system, this.offsets[i], channelMask, step);
+			}
+		}
 	}
 
 }
@@ -46,7 +102,7 @@ class Pattern {
 
 	getCell(columnNumber, lineNumber) {
 		if (lineNumber >= this.numLines) {
-			throw new Error(`Line number ${lineNumber} exceeds the number of lines in the pattern.`);
+			this.numLines = lineNumber + 1
 		}
 
 		let row = this.rows[lineNumber];
@@ -62,6 +118,10 @@ class Pattern {
 		return cell;
 	}
 
+	get numberOfColumns() {
+		return this.channelNumbers.length;
+	}
+
 	get numberOfLines() {
 		return this.numLines;
 	}
@@ -71,7 +131,7 @@ class Pattern {
 		this.numLines = value;
 	}
 
-	play(system, channelMask, step) {
+	play(system, offset, channelMask, step) {
 		if (channelMask === undefined) {
 			channelMask = -1
 		}
@@ -83,7 +143,7 @@ class Pattern {
 		let lineTime = globalParameters[Synth.Param.LINE_TIME];
 		let loopStart = 0, loopIndex = 1;
 
-		let nextRowNum = 0;
+		let nextRowNum = offset;
 		while (nextRowNum < this.rows.length) {
 			const row = this.rows[nextRowNum];
 			nextRowNum++;
