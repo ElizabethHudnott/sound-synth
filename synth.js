@@ -111,7 +111,8 @@ const Parameter = enumFromArray([
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
 	'TICKS',		// maximum number of events during a LINE_TIME
-	'DELAY_TICKS',	// in ticks
+	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
+	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
@@ -386,7 +387,10 @@ class SynthSystem {
 
 		this.audioContext = audioContext;
 		this.channels = [];
-		this.globalParameters = [24, 24];
+		this.globalParameters = [
+			24,	// LINE_TIME
+			24,	// TICKS
+		];
 		this.samples = [];
 		this.loopSample = [];
 		this.sampleLoopStart = [];
@@ -749,6 +753,7 @@ class SubtractiveSynthChannel {
 			0,		// sync
 			system.globalParameters[0], // line time (125bpm, allegro)
 			system.globalParameters[1], // number of ticks for broken chords, glissando and retrigger
+			0,		// pattern delay
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger

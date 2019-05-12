@@ -197,22 +197,28 @@ class Pattern {
 		}
 
 		let nextRowNum = offset;
+		let patternDelay;
 		while (nextRowNum < this.rows.length) {
 			const row = this.rows[nextRowNum];
 			const masterChanges = this.master[nextRowNum];
 			nextRowNum++;
+			patternDelay = 0;
 			if (masterChanges !== undefined) {
 				if (masterChanges.has(Synth.Param.LOOP_START)) {
 					loopStart = nextRowNum - 1; // invert nextRowNum++ above
 				}
-				if (masterChanges.has(Synth.Param.LOOPS)) {
-					const numLoops = masterChanges.get(Synth.Param.LOOPS).value;
-					if (loopIndex < numLoops) {
+				const numLoopsChange = masterChanges.get(Synth.Param.LOOPS);
+				if (numLoopsChange !== undefined) {
+					if (loopIndex < numLoopsChange.value) {
 						nextRowNum = loopStart;
 						loopIndex++;
 					} else {
 						loopIndex = 1;
 					}
+				}
+				const patternDelayChange = masterChanges.get(Synth.Param.PATTERN_DELAY);
+				if (patternDelayChange !== undefined) {
+					patternDelay = patternDelayChange.value;
 				}
 			}
 			if (row !== undefined) {
@@ -226,7 +232,7 @@ class Pattern {
 				}
 				lineTime = system.globalParameters[0];
 			}
-			step += lineTime;
+			step += lineTime * (1 + patternDelay);
 		}
 		step += lineTime * (this.numLines - this.rows.length);
 		return step;
