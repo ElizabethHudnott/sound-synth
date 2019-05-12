@@ -61,7 +61,7 @@ class Song {
 
 	play(system, channelMask) {
 		let step = system.nextStep();
-		for (let i = 0 < this.song.length; i++) {
+		for (let i = 0; i < this.song.length; i++) {
 			const patternNumber = this.song[i];
 			if (patternNumber !== undefined) {
 				step = this.patterns[patternNumber].play(system, this.offsets[i], channelMask, step);
@@ -75,6 +75,7 @@ class Pattern {
 
 	constructor() {
 		this.rows = [];
+		this.master = []; // master column
 		this.channelNumbers = [];
 		this.numLines = 64;
 	}
@@ -86,8 +87,14 @@ class Pattern {
 		}
 
 		this.channelNumbers.splice(columnNumber, 0, channelNumber);
-		for (let row of this.rows) {
-			row.splice(columnNumber, 0, undefined);
+		for (let i = 0; i < this.rows.length; i++) {
+			const row = rows[i];
+			const masterParameters = this.master[i];
+			if (masterParameters !== undefined) {
+				row.splice(columnNumber, 0, new Change(new Map(masterParameters)));
+			} else if (row !== undefined) {
+				row.splice(columnNumber, 0, undefined);
+			}
 		}
 	}
 
@@ -118,6 +125,46 @@ class Pattern {
 		return cell;
 	}
 
+	setMasterParameters(lineNumber, parameters) {
+		let masterParameters = this.master[lineNumber];
+		let row = this.rows[lineNumber];
+		if (masterParameters === undefined) {
+			masterParameters = new Map();
+		}
+		if (row === undefined) {
+			row = [];
+			this.rows[lineNumber] = row;
+		}
+
+		for (let i = 0; i < this.channelNumbers.length; i++) {
+			let cell = row[i];
+			if (cell === undefined) {
+				row[i] = new Changes(new Map(parameters));
+			} else {
+				for (let [key, value] of parameters) {
+					const currentMasterValue = masterParameters.get(key);
+					const cellValue = cell.parameters.get(key);
+					if (currentMasterValue === undefined || currentMasterValue.equals(cellValue)) {
+						cell.parameters.set(key, value);
+					}
+				}
+				for (let [key, value] of masterParameters) {
+					if (!parameters.has(key)) {
+						if (value.equals(cell.parameters.get(key))) {
+							cell.parameters.delete(key);
+						}
+					}
+				}
+			}
+		}
+		this.master[lineNumber] = new Map(parameters);
+	}
+
+	getMasterParameters(lineNumber) {
+		const masterParameters = this.masterParameters[lineNumber];
+		return new Map(masterParameters);
+	}
+
 	get numberOfColumns() {
 		return this.channelNumbers.length;
 	}
@@ -139,40 +186,45 @@ class Pattern {
 			step = system.nextStep();
 		}
 		const numColumns = this.channelNumbers.length;
-		const globalParameters = system.channels[0].parameters;
-		let lineTime = globalParameters[Synth.Param.LINE_TIME];
+		let lineTime = system.globalParameters[0];
+		let numTicks = system.globalParameters[1];
 		let loopStart = 0, loopIndex = 1;
+
+		for (let channelNumber of this.channelNumbers) {
+			const channelParams = system.channels[channelNumber].parameters;
+			channelParams[Synth.Param.LINE_TIME] = lineTime;
+			channelParams[Synth.Param.TICKS] = numTicks;
+		}
 
 		let nextRowNum = offset;
 		while (nextRowNum < this.rows.length) {
 			const row = this.rows[nextRowNum];
+			const masterChanges = this.master[nextRowNum];
 			nextRowNum++;
-			if (row !== undefined) {
-				let changes = row[0];
-				if (changes !== undefined) {
-					if (changes.changes.has(Synth.Param.LOOP_START)) {
-						loopStart = nextRowNum - 1; // invert nextRowNum++ above
-					}
-					if (changes.changes.has(Synth.Param.LOOPS)) {
-						const numLoops = changes.changes.get(Synth.Param.LOOPS).value;
-						if (loopIndex < numLoops) {
-							nextRowNum = loopStart;
-							loopIndex++;
-						} else {
-							loopIndex = 1;
-						}
-					}
-					changes.play(system.channels[this.channelNumbers[0]], step);
+			if (masterChanges !== undefined) {
+				if (masterChanges.has(Synth.Param.LOOP_START)) {
+					loopStart = nextRowNum - 1; // invert nextRowNum++ above
 				}
-				for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
+				if (masterChanges.has(Synth.Param.LOOPS)) {
+					const numLoops = masterChanges.get(Synth.Param.LOOPS).value;
+					if (loopIndex < numLoops) {
+						nextRowNum = loopStart;
+						loopIndex++;
+					} else {
+						loopIndex = 1;
+					}
+				}
+			}
+			if (row !== undefined) {
+				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
 					if ((channelMask & (1 << columnNumber)) !== 0) {
-						changes = row[columnNumber];
+						const changes = row[columnNumber];
 						if (changes !== undefined) {
 							changes.play(system.channels[this.channelNumbers[columnNumber]], step);
 						}
 					}
 				}
-				lineTime = Changes.getTempo(row, lineTime);
+				lineTime = system.globalParameters[0];
 			}
 			step += lineTime;
 		}
@@ -184,40 +236,17 @@ class Pattern {
 
 class Changes {
 
-	constructor() {
+	constructor(parameters) {
 		this.instrument = undefined;
-		this.changes = new Map();
+		if (parameters === undefined) {
+			this.parameters = new Map();
+		} else {
+			this.parameters = parameters;
+		}
 	}
 
 	play(channel, step) {
-		channel.setParameters(this.changes, step);
-	}
-
-	static getTempo(row, lineTime) {
-		let i = row.length - 1;
-		while (i >= 0) {
-			const changes = row[i];
-			if (changes !== undefined) {
-				const parameterMap = changes.changes;
-				if (parameterMap !== undefined) {
-					const lineTimeChange = parameterMap.get(Synth.Param.LINE_TIME);
-					if (lineTimeChange !== undefined) {
-						switch (lineTimeChange.type) {
-						case Synth.ChangeType.DELTA:
-							return lineTime + lineTimeChange.value;
-
-						case Synth.ChangeType.MULTIPLY:
-							return lineTime * lineTimeChange.value;
-
-						default:
-							return lineTimeChange.value;
-						}
-					}
-				}
-			}
-			i--;
-		}
-		return lineTime;
+		channel.setParameters(this.parameters, step);
 	}
 
 }

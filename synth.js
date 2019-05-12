@@ -140,6 +140,14 @@ class Change {
 		this.value = value;
 	}
 
+	equals(obj) {
+		if (obj === undefined) {
+			return false;
+		} else {
+			return this.type === obj.type && this.value === obj.value;
+		}
+	}
+
 	static Mark = new Change(ChangeType.SET, 1);
 }
 
@@ -378,6 +386,7 @@ class SynthSystem {
 
 		this.audioContext = audioContext;
 		this.channels = [];
+		this.globalParameters = [24, 24];
 		this.samples = [];
 		this.loopSample = [];
 		this.sampleLoopStart = [];
@@ -738,8 +747,8 @@ class SubtractiveSynthChannel {
 			0,		// feedback
 			0,		// ring modulation
 			0,		// sync
-			24,		// line time (125bpm, allegro)
-			24,		// number of ticks for broken chords, glissando and retrigger
+			system.globalParameters[0], // line time (125bpm, allegro)
+			system.globalParameters[1], // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
@@ -1091,7 +1100,6 @@ class SubtractiveSynthChannel {
 		let lineTime = parameters[Parameter.LINE_TIME];
 		let numTicks = parameters[Parameter.TICKS];
 		let delay = parameters[Parameter.DELAY_TICKS];
-		let dirtyNumTicks = false;
 		if (parameterMap.has(Parameter.LINE_TIME)) {
 			const change = parameterMap.get(Parameter.LINE_TIME);
 			if (change.type === ChangeType.DELTA) {
@@ -1099,7 +1107,6 @@ class SubtractiveSynthChannel {
 			} else {
 				lineTime = change.value;
 			}
-			dirtyNumTicks = true;
 		}
 
 		if (parameterMap.has(Parameter.TICKS)) {
@@ -1109,7 +1116,6 @@ class SubtractiveSynthChannel {
 			} else {
 				numTicks = change.value;
 			}
-			dirtyNumTicks = true;
 		}
 
 		if (numTicks > lineTime) {
@@ -1566,10 +1572,12 @@ class SubtractiveSynthChannel {
 			case Parameter.LINE_TIME:
 				this.system.tempoChanged = step;
 				parameters[Parameter.LINE_TIME] = lineTime;
+				system.globalParameters[0] = lineTime;
 				break;
 
 			case Parameter.TICKS:
 				parameters[Parameter.TICKS] = numTicks;
+				system.globalParameters[1] = numTicks;
 				break;
 
 			case Parameter.DELAY_TICKS:
@@ -1633,12 +1641,9 @@ class SubtractiveSynthChannel {
 		if (dirtyPan) {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
 		}
-		if (dirtyNumTicks) {
-			this.copyParameters([Parameter.LINE_TIME, Parameter.TICKS]);
-		}
 
 		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN;
-		const newLine = (step - this.system.tempoChanged) % parameters[Parameter.LINE_TIME] === 0;
+		const newLine = (step - this.system.tempoChanged) % lineTime === 0;
 		const frequencies = this.frequencies;
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
@@ -1779,16 +1784,6 @@ class SubtractiveSynthChannel {
 						callback();
 					}
 				}, timeDifference);
-			}
-		}
-	}
-
-	copyParameters(paramNumbers) {
-		const channels = this.system.channels;
-		for (let paramNumber of paramNumbers) {
-			const value = this.parameters[paramNumber];
-			for (let channel of channels) {
-				channel.parameters[paramNumber] = value;
 			}
 		}
 	}
