@@ -41,8 +41,16 @@ class Song {
 		return this.song[position];
 	}
 
+	setPatternNumber(position, patternNumber) {
+		this.song[position] = patternNumber;
+	}
+
 	getOffset(position) {
 		return this.offsets[position];
+	}
+
+	setOffset(position, offset) {
+		this.offsets[position] = offset;
 	}
 
 	get songLength() {
@@ -231,8 +239,9 @@ class Pattern {
 					}
 				}
 				lineTime = system.globalParameters[0];
+				numTicks = system.globalParameters[1];
 			}
-			step += lineTime * (1 + patternDelay);
+			step += lineTime * (1 + patternDelay / numTicks);
 		}
 		step += lineTime * (this.numLines - this.rows.length);
 		return step;

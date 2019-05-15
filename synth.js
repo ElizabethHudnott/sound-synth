@@ -389,7 +389,7 @@ class SynthSystem {
 		this.channels = [];
 		this.globalParameters = [
 			24,	// LINE_TIME
-			24,	// TICKS
+			12,	// TICKS
 		];
 		this.samples = [];
 		this.loopSample = [];
@@ -418,17 +418,12 @@ class SynthSystem {
 	}
 
 	begin() {
-		const now = this.audioContext.currentTime;
-		const startTime = this.startTime;
-		const step = Math.trunc((now - startTime) / TIME_STEP);
-		this.startTime = startTime + (step + 1) * TIME_STEP;
+		this.startTime = this.audioContext.currentTime;
 		this.tempoChanged = 0;
 	}
 
 	start() {
-		const now = this.audioContext.currentTime;
-		const startTime = (Math.trunc(now / TIME_STEP) + 1) * TIME_STEP;
-
+		const startTime = this.audioContext.currentTime;
 		for (let channel of this.channels) {
 			channel.start(startTime);
 		}
@@ -536,6 +531,7 @@ class SynthSystem {
 		const sample = this.samples[index];
 		if (sample !== undefined) {
 			samplePlayer.buffer = sample;
+			samplePlayer.playbackRate.value = 0;
 			const loop = this.loopSample[index];
 			if (loop) {
 				samplePlayer.loop = true;
@@ -1154,9 +1150,8 @@ class SubtractiveSynthChannel {
 
 		const now = this.system.audioContext.currentTime;
 		if (step === undefined) {
-			step = (now - this.system.startTime) / TIME_STEP + 1;
+			step = (now - this.system.startTime) / TIME_STEP;
 		}
-		step = Math.trunc(step);
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
