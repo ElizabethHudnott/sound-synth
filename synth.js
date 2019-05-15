@@ -7,6 +7,20 @@ const CENT = 2 ** (1 / 1200);
 const LFO_MAX = 20;
 const TIME_STEP = 0.02; // 50 steps per second
 
+function calculateParameterValue(change, currentValue) {
+	if (change === undefined) {
+		return currentValue;
+	}
+	switch (change.type) {
+	case ChangeType.DELTA:
+		return currentValue + change.value;
+	case ChangeType.MULTIPLY:
+		return currentValue * change.value;
+	default:
+		return change.value;
+	}
+}
+
 function clamp(value) {
 	if (value > LFO_MAX) {
 		return LFO_MAX;
@@ -1098,26 +1112,9 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
-		let lineTime = parameters[Parameter.LINE_TIME];
-		let numTicks = parameters[Parameter.TICKS];
-		let delay = parameters[Parameter.DELAY_TICKS];
-		if (parameterMap.has(Parameter.LINE_TIME)) {
-			const change = parameterMap.get(Parameter.LINE_TIME);
-			if (change.type === ChangeType.DELTA) {
-				lineTime += change.value;
-			} else {
-				lineTime = change.value;
-			}
-		}
-
-		if (parameterMap.has(Parameter.TICKS)) {
-			const change = parameterMap.get(Parameter.TICKS);
-			if (change.type === ChangeType.DELTA) {
-				numTicks += change.value;
-			} else {
-				numTicks = change.value;
-			}
-		}
+		let lineTime = calculateParameterValue(parameterMap.get(Parameter.LINE_TIME), parameters[Parameter.LINE_TIME]);
+		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS]);
+		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS]);
 
 		if (numTicks > lineTime) {
 			numTicks = lineTime;
@@ -1125,19 +1122,11 @@ class SubtractiveSynthChannel {
 			numTicks = 1;
 		}
 
-		const tickTime = (lineTime * TIME_STEP) / numTicks;
-
-		if (parameterMap.has(Parameter.DELAY_TICKS)) {
-			const change = parameterMap.get(Parameter.DELAY_TICKS);
-			if (change.type === ChangeType.DELTA) {
-				delay += change.value;
-			} else {
-				delay = change.value;
-			}
-			if (delay >= numTicks) {
-				delay = numTicks - 1;
-			}
+		if (delay >= numTicks) {
+			delay = numTicks - 1;
 		}
+
+		const tickTime = (lineTime * TIME_STEP) / numTicks;
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
