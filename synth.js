@@ -39,6 +39,14 @@ function volumeCurve(value) {
 	}
 }
 
+function inverseVolumeCurve(value) {
+	if (value === 0) {
+		return 0;
+	} else {
+		return 100 + 99 * Math.log10(value);
+	}
+}
+
 function enumFromArray(array) {
 	const result = {};
 	for (let i = 0; i < array.length; i++) {
@@ -129,6 +137,7 @@ const Parameter = enumFromArray([
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
+	'RETRIGGER_VOLUME',
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO_SIZE', // number of steps
@@ -767,6 +776,7 @@ class SubtractiveSynthChannel {
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
+			100,	// retrigger volume same as initial volume
 			1,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
@@ -785,6 +795,7 @@ class SubtractiveSynthChannel {
 		this.frequencies = [440];
 		this.distanceFromC = 9;
 		this.detune = 1;
+		this.retriggerVolumeChangeType = ChangeType.SET;
 		this.noteIndex = 0;
 		this.chordDir = 1;
 		this.noteRepeated = false;
@@ -990,14 +1001,12 @@ class SubtractiveSynthChannel {
 		this.lfo3.trigger(when);
 	}
 
-	gate(state, start) {
+	gate(state, velocity, volume, sustainLevel, start) {
 		const parameters = this.parameters;
-		const velocity = this.velocity;
-		const sustainLevel = this.sustain;
 		let beginRelease, endTime;
 
 		const playSample = parameters[Parameter.SOURCE] > 0;
-		const velocityReduction = (100 - parameters[Parameter.VELOCITY]) / 100;
+		const velocityReduction = (100 - velocity) / 100;
 		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
 		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
 		const releaseTime = scaleRelease * this.release;
@@ -1011,13 +1020,13 @@ class SubtractiveSynthChannel {
 			gain.cancelAndHoldAtTime(start - 0.001);
 			gain.setTargetAtTime(0, start - 0.001, 0.001 / 2);
 			if ((state & Gate.OPEN) !== 0) {
-				gain.setTargetAtTime(velocity * this.attackScale, start, attackConstant);
-				gain.setValueAtTime(velocity, endAttack);
+				gain.setTargetAtTime(volume * this.attackScale, start, attackConstant);
+				gain.setValueAtTime(volume, endAttack);
 			}
 		} else {
 			gain.cancelAndHoldAtTime(start);
 			if ((state & Gate.OPEN) !== 0) {
-				gain.setTargetAtTime(velocity, start, (endAttack - start) / parameters[Parameter.ATTACK_CURVE]);
+				gain.setTargetAtTime(volume, start, (endAttack - start) / parameters[Parameter.ATTACK_CURVE]);
 			}
 		}
 
@@ -1025,7 +1034,7 @@ class SubtractiveSynthChannel {
 		case Gate.OPEN:
 		case Gate.REOPEN:
 			this.triggerLFOs(start);
-			gain.setValueAtTime(velocity, start + scaleAHD * this.endHold);
+			gain.setValueAtTime(volume, start + scaleAHD * this.endHold);
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, start + scaleAHD * this.endDecay);
 			break;
 
@@ -1067,7 +1076,7 @@ class SubtractiveSynthChannel {
 			} else {
 				beginRelease = endDecay;
 			}
-			gain.setValueAtTime(velocity, endHold);
+			gain.setValueAtTime(volume, endHold);
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
 			if (!playSample) {
@@ -1584,6 +1593,10 @@ class SubtractiveSynthChannel {
 				parameters[Parameter.MULTI_TRIGGER] = value;
 				break;
 
+			case Parameter.RETRIGGER_VOLUME:
+				this.retriggerVolumeChangeType = changeType;
+				break;
+
 			case Parameter.SAMPLE:
 				this.playRateMultiplier.gain.setValueAtTime(this.system.getSamplePeriod(value), time);
 				sampleChanged = true;
@@ -1638,7 +1651,7 @@ class SubtractiveSynthChannel {
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
 		if (gate !== undefined) {
-			this.gate(gate, time);
+			this.gate(gate, parameters[Parameter.VELOCITY], this.velocity, this.sustain, time);
 			glissandoAmount = 0;
 			prevGlissandoAmount = 0;
 			noteIndex = 0;
@@ -1681,8 +1694,26 @@ class SubtractiveSynthChannel {
 				}
 
 				let tick = 1;
+				let volume = this.velocity;
 				const pattern = parameters[Parameter.CHORD_PATTERN];
+
 				const retriggerGate = Gate.TRIGGER + parameters[Parameter.MULTI_TRIGGER] * Gate.MULTI_TRIGGERABLE;
+				let retriggerVolumeChange;
+				if (this.retriggerVolumeChangeType === ChangeType.SET) {
+					retriggerVolumeChange = new Change(ChangeType.SET, volume * parameters[Parameter.RETRIGGER_VOLUME] / 100);
+				} else {
+					const numTriggers = numTicks / retriggerTicks;
+					let endVolume = volume * parameters[Parameter.RETRIGGER_VOLUME] / 100;
+					if (endVolume > 1) {
+						endVolume = 1;
+					}
+					if (this.retriggerVolumeChangeType === ChangeType.LINEAR) {
+						retriggerVolumeChange = new Change(ChangeType.DELTA, (endVolume - volume) / numTriggers);
+					} else {
+						retriggerVolumeChange = new Change(ChangeType.MULTIPLY, (endVolume / volume) ** (1 / numTriggers));
+					}
+				}
+
 				while (tick < numTicks) {
 					const timeOfTick = time + tick * tickTime;
 
@@ -1752,7 +1783,11 @@ class SubtractiveSynthChannel {
 					}
 
 					if (tick % retriggerTicks === 0) {
-						this.gate(retriggerGate, timeOfTick);
+						volume = calculateParameterValue(retriggerVolumeChange, volume);
+						console.log(volume);
+						const sustain = this.sustain * volume / this.velocity;
+						const velocity = inverseVolumeCurve(volume);
+						this.gate(retriggerGate, velocity, volume, sustain, timeOfTick);
 					}
 					prevGlissandoAmount = glissandoAmount;
 					tick++;
@@ -1930,6 +1965,7 @@ global.Synth = {
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	volumeCurve: volumeCurve,
+	inverseVolumeCurve: inverseVolumeCurve,
 };
 
 })(window);
