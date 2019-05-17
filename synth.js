@@ -1631,7 +1631,7 @@ class SubtractiveSynthChannel {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time);
 		}
 
-		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN;
+		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN || parameters[Parameter.GATE] === Gate.REOPEN;
 		const newLine = (step - this.system.tempoChanged) % lineTime === 0;
 		const frequencies = this.frequencies;
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
