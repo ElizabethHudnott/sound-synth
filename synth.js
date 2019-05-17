@@ -1702,7 +1702,7 @@ class SubtractiveSynthChannel {
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
 					retriggerVolumeChange = new Change(ChangeType.SET, volume * parameters[Parameter.RETRIGGER_VOLUME] / 100);
 				} else {
-					const numTriggers = numTicks / retriggerTicks;
+					const numTriggers = Math.trunc(numTicks / retriggerTicks);
 					let endVolume = volume * parameters[Parameter.RETRIGGER_VOLUME] / 100;
 					if (endVolume > 1) {
 						endVolume = 1;
@@ -1784,7 +1784,6 @@ class SubtractiveSynthChannel {
 
 					if (tick % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume);
-						console.log(volume);
 						const sustain = this.sustain * volume / this.velocity;
 						const velocity = inverseVolumeCurve(volume);
 						this.gate(retriggerGate, velocity, volume, sustain, timeOfTick);

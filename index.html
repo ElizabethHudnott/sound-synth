@@ -160,20 +160,20 @@
 			</fieldset>
 			<fieldset>
 				<legend>Amplitude Envelope</legend>
-				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="1000" value="2" step="1">Attack
-				<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="6" value="3" step="0.25">Curve
+				<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="500" value="2" step="1">Attack
+				<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="5" value="3" step="0.25">Curve
 				<br>
-				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="2000" value="0" step="1">Hold<br>
-				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="1" max="2000" value="50" step="1">Decay
+				<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="1500" value="0" step="1">Hold<br>
+				<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="1" max="1000" value="50" step="1">Decay
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
 				<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="75" step="1">Sustain<br>
-				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="2000" value="300" step="1">Release
+				<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1500" value="300" step="1">Release
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 				<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 				<br>
-				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="5000" value="0" step="1">Default Duration
+				<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value))" min="0" max="3000" value="0" step="1">Default Duration
 				<small>(0 = auto)</small>
 			</fieldset>
 			<fieldset>
@@ -202,7 +202,7 @@
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<input id="line-time" type="range" oninput="setLineTime(parseInt(this.value))" min="15" max="150" value="50" step="1">Playing Time<br>
+				<input id="line-time" type="range" oninput="setLineTime(parseInt(this.value))" min="2" max="100" value="50" step="1">Playing Time<br>
 				<input id="ticks" type="range" oninput="calcTicks()" min="1" max="50" step="0.1" value="50">Ticks / second<br>
 				1<input type="text" id="chord" oninput="playNote(Synth.Gate.TRIGGER)" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small><br>
 				<input type="range" oninput="set(Synth.Param.CHORD_SPEED, parseInt(this.value))" min="0" max="16" value="1" step="1">Chord rotation time<br>
