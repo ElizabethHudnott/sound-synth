@@ -144,7 +144,6 @@ const Parameter = enumFromArray([
 	'SAMPLE',		// array index of the sample to play.
 	'SAMPLE_OFFSET', // in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
-	'SCALE_RELEASE', // dimensionless (0 or less)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
 	'LOOPS',			// a positive integer
 ]);
@@ -414,14 +413,13 @@ class SynthSystem {
 			24,	// LINE_TIME
 			12,	// TICKS
 		];
+		this.startTime = audioContext.currentTime;
+
 		this.samples = [];
 		this.loopSample = [];
 		this.sampleLoopStart = [];
 		this.sampleLoopEnd = [];
 		this.sampledNote = [];
-
-		this.startTime = audioContext.currentTime;
-		this.tempoChanged = 0;
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -442,7 +440,6 @@ class SynthSystem {
 
 	begin() {
 		this.startTime = this.audioContext.currentTime;
-		this.tempoChanged = 0;
 	}
 
 	start() {
@@ -782,8 +779,7 @@ class SubtractiveSynthChannel {
 			0,		// glissando length
 			0,		// use first sample
 			0,		// no sample offset
-			0,		// envelope scaling for AHD portion of the envelope
-			0,		// envelope scaling for the release
+			1,		// envelope scaling for AHD portion of the envelope
 		];
 		this.velocity = 1;
 		this.sustain = volumeCurve(70); // combined sustain and velocity
@@ -1006,10 +1002,8 @@ class SubtractiveSynthChannel {
 		let beginRelease, endTime;
 
 		const playSample = parameters[Parameter.SOURCE] > 0;
-		const velocityReduction = (100 - velocity) / 100;
-		const scaleAHD = 1 + parameters[Parameter.SCALE_AHD] * velocityReduction;
-		const scaleRelease = 1 - parameters[Parameter.SCALE_RELEASE] * velocityReduction;
-		const releaseTime = scaleRelease * this.release;
+		const scaleAHD = parameters[Parameter.SCALE_AHD];
+		const releaseTime = this.release;
 		const gain = this.envelope.gain;
 
 		const endAttack = start + scaleAHD * this.endAttack;
@@ -1111,7 +1105,7 @@ class SubtractiveSynthChannel {
 		this.siren.setMinMax(changeType, frequency * sirenExtent, frequency / sirenExtent, when);
 	}
 
-	setParameters(parameterMap, step) {
+	setParameters(parameterMap, step, newLine) {
 		const me = this;
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
@@ -1568,7 +1562,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.LINE_TIME:
-				this.system.tempoChanged = step;
 				parameters[Parameter.LINE_TIME] = lineTime;
 				system.globalParameters[0] = lineTime;
 				break;
@@ -1645,7 +1638,6 @@ class SubtractiveSynthChannel {
 		}
 
 		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN || parameters[Parameter.GATE] === Gate.REOPEN;
-		const newLine = (step - this.system.tempoChanged) % lineTime === 0;
 		const frequencies = this.frequencies;
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;

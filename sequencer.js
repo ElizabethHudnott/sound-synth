@@ -261,7 +261,7 @@ class Changes {
 	}
 
 	play(channel, step) {
-		channel.setParameters(this.parameters, step);
+		channel.setParameters(this.parameters, step, true);
 	}
 
 }
