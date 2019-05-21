@@ -71,6 +71,7 @@ const Parameter = enumFromArray([
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// in cents
 	'NOTES',		// MIDI note number
+	'TUNING_STRETCH', // in cents
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
 	'LFO1_GAIN',	// -100 to 100
@@ -137,7 +138,7 @@ const Parameter = enumFromArray([
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
-	'RETRIGGER_VOLUME',
+	'RETRIGGER_VOLUME', // percentage of original note volume
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO_SIZE', // number of steps
@@ -401,19 +402,16 @@ for (let i = 0; i <= 127; i++) {
 class SynthSystem {
 	constructor(audioContext, callback) {
 		const me = this;
-		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
-			if (callback !== undefined) {
-				callback(me);
-			}
-		});
-
 		this.audioContext = audioContext;
 		this.channels = [];
 		this.globalParameters = [
 			24,	// LINE_TIME
 			12,	// TICKS
 		];
-		this.startTime = audioContext.currentTime;
+		this.startTime = audioContext.currentTime; // dummy value overridden by start()
+
+		this._a4Pitch = 440;
+		this.tunings = new Map();
 
 		this.samples = [];
 		this.loopSample = [];
@@ -430,12 +428,55 @@ class SynthSystem {
 		this.appendRecording = false;
 		this.ondatarecorded = undefined;
 		this.setRecordingFormat(undefined, undefined);
+
+		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
+			if (callback !== undefined) {
+				callback(me);
+			}
+		});
 	}
 
 	addChannel(channel, output) {
 		output.connect(this.volume);
 		output.connect(this.outputStreamNode);
 		this.channels.push(channel);
+	}
+
+	get a4Pitch() {
+		return this._a4Pitch;
+	}
+
+	set a4Pitch(a4Pitch) {
+		const tunings = this.tunings;
+		tunings.clear();
+		for (let channel of this.channels) {
+			const stretch = channel.parameters[Parameter.TUNING_STRETCH];
+			let channelNotes = tunings.get(stretch);
+			if (channelNotes === undefined) {
+				channelNotes = new Array(127);
+				const s = 1 + stretch / 100;
+				for (let i = 0; i <= 127; i++) {
+					channelNotes[i] = 2 ** ((i - 69) * s / 12) * a4Pitch;
+				}
+				tunings.set(stretch, channelNotes);
+			}
+			channel.noteFrequencies = channelNotes;
+		}
+		this._a4Pitch = a4Pitch;
+	}
+
+	getNotes(stretch) {
+		const a4Pitch = this._a4Pitch;
+		let channelNotes = this.tunings.get(stretch);
+		if (channelNotes === undefined) {
+			channelNotes = new Array(127);
+			const s = 1 + stretch / 100;
+			for (let i = 0; i <= 127; i++) {
+				channelNotes[i] = 2 ** ((i - 69) * s / 12) * a4Pitch;
+			}
+			this.tunings.set(stretch, channelNotes);
+		}
+		return channelNotes;
 	}
 
 	begin() {
@@ -707,6 +748,7 @@ class SubtractiveSynthChannel {
 			440,	// frequency
 			0,		// detune
 			[69],	// MIDI note numbers
+			0,		// no stretched tuning
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
 			100,	// LFO 1 gain
@@ -791,6 +833,7 @@ class SubtractiveSynthChannel {
 		this.frequencies = [440];
 		this.distanceFromC = 9;
 		this.detune = 1;
+		this.noteFrequencies = system.getNotes(0);
 		this.retriggerVolumeChangeType = ChangeType.SET;
 		this.noteIndex = 0;
 		this.chordDir = 1;
@@ -931,18 +974,7 @@ class SubtractiveSynthChannel {
 		this.volume = volume;
 		panner.connect(volume);
 
-		this.noteFrequencies = [];
-		this.tune(440, 0);
-
 		system.addChannel(this, volume);
-	}
-
-	tune(a4, stretch) {
-		const noteFrequencies = this.noteFrequencies;
-		const s = 1 + stretch / 100;
-		for (let i = 0; i <= 127; i++) {
-			noteFrequencies[i] = 2 ** ((i - 69) * s / 12) * a4;
-		}
 	}
 
 	connect(channel) {
@@ -1147,6 +1179,11 @@ class SubtractiveSynthChannel {
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
+
+		let tuningChange = parameterMap.get(Parameter.TUNING_STRETCH);
+		if (tuningChange !== undefined) {
+			this.noteFrequencies = this.system.getNotes(tuningChange.value);
+		}
 
 		for (let [paramNumber, change] of parameterMap) {
 			let changeType = change.type;
