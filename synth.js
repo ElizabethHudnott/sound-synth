@@ -463,7 +463,7 @@ class Sample {
 			const data = buffer.getChannelData(channelNumber);
 			let offset = 0;
 			for (let i = 0; i < length; i++) {
-				offset = offset + Math.abs(data[i]) / length;
+				offset = offset + data[i] / length;
 			}
 			for (let i = 0; i < length; i++) {
 				data[i] = data[i] - offset;
