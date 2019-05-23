@@ -411,13 +411,7 @@ class Sample {
 	reverse() {
 		for (let channelNumber = 0; channelNumber < this.buffer.numberOfChannels; channelNumber++) {
 			const channelData = this.buffer.getChannelData(channelNumber);
-			const length = channelData.length;
-			const middle = Math.trunc(length / 2);
-			for (let i = 0; i < middle; i++) {
-				const temp = channelData[i];
-				channelData[i] = channelData[length - i - 1]
-				channelData[length - i - 1] = temp;
-			}
+			channelData.reverse();
 		}
 	}
 
@@ -488,6 +482,45 @@ class Sample {
 		}
 	}
 
+	chord(notes, instrumentNoteFreqs) {
+		const numNotes = notes.length;
+		const frequencyRatio = instrumentNoteFreqs[notes[0]] / noteFrequencies[this.sampledNote];
+		const rates = [1];
+		for (let i = 1; i < numNotes; i++) {
+			rates[i] = instrumentNoteFreqs[notes[i]] / frequencyRatio;
+		}
+		const oldBuffer = this.buffer;
+		const length = oldBuffer.length;
+		const numChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: length,
+			numberOfChannels: numChannels,
+			sampleRate: oldBuffer.sampleRate * frequencyRatio,
+		});
+		for (let channelNumber = 0; channelNumber < numChannels; channelNumber++) {
+			const oldData = oldBuffer.getChannelData(channelNumber);
+			const newData = newBuffer.getChannelData(channelNumber);
+			for (let outputPosition = 0; outputPosition < length; outputPosition++) {
+				let outputValue = 0;
+				for (let rate of rates) {
+					const position = outputPosition * rate;
+					if (position <= length - 1) {
+						const lowerPosition = Math.trunc(position);
+						const upperPosition = Math.ceil(position);
+						const upperFraction = position - lowerPosition;
+						const noteValue = oldData[lowerPosition] * (1 - upperFraction) + oldData[upperPosition] * upperFraction;
+						outputValue += noteValue;
+					}
+				}
+				newData[outputPosition] = outputValue;
+			}
+		}
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		return newSample;
+	}
 
 }
 
@@ -785,8 +818,10 @@ class SynthSystem {
 	}
 
 	stopRecording() {
-		this.recordCommand = 1;
-		this.recorder.stop();
+		if (this.recorder.state !== 'inactive') {
+			this.recordCommand = 1;
+			this.recorder.stop();
+		}
 	}
 
 	cancelRecording() {
