@@ -409,18 +409,41 @@ class Sample {
 	}
 
 	reverse() {
-		if (this.buffer !== undefined) {
-			for (let channelNumber = 0; channelNumber < this.buffer.numberOfChannels; channelNumber++) {
-				const channelData = this.buffer.getChannelData(channelNumber);
-				const length = channelData.length;
-				const middle = Math.trunc(length / 2);
-				for (let i = 0; i < middle; i++) {
-					const temp = channelData[i];
-					channelData[i] = channelData[length - i - 1]
-					channelData[length - i - 1] = temp;
-				}
+		for (let channelNumber = 0; channelNumber < this.buffer.numberOfChannels; channelNumber++) {
+			const channelData = this.buffer.getChannelData(channelNumber);
+			const length = channelData.length;
+			const middle = Math.trunc(length / 2);
+			for (let i = 0; i < middle; i++) {
+				const temp = channelData[i];
+				channelData[i] = channelData[length - i - 1]
+				channelData[length - i - 1] = temp;
 			}
 		}
+	}
+
+	pingPong() {
+		const oldBuffer = this.buffer;
+		const oldLength = oldBuffer.length;
+		const newLength = oldLength * 2;
+		const newBuffer = new AudioBuffer({
+			length: newLength,
+			numberOfChannels: oldBuffer.numberOfChannels,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		let arr = new Float32Array(oldLength);
+		for (let channelNumber = 0; channelNumber < oldBuffer.numberOfChannels; channelNumber++) {
+			oldBuffer.copyFromChannel(arr, channelNumber);
+			newBuffer.copyToChannel(arr, channelNumber);
+			const channelData = newBuffer.getChannelData(channelNumber);
+			for (let i = 0; i < oldLength; i++) {
+				channelData[newLength - i - 1] = channelData[i];
+			}
+		}
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		return newSample;
 	}
 
 }
@@ -488,6 +511,12 @@ class SampledInstrument {
 	reverse() {
 		for (let sample of this.samples) {
 			sample.reverse();
+		}
+	}
+
+	pingPong() {
+		for (let i = 0; i < this.samples.length; i++) {
+			this.samples[i] = this.samples[i].pingPong();
 		}
 	}
 
