@@ -398,6 +398,159 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
 }
 
+class Sample {
+	static EMPTY_SAMPLE = new Sample(undefined);
+
+	constructor(buffer) {
+		this.buffer = buffer;
+		this.loopStart = 0;
+		this.loopEnd = Number.MAX_VALUE;
+		this.sampledNote = 69;
+	}
+
+	reverse() {
+		if (this.buffer !== undefined) {
+			for (let channelNumber = 0; channelNumber < this.buffer.numberOfChannels; channelNumber++) {
+				const channelData = this.buffer.getChannelData(channelNumber);
+				const length = channelData.length;
+				const middle = Math.trunc(length / 2);
+				for (let i = 0; i < middle; i++) {
+					const temp = channelData[i];
+					channelData[i] = channelData[length - i - 1]
+					channelData[length - i - 1] = temp;
+				}
+			}
+		}
+	}
+
+}
+
+class SamplePlayer {
+	constructor(audioContext, sample, loop) {
+		const bufferNode = audioContext.createBufferSource();
+		this.bufferNode = bufferNode;
+		bufferNode.buffer = sample.buffer;
+		bufferNode.playbackRate.value = 0;
+		if (loop) {
+			bufferNode.loop = true;
+			bufferNode.loopStart = sample.loopStart;
+			bufferNode.loopEnd = sample.loopEnd;
+		}
+		this.samplePeriod = 1 / noteFrequencies[sample.sampledNote];
+	}
+}
+
+class SampledInstrument {
+
+	constructor() {
+		this.samples = [];
+		this.startingNotes = [];
+		this.loop = false;
+	}
+
+	addSample(startingNote, sample, preserveDetails) {
+		let i = 0;
+		for (i = 0; i < this.startingNotes.length; i++) {
+			const currentNote = this.startingNotes[i];
+			if (currentNote === startingNote) {
+				if (preserveDetails) {
+					this.samples[i].buffer = sample.buffer;
+				} else {
+					this.samples[i] = sample;
+				}
+				return;
+			} else if (currentNote > startingNote) {
+				break;
+			}
+		}
+		this.samples.splice(i, 0, sample);
+		this.startingNotes.splice(i, 0, startingNote);
+	}
+
+	removeSample(index) {
+		this.samples.splice(index, 1);
+		this.startingNotes.splice(index, 1);
+	}
+
+	getSamplePlayer(audioContext, note) {
+		let i = this.startingNotes.length;
+		if (i === 0) {
+			return new SamplePlayer(audioContext, Sample.EMPTY_SAMPLE, false);
+		}
+		for (; i > 0; i--) {
+			if (this.startingNotes[i] <= note) {
+				break;
+			}
+		}
+		return new SamplePlayer(audioContext, this.samples[i], this.loop);
+	}
+
+	reverse() {
+		for (let sample of this.samples) {
+			sample.reverse();
+		}
+	}
+
+	loadSampleFromURL(audioContext, startingNote, url, callback) {
+		const sample = new Sample();
+		this.addSample(startingNote, sample, true);
+		const request = new XMLHttpRequest();
+		request.open('GET', url);
+		request.responseType = 'arraybuffer';
+		request.timeout = 60000;
+
+		request.addEventListener('load', function (event) {
+	  		if (request.status < 400) {
+	  			const arr = request.response;
+	  			const arrCopy = arr.slice(0);
+		  		audioContext.decodeAudioData(arr)
+		  		.then(function(buffer) {
+		  			sample.buffer = buffer;
+		  			callback(url, true, '');
+
+		  		}).catch(function (error) {
+		  			sample.buffer = decodeSampleData(arrCopy);
+		  			callback(url, true, '');
+		  		});
+		  	} else {
+		  		callback(url, false, request.status + ' - ' + request.statusText);
+		  	}
+	  	});
+
+		request.addEventListener('error', function (event) {
+			callback(url, false,'Network error');
+		});
+
+		request.addEventListener('timeout', function (event) {
+			dispatchError(url, false, 'Timeout');
+		});
+
+	 	request.send();
+	 	return sample;
+	}
+
+	loadSampleFromFile(audioContext, startingNote, file, callback) {
+		const sample = new Sample();
+		this.addSample(startingNote, sample, true);
+		const reader = new FileReader();
+		reader.readAsArrayBuffer(file);
+		reader.onloadend = function (event) {
+			const arr = event.target.result;
+			const arrCopy = arr.slice(0);
+	  		audioContext.decodeAudioData(arr)
+	  		.then(function(buffer) {
+	  			sample.buffer = buffer;
+	  			callback(file);
+
+	  		}).catch(function (error) {
+	  			sample.buffer = decodeSampleData(arrCopy);
+	  			callback(file);
+	  		});
+		};
+		return sample;
+	}
+
+}
 
 class SynthSystem {
 	constructor(audioContext, callback) {
@@ -412,12 +565,7 @@ class SynthSystem {
 
 		this._a4Pitch = 440;
 		this.tunings = new Map();
-
-		this.samples = [];
-		this.loopSample = [];
-		this.sampleLoopStart = [];
-		this.sampleLoopEnd = [];
-		this.sampledNote = [];
+		this.sampledInstruments = [];
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -496,117 +644,13 @@ class SynthSystem {
 		return Math.trunc((this.audioContext.currentTime - this.startTime) / TIME_STEP) + 1;
 	}
 
-	initSample(number) {
-		if (this.samples[number] === undefined) {
-			this.loopSample[number] = false;
-			this.sampleLoopStart[number] = 0;
-			this.sampleLoopEnd[number] = Number.MAX_VALUE;
-			this.sampledNote[number] = 69;
-		}
-	}
-
-	loadSampleFromURL(number, url, callback) {
-		const me = this;
-		this.initSample(number);
-		const request = new XMLHttpRequest();
-		request.open('GET', url);
-		request.responseType = 'arraybuffer';
-		request.timeout = 60000;
-
-		request.addEventListener('load', function (event) {
-	  		if (request.status < 400) {
-	  			const arr = request.response;
-	  			const arrCopy = arr.slice(0);
-		  		me.audioContext.decodeAudioData(arr)
-		  		.then(function(buffer) {
-		  			me.samples[number] = buffer;
-		  			callback(url, true, '');
-
-		  		}).catch(function (error) {
-		  			me.samples[number] = decodeSampleData(arrCopy);
-		  			callback(url, true, '');
-		  		});
-		  	} else {
-		  		callback(url, false, request.status + ' - ' + request.statusText);
-		  	}
-	  	});
-
-		request.addEventListener('error', function (event) {
-			callback(url, false,'Network error');
-		});
-
-		request.addEventListener('timeout', function (event) {
-			dispatchError(url, false, 'Timeout');
-		});
-
-	 	request.send();
-	}
-
-	loadSamplesFromHTML(firstSampleNumber, fileList, callback) {
-		for (let i = 0; i < fileList.length; i++) {
-			this.initSample(firstSampleNumber + i);
-		}
-
-		const me = this;
-		function decodeSample(index) {
-			return function (event) {
-				const arr = event.target.result;
-				const arrCopy = arr.slice(0);
-		  		me.audioContext.decodeAudioData(arr)
-		  		.then(function(buffer) {
-		  			me.samples[firstSampleNumber + index] = buffer;
-		  			callback(fileList, index);
-
-		  		}).catch(function (error) {
-		  			me.samples[firstSampleNumber + index] = decodeSampleData(arrCopy);
-		  			callback(fileList, index);
-		  		});
-			}
-		}
-
-		for (let i = 0; i < fileList.length; i++) {
-			const reader = new FileReader();
-			reader.readAsArrayBuffer(fileList[i]);
-			reader.onloadend = decodeSample(i);
-		}
-	}
-
-	setSample(number, buffer) {
-		initSample(number);
-		this.samples[number] = buffer;
-	}
-
-	removeSample(number) {
-		this.samples[number] = undefined;
-	}
-
-	setSampledNote(sample, note) {
-		this.sampledNote[sample] = note;
-		for (let channel of this.channels) {
-			channel.computePlaybackRate();
-		}
-	}
-
-	getSamplePlayer(index) {
-		const samplePlayer = this.audioContext.createBufferSource();
-		const sample = this.samples[index];
-		if (sample !== undefined) {
-			samplePlayer.buffer = sample;
-			samplePlayer.playbackRate.value = 0;
-			const loop = this.loopSample[index];
-			if (loop) {
-				samplePlayer.loop = true;
-				samplePlayer.loopStart = this.sampleLoopStart[index];
-				samplePlayer.loopEnd = this.sampleLoopEnd[index];
-			}
+	getSamplePlayer(instrumentNumber, note) {
+		const instrument = this.sampledInstruments[instrumentNumber];
+		if (instrument === undefined) {
+			return new SamplePlayer(this.audioContext, Sample.EMPTY_SAMPLE, false);
 		} else {
-			this.sampledNote[index] = 69;
+			return instrument.getSamplePlayer(this.audioContext, note);
 		}
-		return samplePlayer;
-	}
-
-	getSamplePeriod(index) {
-		return 1 / noteFrequencies[this.sampledNote[index]];
 	}
 
 	setRecordingFormat(mimeType, bitRate) {
@@ -868,7 +912,7 @@ class SubtractiveSynthChannel {
 		this.syncGain = syncGain;
 
 		// Playing samples
-		this.samplePlayer = undefined;
+		this.sampleBufferNode = undefined;
 		const sampleGain = audioContext.createGain();
 		sampleGain.gain.value = 0;
 		this.sampleGain = sampleGain;
@@ -1006,21 +1050,19 @@ class SubtractiveSynthChannel {
 		this.attackScale = 1 / (1 - Math.E ** -attackCurve);
 	}
 
-	computePlaybackRate() {
-		this.playRateMultiplier.gain.setValueAtTime(this.system.getSamplePeriod(this.parameters[Parameter.SAMPLE]), time);
-	}
-
-	playSample(time) {
-		if (this.samplePlayer !== undefined) {
-			this.samplePlayer.stop(time);
+	playSample(note, time) {
+		if (this.sampleBufferNode !== undefined) {
+			this.sampleBufferNode.stop(time);
 		}
 		const parameters = this.parameters;
-		const sampleNumber = parameters[Parameter.SAMPLE];
-		const samplePlayer = this.system.getSamplePlayer(sampleNumber);
-		this.playRateMultiplier.connect(samplePlayer.playbackRate);
-		samplePlayer.connect(this.sampleGain);
-		samplePlayer.start(time, parameters[Parameter.SAMPLE_OFFSET]);
-		this.samplePlayer = samplePlayer;
+		const instrumentNumber = parameters[Parameter.SAMPLE];
+		const samplePlayer = this.system.getSamplePlayer(instrumentNumber, note);
+		this.playRateMultiplier.gain.setValueAtTime(samplePlayer.samplePeriod, time);
+		const sampleBufferNode = samplePlayer.bufferNode;
+		this.playRateMultiplier.connect(sampleBufferNode.playbackRate);
+		sampleBufferNode.connect(this.sampleGain);
+		sampleBufferNode.start(time, parameters[Parameter.SAMPLE_OFFSET]);
+		this.sampleBufferNode = sampleBufferNode;
 	}
 
 	triggerLFOs(when) {
@@ -1029,7 +1071,7 @@ class SubtractiveSynthChannel {
 		this.lfo3.trigger(when);
 	}
 
-	gate(state, velocity, volume, sustainLevel, start) {
+	gate(state, note, velocity, volume, sustainLevel, start) {
 		const parameters = this.parameters;
 		let beginRelease, endTime;
 
@@ -1072,16 +1114,16 @@ class SubtractiveSynthChannel {
 			} else {
 				gain.linearRampToValueAtTime(0, endTime);
 			}
-			if (this.samplePlayer !== undefined) {
-				this.samplePlayer.stop(endTime);
-				this.samplePlayer = undefined;
+			if (this.sampleBufferNode !== undefined) {
+				this.sampleBufferNode.stop(endTime);
+				this.sampleBufferNode = undefined;
 			}
 			break;
 
 		case Gate.TRIGGER:
 		case Gate.MULTI_TRIGGER:
 			if (playSample) {
-				this.playSample(start);
+				this.playSample(note, start);
 			}
 			this.triggerLFOs(start);
 			let endHold = start + scaleAHD * this.endHold;
@@ -1118,9 +1160,9 @@ class SubtractiveSynthChannel {
 			break;
 
 		case Gate.CUT:
-			if (this.samplePlayer !== undefined) {
-				this.samplePlayer.stop(start);
-				this.samplePlayer = undefined;
+			if (this.sampleBufferNode !== undefined) {
+				this.sampleBufferNode.stop(start);
+				this.sampleBufferNode = undefined;
 			}
 			break;
 		}
@@ -1628,7 +1670,6 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.SAMPLE:
-				this.playRateMultiplier.gain.setValueAtTime(this.system.getSamplePeriod(value), time);
 				sampleChanged = true;
 				break;
 
@@ -1676,11 +1717,12 @@ class SubtractiveSynthChannel {
 
 		const gateOpen = parameters[Parameter.GATE] === Gate.OPEN || parameters[Parameter.GATE] === Gate.REOPEN;
 		const frequencies = this.frequencies;
+		const notes = parameters[Parameter.NOTES];
 		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
 		if (gate !== undefined) {
-			this.gate(gate, parameters[Parameter.VELOCITY], this.velocity, this.sustain, time);
+			this.gate(gate, notes[0], parameters[Parameter.VELOCITY], this.velocity, this.sustain, time);
 			glissandoAmount = 0;
 			prevGlissandoAmount = 0;
 			noteIndex = 0;
@@ -1691,7 +1733,7 @@ class SubtractiveSynthChannel {
 			}
 		} else if (gateOpen) {
 			if (sampleChanged) {
-				this.playSample(time);
+				this.playSample(notes[0], time);
 			}
 			// Don't repeat glissando but keep the chords smooth.
 			glissandoAmount = glissandoSteps;
@@ -1815,7 +1857,7 @@ class SubtractiveSynthChannel {
 						volume = calculateParameterValue(retriggerVolumeChange, volume);
 						const sustain = this.sustain * volume / this.velocity;
 						const velocity = inverseVolumeCurve(volume);
-						this.gate(retriggerGate, velocity, volume, sustain, timeOfTick);
+						this.gate(retriggerGate, notes[noteIndex], velocity, volume, sustain, timeOfTick);
 					}
 					prevGlissandoAmount = glissandoAmount;
 					tick++;
@@ -1983,6 +2025,8 @@ global.Synth = {
 	Gate: Gate,
 	Pattern: Chord,
 	Param: Parameter,
+	Sample: Sample,
+	SampledInstrument: SampledInstrument,
 	Source: Source,
 	Waveform: Waveform,
 	keymap: keymap,
