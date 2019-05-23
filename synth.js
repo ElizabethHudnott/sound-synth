@@ -430,10 +430,8 @@ class Sample {
 			numberOfChannels: oldBuffer.numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
 		});
-		let arr = new Float32Array(oldLength);
 		for (let channelNumber = 0; channelNumber < oldBuffer.numberOfChannels; channelNumber++) {
-			oldBuffer.copyFromChannel(arr, channelNumber);
-			newBuffer.copyToChannel(arr, channelNumber);
+			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber);
 			const channelData = newBuffer.getChannelData(channelNumber);
 			for (let i = 0; i < oldLength; i++) {
 				channelData[newLength - i - 1] = channelData[i];
@@ -445,6 +443,51 @@ class Sample {
 		newSample.sampledNote = this.sampledNote;
 		return newSample;
 	}
+
+	get amplitude() {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		let max = 0;
+		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			for (let i = 0; i < length; i++) {
+				const value = data[i];
+				if (value > max) {
+					max = value;
+				} else if (value < -max) {
+					max = -value;
+				}
+			}
+		}
+		return max;
+	}
+
+	removeOffset() {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			let offset = 0;
+			for (let i = 0; i < length; i++) {
+				offset = offset + Math.abs(data[i]) / length;
+			}
+			for (let i = 0; i < length; i++) {
+				data[i] = data[i] - offset;
+			}
+		}
+	}
+
+	normalize(maxValue) {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			for (let i = 0; i < length; i++) {
+				data[i] = data[i] / maxValue;
+			}
+		}
+	}
+
 
 }
 
@@ -517,6 +560,20 @@ class SampledInstrument {
 	pingPong() {
 		for (let i = 0; i < this.samples.length; i++) {
 			this.samples[i] = this.samples[i].pingPong();
+		}
+	}
+
+	normalize() {
+		let max = 0;
+		for (let sample of this.samples) {
+			sample.removeOffset();
+			const amplitude = sample.amplitude;
+			if (amplitude > max) {
+				max = amplitude;
+			}
+		}
+		for (let sample of this.samples) {
+			sample.normalize(max);
 		}
 	}
 
