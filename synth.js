@@ -399,13 +399,33 @@ for (let i = 0; i <= 127; i++) {
 }
 
 class Sample {
-	static EMPTY_SAMPLE = new Sample(undefined);
+	static EMPTY_BUFFER = new AudioBuffer({length: 1, sampleRate: 8000});
+	static EMPTY_SAMPLE = new Sample(Sample.EMPTY_BUFFER);
 
 	constructor(buffer) {
 		this.buffer = buffer;
 		this.loopStart = 0;
 		this.loopEnd = Number.MAX_VALUE;
 		this.sampledNote = 69;
+	}
+
+	clone() {
+		const newSample = new Sample(Sample.EMPTY_BUFFER);
+		const oldBuffer = this.buffer;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: oldBuffer.length,
+			numberOfChannels: numberOfChannels,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber);
+		}
+		newSample.buffer = newBuffer;
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		return newSample;
 	}
 
 	reverse() {
@@ -471,13 +491,13 @@ class Sample {
 		}
 	}
 
-	normalize(maxValue) {
+	amplify(gain) {
 		const buffer = this.buffer;
 		const length = buffer.length;
 		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
 			const data = buffer.getChannelData(channelNumber);
 			for (let i = 0; i < length; i++) {
-				data[i] = data[i] / maxValue;
+				data[i] = data[i] * gain;
 			}
 		}
 	}
@@ -606,12 +626,12 @@ class SampledInstrument {
 			}
 		}
 		for (let sample of this.samples) {
-			sample.normalize(max);
+			sample.amplify(1 / max);
 		}
 	}
 
 	loadSampleFromURL(audioContext, startingNote, url, callback) {
-		const sample = new Sample();
+		const sample = new Sample(Sample.EMPTY_BUFFER);
 		this.addSample(startingNote, sample, true);
 		const request = new XMLHttpRequest();
 		request.open('GET', url);
@@ -649,7 +669,7 @@ class SampledInstrument {
 	}
 
 	loadSampleFromFile(audioContext, startingNote, file, callback) {
-		const sample = new Sample();
+		const sample = new Sample(Sample.EMPTY_BUFFER);
 		this.addSample(startingNote, sample, true);
 		const reader = new FileReader();
 		reader.readAsArrayBuffer(file);
