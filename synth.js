@@ -672,7 +672,6 @@ class SampledInstrument {
 		const sample = new Sample(Sample.EMPTY_BUFFER);
 		this.addSample(startingNote, sample, true);
 		const reader = new FileReader();
-		reader.readAsArrayBuffer(file);
 		reader.onloadend = function (event) {
 			const arr = event.target.result;
 			const arrCopy = arr.slice(0);
@@ -686,6 +685,7 @@ class SampledInstrument {
 	  			callback(file);
 	  		});
 		};
+		reader.readAsArrayBuffer(file);
 		return sample;
 	}
 
