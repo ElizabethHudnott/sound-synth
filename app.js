@@ -5,6 +5,8 @@ let schedulingStepNumber = 0;
 let octaveOffset = 0;
 let channels, timer;
 
+document.getElementById('input-device').prepend(Sampler.devices);
+
 system.ondatarecorded = function (blob) {
 	const mediaElement = document.getElementById('recording');
 	if (mediaElement.src.startsWith('blob:')) {
@@ -232,3 +234,28 @@ function pauseRecording() {
 		system.pauseRecording();
 	}
 }
+
+Sampler.ondatarecorded = function (buffer) {
+	const dropDown = document.getElementById('sample-list');
+	const instrumentNumber = dropDown.children.length;
+	const sample = new Synth.Sample(buffer);
+	const instrument = new Synth.SampledInstrument();
+	instrument.addSample(0, sample);
+	system.sampledInstruments.push(instrument);
+	const option = document.createElement('option');
+	option.value = instrumentNumber;
+	option.appendChild(document.createTextNode('Recording ' + instrumentNumber));
+	dropDown.appendChild(option);
+}
+
+document.getElementById('sampler-btn').addEventListener('click', function (event) {
+	if (Sampler.recording) {
+		Sampler.stopRecording();
+		event.currentTarget.children[0].src = 'img/record.png';
+	} else {
+		Sampler.requestPermission().then(function () {
+			Sampler.startRecording();
+			document.getElementById('sampler-btn').children[0].src = 'img/stop.png';
+		});
+	}
+});

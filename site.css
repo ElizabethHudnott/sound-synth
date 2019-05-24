@@ -29,6 +29,10 @@ legend {
 	min-height: calc(100vh - 16px);
 }
 
+#input-device select {
+	width: 345px;
+}
+
 .flip-x {
 	transform: scaleX(-1);
 }

@@ -1,29 +1,39 @@
 (function (global) {
 'use strict';
 
-let deviceIDs = [];
+const select = document.createElement('select');
 let mediaStream, recorder;
 
 const Sampler = {
-	devices: [],
+	devices: select,
 	ondatarecorded: undefined,
-	requestAccess: requestAccess,
+	recording: false,
+	requestPermission: requestPermission,
 	startRecording: startRecording,
 	stopRecording: stopRecording,
 	cancelRecording: cancelRecording,
 };
 
 function filterDevices(devices) {
-	const deviceNames = [];
-	deviceIDs = [];
+	select.innerHTML = '';
+	let option = document.createElement('option');
+	option.appendChild(document.createTextNode('Default Recording Device'));
+	option.value = '';
+	select.appendChild(option);
+
 	for (let i = 0; i < devices.length; i++) {
 		const device = devices[i];
 		if (device.kind === 'audioinput') {
-			deviceNames.push(i + ' ' + device.label);
-			deviceIDs.push(device.deviceId);
+			option = document.createElement('option');
+			let label = device.label;
+			if (label === '') {
+				label = 'Device ' + String(i + 1);
+			}
+			option.appendChild(document.createTextNode(label));
+			option.value = device.deviceId;
+			select.appendChild(option);
 		}
 	}
-	Sampler.devices = deviceNames;
 }
 
 if (navigator.mediaDevices) {
@@ -45,25 +55,21 @@ function dataAvailable(event) {
 	stopStream();
 	const reader = new FileReader();
 	reader.onloadend = function (event) {
-		const arr = event.target.result;
-		const arrCopy = arr.slice(0);
-		audioContext.decodeAudioData(arr)
+		audioContext.decodeAudioData(event.target.result)
 		.then(Sampler.ondatarecorded)
-		.catch(function (error) {
-			Sampler.ondatarecorded(Synth.decodeSampleData(arrCopy));
-		});
 	};
 	reader.readAsArrayBuffer(event.data);
 }
 
-function requestAccess(index, constraints) {
+function requestPermission(constraints) {
 	if (constraints === undefined) {
 		constraints = {};
 	}
-	if (index !== undefined) {
-		constraints.deviceId = {exact: deviceIDs[i]};
-	} else {
+	const deviceID = select.value;
+	if (deviceID === '') {
 		constraints.deviceId = undefined;
+	} else {
+		constraints.deviceId = {exact: deviceID};
 	}
 	return navigator.mediaDevices.getUserMedia({audio : constraints})
 	.then(function (stream) {
@@ -76,17 +82,20 @@ function requestAccess(index, constraints) {
 
 function startRecording() {
 	recorder.start();
+	Sampler.recording = true;
 }
 
 function stopRecording() {
 	recorder.stop();
+	Sampler.recording = false;
 }
 
 function cancelRecording() {
 	recorder.ondataavailable = undefined;
 	recorder.stop();
-	recorder = undefined;
 	stopStream();
+	Sampler.recording = false;
+	recorder = undefined;
 }
 
 global.Sampler = Sampler;
