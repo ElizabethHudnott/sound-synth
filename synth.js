@@ -172,7 +172,7 @@ class Change {
 		}
 	}
 
-	static Mark = new Change(ChangeType.SET, 1);
+	static MARK = new Change(ChangeType.SET, 1);
 }
 
 /**
@@ -538,6 +538,68 @@ class Sample {
 		const newSample = new Sample(newBuffer);
 		newSample.loopStart = this.loopStart;
 		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		return newSample;
+	}
+
+	copy(from, to) {
+		const buffer = this.buffer;
+		const numberOfChannels = buffer.numberOfChannels;
+		const copyBuffer = new AudioBuffer({
+			length: to - from + 1,
+			numberOfChannels: numberOfChannels,
+			sampleRate: buffer.sampleRate,
+		});
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			const section = data.subarray(from, to + 1);
+			copyBuffer.copyToChannel(section, channelNumber);
+		}
+		return copyBuffer;
+	}
+
+	remove(from, to) {
+		const oldBuffer = this.buffer;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const deleteLength = to - from + 1;
+		const newBuffer = new AudioBuffer({
+			length: oldBuffer.length - deleteLength,
+			numberOfChannels: numberOfChannels,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const data = oldBuffer.getChannelData(channelNumber);
+			const before = data.subarray(0, from);
+			newBuffer.copyToChannel(before, channelNumber);
+			const after = data.subarray(to + 1);
+			newBuffer.copyToChannel(after, channelNumber, from);
+		}
+		const newSample = new Sample(newBuffer);
+		let loopStart = this.loopStart;
+		if (loopStart > to) {
+			loopStart = loopStart - deleteLength;
+		} else if (loopStart >= from) {
+			if (from === 0) {
+				loopStart = 0;
+			} else {
+				loopStart = from - 1;
+			}
+		}
+		newSample.loopStart = loopStart;
+
+		let loopEnd = this.loopEnd;
+		if (loopEnd > to) {
+			if (loopEnd !== Number.MAX_VALUE) {
+				loopEnd = loopEnd - deleteLength;
+			}
+		} else if (loopEnd >= from) {
+			if (from === 0) {
+				loopEnd = Number.MAX_VALUE;
+			} else {
+				loopEnd = from - 1;
+			}
+		}
+		newSample.loopEnd = loopEnd;
 		newSample.sampledNote = this.sampledNote;
 		return newSample;
 	}
