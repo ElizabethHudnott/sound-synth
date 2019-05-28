@@ -485,7 +485,7 @@ class Sample {
 			for (let i = 0; i < length; i++) {
 				offset = offset + data[i] / length;
 			}
-			for (let i = 0; i < length; i++) {
+			for (let i = length - 1; i >= 0; i--) {
 				data[i] = data[i] - offset;
 			}
 		}
@@ -503,43 +503,36 @@ class Sample {
 	}
 
 	chord(notes, instrumentNoteFreqs) {
+		const me = this;
 		const numNotes = notes.length;
-		const frequencyRatio = instrumentNoteFreqs[notes[0]] / noteFrequencies[this.sampledNote];
-		const rates = [1];
-		for (let i = 1; i < numNotes; i++) {
-			rates[i] = instrumentNoteFreqs[notes[i]] / frequencyRatio;
-		}
 		const oldBuffer = this.buffer;
-		const length = oldBuffer.length;
-		const numChannels = oldBuffer.numberOfChannels;
-		const newBuffer = new AudioBuffer({
-			length: length,
-			numberOfChannels: numChannels,
-			sampleRate: oldBuffer.sampleRate * frequencyRatio,
-		});
-		for (let channelNumber = 0; channelNumber < numChannels; channelNumber++) {
-			const oldData = oldBuffer.getChannelData(channelNumber);
-			const newData = newBuffer.getChannelData(channelNumber);
-			for (let outputPosition = 0; outputPosition < length; outputPosition++) {
-				let outputValue = 0;
-				for (let rate of rates) {
-					const position = outputPosition * rate;
-					if (position <= length - 1) {
-						const lowerPosition = Math.trunc(position);
-						const upperPosition = Math.ceil(position);
-						const upperFraction = position - lowerPosition;
-						const noteValue = oldData[lowerPosition] * (1 - upperFraction) + oldData[upperPosition] * upperFraction;
-						outputValue += noteValue;
-					}
-				}
-				newData[outputPosition] = outputValue;
+		const sampledFrequency = noteFrequencies[this.sampledNote];
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			Math.trunc(oldBuffer.length * instrumentNoteFreqs[notes[0]] / sampledFrequency),
+			oldBuffer.sampleRate
+		);
+		const nodes = [];
+		for (let note of notes) {
+			const node = context.createBufferSource();
+			node.buffer = oldBuffer;
+			node.playbackRate.value = instrumentNoteFreqs[note] / sampledFrequency;
+			if (this.loop) {
+				node.loop = true;
+				node.loopStart = this.loopStart;
+				node.loopEnd = this.loopEnd;
 			}
+			node.connect(context.destination);
+			node.start();
+			nodes.push(node);
 		}
-		const newSample = new Sample(newBuffer);
-		newSample.loopStart = this.loopStart;
-		newSample.loopEnd = this.loopEnd;
-		newSample.sampledNote = this.sampledNote;
-		return newSample;
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = me.loopStart;
+			newSample.loopEnd = me.loopEnd;
+			newSample.sampledNote = me.sampledNote;
+			return newSample;
+		});
 	}
 
 	copy(from, to) {
@@ -602,6 +595,19 @@ class Sample {
 		newSample.loopEnd = loopEnd;
 		newSample.sampledNote = this.sampledNote;
 		return newSample;
+	}
+
+	add(insertBuffer, position) {
+		const oldBuffer = this.buffer;
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			oldBuffer.length + Math.round(insertBuffer.length * oldBuffer.sampleRate / insertBuffer.sampleRate),
+			oldBuffer.sampleRate
+		);
+		const before = context.createBufferSource();
+		before.source = oldBuffer;
+		before.connect(context.destination);
+
 	}
 
 }
