@@ -505,12 +505,24 @@ class Sample {
 		}
 	}
 
-	amplify(gain) {
+	amplify(startGain, endGain, from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+				if (endGain === undefined) {
+					endGain = startGain;
+				}
+			}
+		}
+		const gainGradient = (endGain - startGain) / (to - from);
+
 		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
 			const data = buffer.getChannelData(channelNumber);
-			for (let i = 0; i < length; i++) {
+			for (let i = from; i <= to; i++) {
+				const gain = startGain + (i - from) * gainGradient;
 				data[i] = data[i] * gain;
 			}
 		}
