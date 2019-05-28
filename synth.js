@@ -620,17 +620,48 @@ class Sample {
 		return newSample;
 	}
 
-	add(insertBuffer, position) {
+	insert(insertBuffer, position) {
 		const oldBuffer = this.buffer;
+		const sampleRate = oldBuffer.sampleRate;
+		const insertDuration = insertBuffer.duration;
+		const insertLength = insertDuration * sampleRate;
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			oldBuffer.length + Math.ceil(insertBuffer.length * oldBuffer.sampleRate / insertBuffer.sampleRate),
-			oldBuffer.sampleRate
+			oldBuffer.length + Math.ceil(insertDuration * sampleRate),
+			sampleRate
 		);
-		const before = context.createBufferSource();
-		before.source = oldBuffer;
-		before.connect(context.destination);
+		const beforeDuration = position / sampleRate;
+		if (position > 0) {
+			const before = context.createBufferSource();
+			before.buffer = oldBuffer;
+			before.connect(context.destination);
+			before.start(0, 0, beforeDuration);
+		}
+		const insert = context.createBufferSource();
+		insert.buffer = insertBuffer;
+		insert.connect(context.destination);
+		insert.start(beforeDuration);
+		const after = context.createBufferSource();
+		after.buffer = oldBuffer;
+		after.connect(context.destination);
+		after.start(beforeDuration + insertDuration, position / sampleRate);
 
+		let loopStart = this.loopStart;
+		if (loopStart >= position) {
+			loopStart += insertLength;
+		}
+		let loopEnd = this.loopEnd;
+		if (loopEnd >= position && loopEnd !== Number.MAX_VALUE) {
+			loopEnd += insertLength;
+		}
+		const sampledNote = this.sampledNote;
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = loopStart;
+			newSample.loopEnd = loopEnd;
+			newSample.sampledNote = sampledNote;
+			return newSample;
+		});
 	}
 
 }
