@@ -520,17 +520,22 @@ class Sample {
 		const me = this;
 		const numNotes = notes.length;
 		const oldBuffer = this.buffer;
-		const sampledFrequency = noteFrequencies[this.sampledNote];
+		let baseNote = this.sampledNote;
+		if (notes[0] > baseNote) {
+			baseNote = notes[0];
+		}
+		const baseFrequency = noteFrequencies[baseNote];
+		const ratio = baseFrequency / instrumentNoteFreqs[notes[0]];
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			Math.trunc(oldBuffer.length * instrumentNoteFreqs[notes[0]] / sampledFrequency),
+			Math.ceil(oldBuffer.length * ratio),
 			oldBuffer.sampleRate
 		);
 		const nodes = [];
 		for (let note of notes) {
 			const node = context.createBufferSource();
 			node.buffer = oldBuffer;
-			node.playbackRate.value = instrumentNoteFreqs[note] / sampledFrequency;
+			node.playbackRate.value = instrumentNoteFreqs[note] / baseFrequency;
 			if (this.loop) {
 				node.loop = true;
 				node.loopStart = this.loopStart;
@@ -540,11 +545,15 @@ class Sample {
 			node.start();
 			nodes.push(node);
 		}
+		let sampledNote = this.sampledNote;
+		if (notes[0] < sampledNote) {
+			sampledNote = notes[0];
+		}
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
-			newSample.loopStart = me.loopStart;
-			newSample.loopEnd = me.loopEnd;
-			newSample.sampledNote = me.sampledNote;
+			newSample.loopStart = Math.round(me.loopStart * ratio);
+			newSample.loopEnd = Math.round(me.loopEnd * ratio);
+			newSample.sampledNote = sampledNote;
 			return newSample;
 		});
 	}
@@ -615,7 +624,7 @@ class Sample {
 		const oldBuffer = this.buffer;
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			oldBuffer.length + Math.round(insertBuffer.length * oldBuffer.sampleRate / insertBuffer.sampleRate),
+			oldBuffer.length + Math.ceil(insertBuffer.length * oldBuffer.sampleRate / insertBuffer.sampleRate),
 			oldBuffer.sampleRate
 		);
 		const before = context.createBufferSource();
