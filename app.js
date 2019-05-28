@@ -53,14 +53,14 @@ function initialize() {
 
 	const piano = new Synth.SampledInstrument();
 	system.sampledInstruments[0] = piano;
-	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav', sampleLoaded);
+	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').then(resourceLoaded).catch(resourceError);
 	const guitar = new Synth.SampledInstrument();
 	system.sampledInstruments[1] = guitar;
-	const guitarSample = guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav', sampleLoaded);
+	const guitarSample = guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav').then(resourceLoaded).catch(resourceError);
 	guitarSample.sampledNote = 55;
 	const violin = new Synth.SampledInstrument();
 	system.sampledInstruments[2] = violin;
-	const violinSample = violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav', sampleLoaded);
+	const violinSample = violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav').then(resourceLoaded).catch(resourceError);
 	violinSample.sampledNote = 46;
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
@@ -196,12 +196,18 @@ document.addEventListener('keyup', function (event) {
 	}
 });
 
-function sampleLoaded(url, success, message) {
-	if (success) {
-		console.log('Loaded ' + url);
+function resourceLoaded(resource) {
+	let name;
+	if (resource.source instanceof File) {
+		name = resource.source.name;
 	} else {
-		console.error('Failed to load ' + url + '. ' + message);
+		name = resource.source;
 	}
+	console.log('Loaded ' + name);
+}
+
+function resourceError(error) {
+	console.error(error.source + ': ' + error.message);
 }
 
 function uploadSamples() {
@@ -215,14 +221,10 @@ function uploadSamples() {
 		dropDown.appendChild(option);
 	}
 
-	function fileLoaded(file) {
-		console.log('Loaded ' + file.name);
-	}
-
 	for (let i = 0; i < files.length; i++) {
 		const instrument = new Synth.SampledInstrument();
 		system.sampledInstruments[offset + i] = instrument;
-		instrument.loadSampleFromFile(audioContext, 0, files[i], fileLoaded, [i]);
+		instrument.loadSampleFromFile(audioContext, 0, files[i]).then(resourceLoaded);
 	}
 }
 

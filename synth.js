@@ -55,6 +55,20 @@ function enumFromArray(array) {
 	return Object.freeze(result);
 }
 
+class Resource {
+	constructor(source, data) {
+		this.source = source;
+		this.data = data;
+	}
+}
+
+class ResourceLoadError extends Error {
+	constructor(source, message) {
+		super(message);
+		this.source = message;
+	}
+}
+
 const Parameter = enumFromArray([
 	'VELOCITY',		// percentage
 	'ATTACK',		// in milliseconds
@@ -214,6 +228,11 @@ const Direction = Object.freeze({
 	UP: 1,
 	DOWN: -1,
 });
+
+const noteFrequencies = [];
+for (let i = 0; i <= 127; i++) {
+	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
+}
 
 class LFO {
 	constructor(audioContext) {
@@ -391,11 +410,6 @@ class Modulator {
 		}
 	}
 
-}
-
-const noteFrequencies = [];
-for (let i = 0; i <= 127; i++) {
-	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
 }
 
 class Sample {
@@ -698,63 +712,68 @@ class SampledInstrument {
 		}
 	}
 
-	loadSampleFromURL(audioContext, startingNote, url, callback) {
+	loadSampleFromURL(audioContext, startingNote, url) {
+		const me = this;
 		const sample = new Sample(Sample.EMPTY_BUFFER);
 		this.addSample(startingNote, sample, true);
-		const request = new XMLHttpRequest();
-		request.open('GET', url);
-		request.responseType = 'arraybuffer';
-		request.timeout = 60000;
 
-		request.addEventListener('load', function (event) {
-	  		if (request.status < 400) {
-	  			const arr = request.response;
-	  			const arrCopy = arr.slice(0);
+		return new Promise(function (resolve, reject) {
+			const request = new XMLHttpRequest();
+			request.open('GET', url);
+			request.responseType = 'arraybuffer';
+			request.timeout = 60000;
+
+			request.addEventListener('load', function (event) {
+		  		if (request.status < 400) {
+		  			const arr = request.response;
+		  			const arrCopy = arr.slice(0);
+			  		audioContext.decodeAudioData(arr)
+			  		.then(function(buffer) {
+			  			sample.buffer = buffer;
+			  			resolve(new Resource(url, me));
+
+			  		}).catch(function (error) {
+			  			sample.buffer = decodeSampleData(arrCopy);
+			  			resolve(new Resource(url, me));
+			  		});
+			  	} else {
+			  		reject(new ResourceLoadError(url, request.status + ' - ' + request.statusText));
+			  	}
+		  	});
+
+			request.addEventListener('error', function (event) {
+				reject(new ResourceLoadError(url, 'Network error'));
+			});
+
+			request.addEventListener('timeout', function (event) {
+				reject(new ResourceLoadError(url, 'Timeout'));
+			});
+
+		 	request.send();
+		});
+	}
+
+	loadSampleFromFile(audioContext, startingNote, file) {
+		const me = this;
+		const sample = new Sample(Sample.EMPTY_BUFFER);
+		this.addSample(startingNote, sample, true);
+		return new Promise(function (resolve, reject) {
+			const reader = new FileReader();
+			reader.onloadend = function (event) {
+				const arr = event.target.result;
+				const arrCopy = arr.slice(0);
 		  		audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
 		  			sample.buffer = buffer;
-		  			callback(url, true, '');
+		  			resolve(new Resource(file, me));
 
 		  		}).catch(function (error) {
 		  			sample.buffer = decodeSampleData(arrCopy);
-		  			callback(url, true, '');
+		  			resolve(new Resource(file, me));
 		  		});
-		  	} else {
-		  		callback(url, false, request.status + ' - ' + request.statusText);
-		  	}
-	  	});
-
-		request.addEventListener('error', function (event) {
-			callback(url, false,'Network error');
+			};
+			reader.readAsArrayBuffer(file);
 		});
-
-		request.addEventListener('timeout', function (event) {
-			dispatchError(url, false, 'Timeout');
-		});
-
-	 	request.send();
-	 	return sample;
-	}
-
-	loadSampleFromFile(audioContext, startingNote, file, callback) {
-		const sample = new Sample(Sample.EMPTY_BUFFER);
-		this.addSample(startingNote, sample, true);
-		const reader = new FileReader();
-		reader.onloadend = function (event) {
-			const arr = event.target.result;
-			const arrCopy = arr.slice(0);
-	  		audioContext.decodeAudioData(arr)
-	  		.then(function(buffer) {
-	  			sample.buffer = buffer;
-	  			callback(file);
-
-	  		}).catch(function (error) {
-	  			sample.buffer = decodeSampleData(arrCopy);
-	  			callback(file);
-	  		});
-		};
-		reader.readAsArrayBuffer(file);
-		return sample;
 	}
 
 }
@@ -2234,6 +2253,8 @@ global.Synth = {
 	Gate: Gate,
 	Pattern: Chord,
 	Param: Parameter,
+	Resource: Resource,
+	ResourceLoadError: ResourceLoadError,
 	Sample: Sample,
 	SampledInstrument: SampledInstrument,
 	Source: Source,
