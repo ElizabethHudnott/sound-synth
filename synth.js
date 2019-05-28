@@ -714,9 +714,6 @@ class SampledInstrument {
 
 	loadSampleFromURL(audioContext, startingNote, url) {
 		const me = this;
-		const sample = new Sample(Sample.EMPTY_BUFFER);
-		this.addSample(startingNote, sample, true);
-
 		return new Promise(function (resolve, reject) {
 			const request = new XMLHttpRequest();
 			request.open('GET', url);
@@ -729,12 +726,14 @@ class SampledInstrument {
 		  			const arrCopy = arr.slice(0);
 			  		audioContext.decodeAudioData(arr)
 			  		.then(function(buffer) {
-			  			sample.buffer = buffer;
-			  			resolve(new Resource(url, me));
+						const sample = new Sample(buffer);
+						me.addSample(startingNote, sample, true);
+			  			resolve(new Resource(url, sample));
 
 			  		}).catch(function (error) {
-			  			sample.buffer = decodeSampleData(arrCopy);
-			  			resolve(new Resource(url, me));
+						const sample = new Sample(decodeSampleData(arrCopy));
+						me.addSample(startingNote, sample, true);
+			  			resolve(new Resource(url, sample));
 			  		});
 			  	} else {
 			  		reject(new ResourceLoadError(url, request.status + ' - ' + request.statusText));
@@ -755,8 +754,6 @@ class SampledInstrument {
 
 	loadSampleFromFile(audioContext, startingNote, file) {
 		const me = this;
-		const sample = new Sample(Sample.EMPTY_BUFFER);
-		this.addSample(startingNote, sample, true);
 		return new Promise(function (resolve, reject) {
 			const reader = new FileReader();
 			reader.onloadend = function (event) {
@@ -764,12 +761,14 @@ class SampledInstrument {
 				const arrCopy = arr.slice(0);
 		  		audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
-		  			sample.buffer = buffer;
-		  			resolve(new Resource(file, me));
+					const sample = new Sample(buffer);
+					me.addSample(startingNote, sample, true);
+		  			resolve(new Resource(file, sample));
 
 		  		}).catch(function (error) {
-		  			sample.buffer = decodeSampleData(arrCopy);
-		  			resolve(new Resource(file, me));
+					const sample = new Sample(decodeSampleData(arrCopy));
+					me.addSample(startingNote, sample, true);
+		  			resolve(new Resource(file, sample));
 		  		});
 			};
 			reader.readAsArrayBuffer(file);
