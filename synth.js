@@ -916,9 +916,24 @@ class SynthSystem {
 		this.startTime = startTime;
 	}
 
-
 	nextStep() {
 		return Math.trunc((this.audioContext.currentTime - this.startTime) / TIME_STEP) + 1;
+	}
+
+	set(parameterNumber, value, delay, changeType, channelNumber) {
+		let time;
+		if (delay !== undefined) {
+			time = this.nextStep() + delay;
+		}
+		if (changeType === undefined) {
+			changeType = ChangeType.SET;
+		}
+		if (channelNumber === undefined) {
+			channelNumber = 0;
+		}
+		const parameterMap = new Map();
+		parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
+		this.channels[channelNumber].setParameters(parameterMap, time);
 	}
 
 	getSamplePlayer(instrumentNumber, note) {

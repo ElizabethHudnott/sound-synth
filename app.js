@@ -16,19 +16,7 @@ system.ondatarecorded = function (blob) {
 }
 
 function set(parameterNumber, value, delay, changeType, channelNumber) {
-	let time;
-	if (delay !== undefined) {
-		time = system.nextStep() + delay;
-	}
-	if (changeType === undefined) {
-		changeType = Synth.ChangeType.SET;
-	}
-	if (channelNumber === undefined) {
-		channelNumber = 0;
-	}
-	const parameterMap = new Map();
-	parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
-	channels[channelNumber].setParameters(parameterMap, time);
+	system.set(parameterNumber, value, delay, changeType, channelNumber);
 }
 
 function initialize() {
