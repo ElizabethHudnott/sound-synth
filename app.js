@@ -44,12 +44,22 @@ function initialize() {
 	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').then(resourceLoaded).catch(resourceError);
 	const guitar = new Synth.SampledInstrument();
 	system.sampledInstruments[1] = guitar;
-	const guitarSample = guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav').then(resourceLoaded).catch(resourceError);
-	guitarSample.sampledNote = 55;
+	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav')
+	.then(resourceLoaded)
+	.then(function (resource) {
+		resource.data.sampledNote = 55;
+	})
+	.catch(resourceError);
+
 	const violin = new Synth.SampledInstrument();
 	system.sampledInstruments[2] = violin;
-	const violinSample = violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav').then(resourceLoaded).catch(resourceError);
-	violinSample.sampledNote = 46;
+	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav')
+	.then(resourceLoaded)
+	.then(function (resource) {
+		resource.data.sampledNote = 46;
+	})
+	.catch(resourceError);
+
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
 }
@@ -192,6 +202,7 @@ function resourceLoaded(resource) {
 		name = resource.source;
 	}
 	console.log('Loaded ' + name);
+	return resource;
 }
 
 function resourceError(error) {
@@ -201,7 +212,7 @@ function resourceError(error) {
 function uploadSamples() {
 	const files = document.getElementById('sample-upload').files;
 	const dropDown = document.getElementById('sample-list');
-	const offset = dropDown.children.length;
+	const offset = dropDown.children.length - 1;
 	for (let i = 0; i < files.length; i++) {
 		const option = document.createElement('option');
 		option.value = offset + i;
@@ -227,7 +238,7 @@ function pauseRecording() {
 
 Sampler.ondatarecorded = function (buffer) {
 	const dropDown = document.getElementById('sample-list');
-	const instrumentNumber = dropDown.children.length;
+	const instrumentNumber = dropDown.children.length - 1;
 	const sample = new Synth.Sample(buffer);
 	const instrument = new Synth.SampledInstrument();
 	instrument.addSample(0, sample);

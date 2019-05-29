@@ -28,12 +28,9 @@
 				<input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 14) + (this.checked? 1 : 0))" checked>Triangle
 				<input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 7) + (this.checked? 8 : 0))">Noise
 				<br>
-				Source:
-				<input type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.OSCILLATOR)" checked>Oscillator
-				<input id="samples" type="radio" name="source" oninput="set(Synth.Param.SOURCE, Synth.Source.SAMPLE)">Samples
-				<br>
 				Sample:
 				<select id="sample-list" oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
+					<option value="-1">None</option>
 					<option value="0">Piano</option>
 					<option value="1">Guitar</option>
 					<option value="2">Violin</option>

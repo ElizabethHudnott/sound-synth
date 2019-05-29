@@ -122,7 +122,6 @@ const Parameter = enumFromArray([
 	'LEFTMOST_PAN',	// -100 to 100
 	'RIGHTMOST_PAN', // -100 to 100
 	'PAN_LFO',		// which LFO to use
-	'SOURCE',		// 0 (oscillator) to 100 (samples)
 	'PULSE_WIDTH',	// percentage
 	'MIN_PULSE_WIDTH', // percentage
 	'MAX_PULSE_WIDTH', // percentage
@@ -210,11 +209,6 @@ const Waveform = Object.freeze({
 	SAWTOOTH: 2,
 	PULSE: 4,
 	NOISE: 8,
-});
-
-const Source = Object.freeze({
-	OSCILLATOR: 0,
-	SAMPLE: 100,
 });
 
 const Chord = Object.freeze({
@@ -421,6 +415,7 @@ class Sample {
 		this.loopStart = 0;
 		this.loopEnd = Number.MAX_VALUE;
 		this.sampledNote = 69;
+		this.gain = 1;
 	}
 
 	clone() {
@@ -439,6 +434,7 @@ class Sample {
 		newSample.loopStart = this.loopStart;
 		newSample.loopEnd = this.loopEnd;
 		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
 		return newSample;
 	}
 
@@ -469,6 +465,7 @@ class Sample {
 		newSample.loopStart = this.loopStart;
 		newSample.loopEnd = this.loopEnd;
 		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
 		return newSample;
 	}
 
@@ -487,7 +484,7 @@ class Sample {
 				}
 			}
 		}
-		return max;
+		return max * this.gain;
 	}
 
 	removeOffset() {
@@ -566,6 +563,7 @@ class Sample {
 			newSample.loopStart = Math.round(me.loopStart * ratio);
 			newSample.loopEnd = Math.round(me.loopEnd * ratio);
 			newSample.sampledNote = sampledNote;
+			newSample.gain = me.gain;
 			return newSample;
 		});
 	}
@@ -583,7 +581,20 @@ class Sample {
 			const section = data.subarray(from, to + 1);
 			copyBuffer.copyToChannel(section, channelNumber);
 		}
-		return copyBuffer;
+		const newSample = new Sample(copyBuffer);
+		const meLoopStart = this.loopStart;
+		if (meLoopStart < to) {
+			if (meLoopStart > from) {
+				newSample.loopStart = meLoopStart - from;
+			}
+			const meLoopEnd = this.loopEnd;
+			if (meLoopEnd < to) {
+				newSample.loopEnd = meLoopEnd - from;
+			}
+		}
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
 	}
 
 	remove(from, to) {
@@ -629,17 +640,20 @@ class Sample {
 		}
 		newSample.loopEnd = loopEnd;
 		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
 		return newSample;
 	}
 
-	insert(insertBuffer, position) {
+	insert(insertSample, position) {
+		const me = this;
 		const oldBuffer = this.buffer;
 		const sampleRate = oldBuffer.sampleRate;
-		const insertDuration = insertBuffer.duration;
-		const insertLength = insertDuration * sampleRate;
+		const playbackRate = noteFrequencies[this.sampledNote] / noteFrequencies[insertSample.sampledNote];
+		const insertDuration = insertSample.buffer.duration / playbackRate;
+		const insertLength = Math.trunc(insertDuration * sampleRate);
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			oldBuffer.length + Math.ceil(insertDuration * sampleRate),
+			oldBuffer.length + insertLength,
 			sampleRate
 		);
 		const beforeDuration = position / sampleRate;
@@ -650,8 +664,12 @@ class Sample {
 			before.start(0, 0, beforeDuration);
 		}
 		const insert = context.createBufferSource();
-		insert.buffer = insertBuffer;
-		insert.connect(context.destination);
+		insert.buffer = insertSample.buffer;
+		insert.playbackRate.value = playbackRate;
+		const insertGain = context.createGain();
+		insertGain.gain.value = insertSample.gain / this.gain;
+		insert.connect(insertGain);
+		insertGain.connect(context.destination);
 		insert.start(beforeDuration);
 		const after = context.createBufferSource();
 		after.buffer = oldBuffer;
@@ -659,19 +677,27 @@ class Sample {
 		after.start(beforeDuration + insertDuration, position / sampleRate);
 
 		let loopStart = this.loopStart;
-		if (loopStart >= position) {
-			loopStart += insertLength;
-		}
 		let loopEnd = this.loopEnd;
-		if (loopEnd >= position && loopEnd !== Number.MAX_VALUE) {
-			loopEnd += insertLength;
+		if (
+			loopStart === 0 && loopEnd === Number.MAX_VALUE &&
+			(insertSample.loopStart > 0 || insertSample.loopEnd !== Number.MAX_VALUE)
+		) {
+			loopStart = insertSample.loopStart;
+			loopEnd = insertSample.loopEnd;
+		} else {
+			if (loopStart >= position) {
+				loopStart += insertLength;
+			}
+			if (loopEnd >= position && loopEnd !== Number.MAX_VALUE) {
+				loopEnd += insertLength;
+			}
 		}
-		const sampledNote = this.sampledNote;
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
 			newSample.loopStart = loopStart;
 			newSample.loopEnd = loopEnd;
-			newSample.sampledNote = sampledNote;
+			newSample.sampledNote = me.sampledNote;
+			newSample.gain = me.gain;
 			return newSample;
 		});
 	}
@@ -760,7 +786,7 @@ class SampledInstrument {
 			}
 		}
 		for (let sample of this.samples) {
-			sample.amplify(1 / max);
+			sample.gain = sample.gain / max;
 		}
 	}
 
@@ -1123,7 +1149,6 @@ class SubtractiveSynthChannel {
 			0,		// leftmost pan change
 			0,		// rightmost pan change
 			1,		// pan LFO
-			Source.OSCILLATOR,
 			50,		// pulse width
 			50,		// min pulse width
 			50,		// max pulse width
@@ -1157,10 +1182,11 @@ class SubtractiveSynthChannel {
 			1,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
-			0,		// use first sample
+			-1,		// use oscillator
 			0,		// no sample offset
 			1,		// envelope scaling for AHD portion of the envelope
 		];
+		this.sampleLooping = false;
 		this.velocity = 1;
 		this.sustain = volumeCurve(70); // combined sustain and velocity
 		this.release = 0.3;
@@ -1191,6 +1217,7 @@ class SubtractiveSynthChannel {
 		const oscillator = new C64OscillatorNode(audioContext);
 		this.oscillator = oscillator;
 		const oscillatorGain = audioContext.createGain();
+		this.oscillatorGain = oscillatorGain;
 		oscillator.connect(oscillatorGain);
 
 		// Pulse width modulation
@@ -1208,7 +1235,6 @@ class SubtractiveSynthChannel {
 		// Playing samples
 		this.sampleBufferNode = undefined;
 		const sampleGain = audioContext.createGain();
-		sampleGain.gain.value = 0;
 		this.sampleGain = sampleGain;
 		const playRateMultiplier = audioContext.createGain();
 		playRateMultiplier.gain.value = 1 / 440;
@@ -1233,7 +1259,6 @@ class SubtractiveSynthChannel {
 		filter.frequency.value = 4400;
 		oscillatorGain.connect(filter);
 		sampleGain.connect(filter);
-		this.gains = [oscillatorGain, sampleGain];
 
 		// Filter modulation
 		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
@@ -1357,6 +1382,7 @@ class SubtractiveSynthChannel {
 		sampleBufferNode.connect(this.sampleGain);
 		sampleBufferNode.start(time, parameters[Parameter.SAMPLE_OFFSET]);
 		this.sampleBufferNode = sampleBufferNode;
+		this.sampleLooping = sampleBufferNode.loop;
 	}
 
 	triggerLFOs(when) {
@@ -1366,14 +1392,13 @@ class SubtractiveSynthChannel {
 	}
 
 	gate(state, note, velocity, volume, sustainLevel, start) {
+		const gain = this.envelope.gain;
 		const parameters = this.parameters;
-		let beginRelease, endTime;
 
-		const playSample = parameters[Parameter.SOURCE] > 0;
+		let beginRelease, endTime;
+		const usingSamples = parameters[Parameter.SAMPLE] >= 0;
 		const scaleAHD = parameters[Parameter.SCALE_AHD];
 		const releaseTime = this.release;
-		const gain = this.envelope.gain;
-
 		const endAttack = start + scaleAHD * this.endAttack;
 		const attackConstant = this.attackConstant * scaleAHD;
 		const releaseConstant = 4;
@@ -1416,7 +1441,7 @@ class SubtractiveSynthChannel {
 
 		case Gate.TRIGGER:
 		case Gate.MULTI_TRIGGER:
-			if (playSample) {
+			if (usingSamples) {
 				this.playSample(note, start);
 			}
 			this.triggerLFOs(start);
@@ -1441,7 +1466,7 @@ class SubtractiveSynthChannel {
 			gain.setValueAtTime(volume, endHold);
 			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
 
-			if (!playSample) {
+			if (!usingSamples) {
 				gain.setValueAtTime(sustainLevel, beginRelease);
 				if (parameters[Parameter.RELEASE_SHAPE] === ChangeType.EXPONENTIAL) {
 					gain.setTargetAtTime(0, beginRelease, releaseTime / releaseConstant);
@@ -1836,19 +1861,6 @@ class SubtractiveSynthChannel {
 				parameters[Parameter.SYNC] = value;
 				break;
 
-			case Parameter.SOURCE:
-				if (value === 0 && gate === undefined) {
-					const currentGate = parameters[Parameter.GATE];
-					if ((currentGate & Gate.TRIGGER) === Gate.TRIGGER) {
-						const param = this.envelope.gain;
-						param.cancelAndHoldAtTime(time);
-						param.setValueAtTime(0, time);
-					}
-				}
-				this.gains[0].gain[changeType](1 - value / 100, time);
-				this.gains[1].gain[changeType](value / 100, time);
-				break;
-
 			case Parameter.PULSE_WIDTH:
 				this.pwm.setMinMax(changeType, value / 100, value / 100, time);
 				parameters[Parameter.MIN_PULSE_WIDTH] = value;
@@ -1964,7 +1976,20 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.SAMPLE:
-				sampleChanged = true;
+				if (value < 0) {
+					// Switch to oscillator
+					if (this.sampleLooping) {
+						// Stop sample from looping
+						callbacks.push(function () {
+							me.sampleBufferNode.loop = false;
+						});
+						this.sampleLooping = false;
+					}
+					this.oscillatorGain.gain.setValueAtTime(1, time);
+				} else {
+					this.oscillatorGain.gain.setValueAtTime(0, time);
+					sampleChanged = true;
+				}
 				break;
 
 			case undefined:
@@ -2323,7 +2348,6 @@ global.Synth = {
 	ResourceLoadError: ResourceLoadError,
 	Sample: Sample,
 	SampledInstrument: SampledInstrument,
-	Source: Source,
 	Waveform: Waveform,
 	keymap: keymap,
 
