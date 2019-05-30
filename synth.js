@@ -695,6 +695,45 @@ class Sample {
 		});
 	}
 
+	mix(mixSample, position, loop) {
+		const me = this;
+		const oldBuffer = this.buffer;
+		const sampleRate = oldBuffer.sampleRate;
+		const playbackRate = noteFrequencies[this.sampledNote] / noteFrequencies[mixSample.sampledNote];
+		const mixLength = sampleRate * mixSample.buffer.duration / playbackRate;
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			Math.max(oldBuffer.length, position + mixLength),
+			sampleRate
+		);
+		const thisSource = context.createBufferSource();
+		thisSource.buffer = oldBuffer;
+		thisSource.connect(context.destination);
+		thisSource.start();
+		const mixSource = context.createBufferSource();
+		mixSource.buffer = mixSample.buffer;
+		mixSource.playbackRate.value = playbackRate;
+		const mixGain = context.createGain();
+		mixGain.gain.value = mixSample.gain / this.gain;
+		mixSource.connect(mixGain);
+		mixGain.connect(context.destination);
+		mixSource.start(position / sampleRate);
+		if (loop) {
+			mixSource.loop = true;
+			mixSource.loopStart = mixSample.loopStart;
+			mixSource.loopEnd = mixSample.loopEnd;
+		}
+
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = me.loopStart;
+			newSample.loopEnd = me.loopEnd;
+			newSample.sampledNote = me.sampledNote;
+			newSample.gain = me.gain;
+			return newSample;
+		});
+	}
+
 }
 
 class SamplePlayer {
