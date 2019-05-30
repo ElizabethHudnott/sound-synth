@@ -29,7 +29,7 @@
 				<input type="checkbox" oninput="set(Synth.Param.WAVEFORM, (channels[0].parameters[Synth.Param.WAVEFORM] & 7) + (this.checked? 8 : 0))">Noise
 				<br>
 				Sample:
-				<select id="sample-list" oninput="set(Synth.Param.SAMPLE, parseInt(this.value))">
+				<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value))">
 					<option value="-1">None</option>
 					<option value="0">Piano</option>
 					<option value="1">Guitar</option>

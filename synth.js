@@ -139,7 +139,6 @@ const Parameter = enumFromArray([
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
 	'TICKS',		// maximum number of events during a LINE_TIME
-	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
 	'MULTI_TRIGGER', // 0 or 1 (for chords)
@@ -147,9 +146,11 @@ const Parameter = enumFromArray([
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO_SIZE', // number of steps
-	'SAMPLE',		// array index of the sample to play.
+	'INSTRUMENT',	// array index of the instrument to play.
 	'SAMPLE_OFFSET', // in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
+	// Parameters below this line only affect the master channel of the sequencer
+	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
 	'LOOPS',			// a positive integer
 ]);
@@ -862,7 +863,7 @@ class SynthSystem {
 
 		this._a4Pitch = 440;
 		this.tunings = new Map();
-		this.sampledInstruments = [];
+		this.instruments = [];
 
 		const volume = audioContext.createGain();
 		this.volume = volume;
@@ -957,7 +958,7 @@ class SynthSystem {
 	}
 
 	getSamplePlayer(instrumentNumber, note) {
-		const instrument = this.sampledInstruments[instrumentNumber];
+		const instrument = this.instruments[instrumentNumber];
 		if (instrument === undefined) {
 			return new SamplePlayer(this.audioContext, Sample.EMPTY_SAMPLE);
 		} else {
@@ -1168,7 +1169,6 @@ class SubtractiveSynthChannel {
 			0,		// sync
 			system.globalParameters[0], // line time (125bpm, allegro)
 			system.globalParameters[1], // number of ticks for broken chords, glissando and retrigger
-			0,		// pattern delay
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
@@ -1369,7 +1369,7 @@ class SubtractiveSynthChannel {
 			this.sampleBufferNode.stop(time);
 		}
 		const parameters = this.parameters;
-		const instrumentNumber = parameters[Parameter.SAMPLE];
+		const instrumentNumber = parameters[Parameter.INSTRUMENT];
 		const samplePlayer = this.system.getSamplePlayer(instrumentNumber, note);
 		this.playRateMultiplier.gain.setValueAtTime(samplePlayer.samplePeriod, time);
 		const sampleBufferNode = samplePlayer.bufferNode;
@@ -1388,7 +1388,7 @@ class SubtractiveSynthChannel {
 
 	gate(state, note, volume, sustainLevel, start) {
 		const parameters = this.parameters;
-		let usingSamples = parameters[Parameter.SAMPLE] >= 0;
+		let usingSamples = parameters[Parameter.INSTRUMENT] >= 0;
 		if (usingSamples) {
 			if (this.usingOscillator) {
 				if ((state & Gate.OPEN) === 0) {
@@ -2043,7 +2043,7 @@ class SubtractiveSynthChannel {
 				this.retriggerVolumeChangeType = changeType;
 				break;
 
-			case Parameter.SAMPLE:
+			case Parameter.INSTRUMENT:
 				if (value < 0) {
 					// Switch to oscillator
 					if (this.sampleLooping) {

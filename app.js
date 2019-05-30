@@ -40,10 +40,10 @@ function initialize() {
 	timer = setInterval(sendNewLine, 1000);
 
 	const piano = new Synth.SampledInstrument();
-	system.sampledInstruments[0] = piano;
+	system.instruments[0] = piano;
 	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').then(resourceLoaded).catch(resourceError);
 	const guitar = new Synth.SampledInstrument();
-	system.sampledInstruments[1] = guitar;
+	system.instruments[1] = guitar;
 	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav')
 	.then(resourceLoaded)
 	.then(function (resource) {
@@ -52,7 +52,7 @@ function initialize() {
 	.catch(resourceError);
 
 	const violin = new Synth.SampledInstrument();
-	system.sampledInstruments[2] = violin;
+	system.instruments[2] = violin;
 	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav')
 	.then(resourceLoaded)
 	.then(function (resource) {
@@ -222,7 +222,7 @@ function uploadSamples() {
 
 	for (let i = 0; i < files.length; i++) {
 		const instrument = new Synth.SampledInstrument();
-		system.sampledInstruments[offset + i] = instrument;
+		system.instruments[offset + i] = instrument;
 		instrument.loadSampleFromFile(audioContext, 0, files[i]).then(resourceLoaded);
 	}
 }
@@ -242,7 +242,7 @@ Sampler.ondatarecorded = function (buffer) {
 	const sample = new Synth.Sample(buffer);
 	const instrument = new Synth.SampledInstrument();
 	instrument.addSample(0, sample);
-	system.sampledInstruments.push(instrument);
+	system.instruments.push(instrument);
 	const option = document.createElement('option');
 	option.value = instrumentNumber;
 	option.appendChild(document.createTextNode('Recording ' + instrumentNumber));
