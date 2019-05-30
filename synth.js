@@ -147,7 +147,7 @@ const Parameter = enumFromArray([
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO_SIZE', // number of steps
 	'INSTRUMENT',	// array index of the instrument to play.
-	'SAMPLE_OFFSET', // in seconds
+	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	// Parameters below this line only affect the master channel of the sequencer
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
@@ -675,8 +675,8 @@ class Sample {
 			loopStart === 0 && loopEnd === Number.MAX_VALUE &&
 			(insertSample.loopStart > 0 || insertSample.loopEnd !== Number.MAX_VALUE)
 		) {
-			loopStart = insertSample.loopStart;
-			loopEnd = insertSample.loopEnd;
+			loopStart = position + insertSample.loopStart;
+			loopEnd = position + insertSample.loopEnd;
 		} else {
 			if (loopStart >= position) {
 				loopStart += insertLength;
@@ -1415,7 +1415,7 @@ class SubtractiveSynthChannel {
 		this.playRateMultiplier.connect(sampleBufferNode.playbackRate);
 		sampleBufferNode.connect(this.sampleGain);
 		this.sampleGain.gain.setValueAtTime(samplePlayer.gain, time);
-		sampleBufferNode.start(time, parameters[Parameter.SAMPLE_OFFSET]);
+		sampleBufferNode.start(time, parameters[Parameter.OFFSET]);
 		this.sampleBufferNode = sampleBufferNode;
 	}
 
