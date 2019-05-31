@@ -4,75 +4,22 @@
 class Song {
 
 	constructor() {
-		this.patterns = [new Pattern()];
-		this.song = [0];
-		this.offsets = [0];
+		// Map names to note data for shorter phrases
+		this.phrases = new Map();
+		// Map song position slots to Pattern objects
+		this.patterns = [];
+		// Begin the song with the channels configured in some particular way.
 		this.initialParameters = [];
+		// Loop a section of the song forever if not undefined.
 		this.loopFrom = undefined;
+		// Text based metadata. Use Dublin Core.
+		this.metadata = new Map();
 	}
 
-	getPattern(number) {
-		return this.patterns[number];
-	}
-
-	get numberOfPatterns() {
-		return this.patterns.length;
-	}
-
-	addPattern(pattern) {
-		this.patterns.push(pattern);
-		return this.patterns.length - 1;
-	}
-
-	removePattern(number) {
-		this.patterns.splice(number, 1);
-		const song = this.song;
-		for (let i = 0; i < song.length; i++) {
-			const patternNumber = song[i];
-			if (patternNumber === number) {
-				song[i] = undefined;
-			} else if (patternNumber > number) {
-				song[i]--;
-			}
-		}
-	}
-
-	getPatternNumber(position) {
-		return this.song[position];
-	}
-
-	setPatternNumber(position, patternNumber) {
-		this.song[position] = patternNumber;
-	}
-
-	getOffset(position) {
-		return this.offsets[position];
-	}
-
-	setOffset(position, offset) {
-		this.offsets[position] = offset;
-	}
-
-	get songLength() {
-		return this.song.length;
-	}
-
-	insertPatternNumber(position) {
-		this.song.splice(position, 0, 0);
-		this.offsets.splice(position, 0, 0);
-	}
-
-	removePatternNumber(position) {
-		this.song.splice(position, 1);
-		this.offsets.splice(position, 1);
-	}
-
-	play(system, channelMask) {
-		let step = system.nextStep();
-		for (let i = 0; i < this.song.length; i++) {
-			const patternNumber = this.song[i];
-			if (patternNumber !== undefined) {
-				step = this.patterns[patternNumber].play(system, this.offsets[i], channelMask, step);
+	play(system, step) {
+		for (let pattern of this.patterns) {
+			if (pattern !== undefined) {
+				step = pattern.play(system, -1, step);
 			}
 		}
 	}
@@ -80,194 +27,150 @@ class Song {
 }
 
 class Pattern {
+	static defaultChanges = new Map();
 
-	constructor() {
-		this.rows = [];
-		this.master = []; // master column
-		this.channelNumbers = [];
-		this.numLines = 64;
+	constructor(numColumns, length) {
+		if (length === undefined) {
+			length = 64;
+		}
+		// Column 0 is the master column
+		this.columns = new Array(numColumns);
+		this.offsets = new Array(numColumns);
+		for (let i = 0; i < numColumns; i++) {
+			this.offsets[i] = 0;
+		}
+		this.length = length;
 	}
 
-	addColumn(channelNumber) {
-		let columnNumber = this.channelNumbers.length;
-		while (channelNumber < this.channelNumbers[columnNumber - 1]) {
-			columnNumber--;
-		}
-
-		this.channelNumbers.splice(columnNumber, 0, channelNumber);
-		for (let i = 0; i < this.rows.length; i++) {
-			const row = rows[i];
-			const masterParameters = this.master[i];
-			if (masterParameters !== undefined) {
-				row.splice(columnNumber, 0, new Change(new Map(masterParameters)));
-			} else if (row !== undefined) {
-				row.splice(columnNumber, 0, undefined);
-			}
-		}
+	addColumn() {
+		const columnNumber = this.columns.length;
+		this.offsets[columnNumber] = 0;
 	}
 
 	removeColumn(columnNumber) {
-		for (let row of this.rows) {
-			if (row !== undefined) {
-				row.splice(columnNumber, 1);
-			}
-		}
-		this.channelNumbers.splice(columnNumber, 1);
-	}
-
-	getCell(columnNumber, lineNumber) {
-		if (lineNumber >= this.numLines) {
-			this.numLines = lineNumber + 1
-		}
-
-		let row = this.rows[lineNumber];
-		if (row === undefined) {
-			row = [];
-			this.rows[lineNumber] = row;
-		}
-		let cell = row[columnNumber];
-		if (cell === undefined) {
-			cell = new Changes();
-			row[columnNumber] = cell;
-		}
-		return cell;
-	}
-
-	setMasterParameters(lineNumber, parameters) {
-		let masterParameters = this.master[lineNumber];
-		let row = this.rows[lineNumber];
-		if (masterParameters === undefined) {
-			masterParameters = new Map();
-		}
-		if (row === undefined) {
-			row = [];
-			this.rows[lineNumber] = row;
-		}
-
-		for (let i = 0; i < this.channelNumbers.length; i++) {
-			let cell = row[i];
-			if (cell === undefined) {
-				row[i] = new Changes(new Map(parameters));
-			} else {
-				for (let [key, value] of parameters) {
-					const currentMasterValue = masterParameters.get(key);
-					const cellValue = cell.parameters.get(key);
-					if (currentMasterValue === undefined || currentMasterValue.equals(cellValue)) {
-						cell.parameters.set(key, value);
-					}
-				}
-				for (let [key, value] of masterParameters) {
-					if (!parameters.has(key)) {
-						if (value.equals(cell.parameters.get(key))) {
-							cell.parameters.delete(key);
-						}
-					}
-				}
-			}
-		}
-		this.master[lineNumber] = new Map(parameters);
-	}
-
-	getMasterParameters(lineNumber) {
-		const masterParameters = this.masterParameters[lineNumber];
-		return new Map(masterParameters);
+		this.columns.splice(columnNumber, 1);
+		this.offsets.splice(columnNumber, 1);
 	}
 
 	get numberOfColumns() {
-		return this.channelNumbers.length;
+		return this.offsets.length;
 	}
 
-	get numberOfLines() {
-		return this.numLines;
-	}
-
-	set numberOfLines(value) {
-		this.rows.splice(value);
-		this.numLines = value;
-	}
-
-	play(system, offset, channelMask, step) {
-		if (channelMask === undefined) {
-			channelMask = -1
+	play(system, columnMask, step) {
+		if (columnMask === undefined) {
+			// Play all columns
+			columnMask = -1;
 		}
 		if (step === undefined) {
 			step = system.nextStep();
 		}
-		const numColumns = this.channelNumbers.length;
+
+		const numColumns = this.columns.length;
+		const length = this.length;
+		const masterColumn = this.columns[0];
+		const masterOffset = this.offsets[0];
+		const playMasterColumn = masterColumn !== undefined && (columnMask & 1) !== 0;
+
+		// Initialize control parameters.
 		let lineTime = system.globalParameters[0];
 		let numTicks = system.globalParameters[1];
 		let loopStart = 0, loopIndex = 1;
 
-		for (let channelNumber of this.channelNumbers) {
-			const channelParams = system.channels[channelNumber].parameters;
-			channelParams[Synth.Param.LINE_TIME] = lineTime;
-			channelParams[Synth.Param.TICKS] = numTicks;
-		}
+		let rowNum = 0;
+		while (rowNum < length) {
+			const masterChanges = playMasterColumn ? masterColumn[rowNum + masterOffset] : undefined;
+			let nextRowNum = rowNum + 1;
+			let patternDelay = 0;
 
-		let nextRowNum = offset;
-		let patternDelay;
-		while (nextRowNum < this.rows.length) {
-			const row = this.rows[nextRowNum];
-			const masterChanges = this.master[nextRowNum];
-			nextRowNum++;
-			patternDelay = 0;
 			if (masterChanges !== undefined) {
+				const patternDelayChange = masterChanges.get(Synth.Param.PATTERN_DELAY);
+				if (patternDelayChange !== undefined) {
+					patternDelay = patternDelayChange.value;
+				}
 				if (masterChanges.has(Synth.Param.LOOP_START)) {
-					loopStart = nextRowNum - 1; // invert nextRowNum++ above
+					loopStart = rowNum;
 				}
 				const numLoopsChange = masterChanges.get(Synth.Param.LOOPS);
 				if (numLoopsChange !== undefined) {
 					if (loopIndex < numLoopsChange.value) {
-						nextRowNum = loopStart;
+						rowNum = loopStart;
 						loopIndex++;
 					} else {
 						loopIndex = 1;
 					}
 				}
-				const patternDelayChange = masterChanges.get(Synth.Param.PATTERN_DELAY);
-				if (patternDelayChange !== undefined) {
-					patternDelay = patternDelayChange.value;
-				}
 			}
-			if (row !== undefined) {
-				for (let columnNumber = 0; columnNumber < numColumns; columnNumber++) {
-					if ((channelMask & (1 << columnNumber)) !== 0) {
-						const changes = row[columnNumber];
-						if (changes !== undefined) {
-							changes.play(system.channels[this.channelNumbers[columnNumber]], step);
+
+			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
+				if ((columnMask & (1 << columnNumber)) !== 0) {
+					const column = this.columns[columnNumber];
+					let changes;
+					if (column !== undefined) {
+						const columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
+						if (columnChanges !== undefined) {
+							if (masterChanges === undefined) {
+								changes = columnChanges;
+							} else {
+								changes = new Map(masterChanges);
+								for (let [key, value] of columnChanges) {
+									changes.set(key, value);
+								}
+							}
 						}
 					}
+					if (changes === undefined) {
+						if (masterChanges === undefined) {
+							changes = Pattern.defaultChanges;
+						} else {
+							changes = masterChanges;
+						}
+					}
+					system.channels[columnNumber - 1].setParameters(changes, step, true);
 				}
-				lineTime = system.globalParameters[0];
-				numTicks = system.globalParameters[1];
 			}
+
+			lineTime = system.globalParameters[0];
+			numTicks = system.globalParameters[1];
 			step += lineTime * (1 + patternDelay / numTicks);
+			rowNum = nextRowNum;
 		}
-		step += lineTime * (this.numLines - this.rows.length);
 		return step;
 	}
 
 }
 
-class Changes {
+class Phrase {
 
-	constructor(parameters) {
-		this.instrument = undefined;
-		if (parameters === undefined) {
-			this.parameters = new Map();
-		} else {
-			this.parameters = parameters;
+	constructor(name, length) {
+		this.name = name;
+		this.rows = [];
+		this.length = length;
+	}
+
+	play(system, channelNumber, step) {
+		if (channelNumber === undefined) {
+			channelNumber = 0;
+		}
+		if (step === undefined) {
+			step = system.nextStep();
+		}
+		const channel = system.channels[channelNumber];
+		const emptyMap = new Map();
+
+		for (let row of this.rows) {
+			if (row) {
+				channel.setParameters(row, step, true);
+			} else {
+				channel.setParameters(emptyMap, step, true);
+			}
+			step += system.globalParameters[0];
 		}
 	}
-
-	play(channel, step) {
-		channel.setParameters(this.parameters, step, true);
-	}
-
 }
 
 global.Sequencer = {
 	Pattern: Pattern,
+	Phrase: Phrase,
 	Song: Song,
 };
 

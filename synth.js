@@ -145,7 +145,7 @@ const Parameter = enumFromArray([
 	'RETRIGGER_VOLUME', // percentage of original note volume
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
-	'GLISSANDO_SIZE', // number of steps
+	'GLISSANDO', // number of steps
 	'INSTRUMENT',	// array index of the instrument to play.
 	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
@@ -2148,7 +2148,7 @@ class SubtractiveSynthChannel {
 		const gateOpen = (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN;
 		const frequencies = this.frequencies;
 		const notes = parameters[Parameter.NOTES];
-		let glissandoSteps = parameters[Parameter.GLISSANDO_SIZE];
+		let glissandoSteps = parameters[Parameter.GLISSANDO];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
 		if (gate !== undefined) {

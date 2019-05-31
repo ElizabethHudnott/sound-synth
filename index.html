@@ -212,8 +212,8 @@
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO_2)" checked>To and Fro 2
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.RANDOM)">Random
 				<br>
-				<input id="glissando" type="range" oninput="set(Synth.Param.GLISSANDO_SIZE, parseInt(this.value))" min="-12" max="12" value="0" step="1">Glissando
-				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO_SIZE, 0)">Reset</button>
+				<input id="glissando" type="range" oninput="set(Synth.Param.GLISSANDO, parseInt(this.value))" min="-12" max="12" value="0" step="1">Glissando
+				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO, 0)">Reset</button>
 				<br>
 				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time
 				<input type="checkbox" oninput="set(Synth.Param.MULTI_TRIGGER, this.checked ? 1 : 0)">Use Multi-Trigger
