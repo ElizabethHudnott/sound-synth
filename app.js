@@ -162,9 +162,7 @@ document.addEventListener('keydown', function (event) {
 		if (note !== undefined) {
 			document.getElementById('note').value = octaveOffset * 12 + note;
 			let gate;
-			if (document.getElementById('one-shot').checked ||
-				document.getElementById('samples').checked
-			) {
+			if (document.getElementById('one-shot').checked) {
 				gate = Synth.Gate.TRIGGER;
 			} else {
 				gate = Synth.Gate.OPEN;

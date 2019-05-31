@@ -927,6 +927,10 @@ class SynthSystem {
 		this.channels.push(channel);
 	}
 
+	get numberOfChannels() {
+		return this.channels.length;
+	}
+
 	get a4Pitch() {
 		return this._a4Pitch;
 	}
