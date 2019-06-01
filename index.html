@@ -230,7 +230,8 @@
 			</fieldset>
 			<fieldset>
 				<legend>Output</legend>
-				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume<br>
+				<input type="range" oninput="set(Synth.Param.VOLUME, parseFloat(this.value), 1, Synth.ChangeType.LINEAR)" min="0" max="100" value="100" step="1">Volume
+				<input type="checkbox" oninput="channels[0].mute = this.checked">Mute
 			</fieldset>
 			<fieldset>
 				<legend>Recording</legend>

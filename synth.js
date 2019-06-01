@@ -984,6 +984,12 @@ class SynthSystem {
 		return Math.trunc((this.audioContext.currentTime - this.startTime) / TIME_STEP) + 1;
 	}
 
+	solo(channelNumber, enabled) {
+		for (let i = 0; i < this.channels.length; i++) {
+			channel.mute = enabled && i !== channelNumber;
+		}
+	}
+
 	set(parameterNumber, value, delay, changeType, channelNumber) {
 		let time;
 		if (delay !== undefined) {
@@ -1375,7 +1381,12 @@ class SubtractiveSynthChannel {
 		this.volume = volume;
 		panner.connect(volume);
 
-		system.addChannel(this, volume);
+		// Mute
+		const mute = audioContext.createGain();
+		this.muteControl = mute;
+		volume.connect(mute);
+
+		system.addChannel(this, mute);
 	}
 
 	connect(channel) {
@@ -1392,6 +1403,19 @@ class SubtractiveSynthChannel {
 			this.lfo3.start(when);
 			this.started = true;
 		}
+	}
+
+	toggleMute() {
+		const param = this.muteControl.gain;
+		param.value = 1 - param.value;
+	}
+
+	set mute(muted) {
+		this.muteControl.gain.value = muted ? 0 : 1;
+	}
+
+	get mute() {
+		return this.muteControl.gain.value === 0;
 	}
 
 	calcEnvelope() {

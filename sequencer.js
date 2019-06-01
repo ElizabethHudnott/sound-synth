@@ -19,7 +19,7 @@ class Song {
 	play(system, step) {
 		for (let pattern of this.patterns) {
 			if (pattern !== undefined) {
-				step = pattern.play(system, -1, step);
+				step = pattern.play(system, step);
 			}
 		}
 	}
@@ -56,11 +56,7 @@ class Pattern {
 		return this.offsets.length;
 	}
 
-	play(system, columnMask, step) {
-		if (columnMask === undefined) {
-			// Play all columns
-			columnMask = -1;
-		}
+	play(system, step) {
 		if (step === undefined) {
 			step = system.nextStep();
 		}
@@ -69,7 +65,6 @@ class Pattern {
 		const length = this.length;
 		const masterColumn = this.columns[0];
 		const masterOffset = this.offsets[0];
-		const playMasterColumn = masterColumn !== undefined && (columnMask & 1) !== 0;
 
 		// Initialize control parameters.
 		let lineTime = system.globalParameters[0];
@@ -78,7 +73,7 @@ class Pattern {
 
 		let rowNum = 0;
 		while (rowNum < length) {
-			const masterChanges = playMasterColumn ? masterColumn[rowNum + masterOffset] : undefined;
+			const masterChanges = masterColumn[rowNum + masterOffset];
 			let nextRowNum = rowNum + 1;
 			let patternDelay = 0;
 
@@ -102,31 +97,29 @@ class Pattern {
 			}
 
 			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
-				if ((columnMask & (1 << columnNumber)) !== 0) {
-					const column = this.columns[columnNumber];
-					let changes;
-					if (column !== undefined) {
-						const columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
-						if (columnChanges !== undefined) {
-							if (masterChanges === undefined) {
-								changes = columnChanges;
-							} else {
-								changes = new Map(masterChanges);
-								for (let [key, value] of columnChanges) {
-									changes.set(key, value);
-								}
+				const column = this.columns[columnNumber];
+				let changes;
+				if (column !== undefined) {
+					const columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
+					if (columnChanges !== undefined) {
+						if (masterChanges === undefined) {
+							changes = columnChanges;
+						} else {
+							changes = new Map(masterChanges);
+							for (let [key, value] of columnChanges) {
+								changes.set(key, value);
 							}
 						}
 					}
-					if (changes === undefined) {
-						if (masterChanges === undefined) {
-							changes = Pattern.defaultChanges;
-						} else {
-							changes = masterChanges;
-						}
-					}
-					system.channels[columnNumber - 1].setParameters(changes, step, true);
 				}
+				if (changes === undefined) {
+					if (masterChanges === undefined) {
+						changes = Pattern.defaultChanges;
+					} else {
+						changes = masterChanges;
+					}
+				}
+				system.channels[columnNumber - 1].setParameters(changes, step, true);
 			}
 
 			lineTime = system.globalParameters[0];
