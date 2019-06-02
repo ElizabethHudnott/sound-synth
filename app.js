@@ -64,6 +64,7 @@ function initialize() {
 	document.getElementById('controls').style.display = 'block';
 }
 
+const emptyMap = new Map();
 function sendNewLine() {
 	const lineTime = channels[0].parameters[Synth.Param.LINE_TIME];
 	schedulingStepNumber += lineTime;
@@ -73,7 +74,7 @@ function sendNewLine() {
 		schedulingStepNumber = nextStep;
 	}
 	if (channels[0].parameters[Synth.Param.GATE] === Synth.Gate.OPEN) {
-		channels[0].setParameters(new Map(), schedulingStepNumber, true);
+		channels[0].setParameters(emptyMap, schedulingStepNumber, true);
 	}
 	if (behind) {
 		sendNewLine();

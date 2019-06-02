@@ -7,18 +7,50 @@ const CENT = 2 ** (1 / 1200);
 const LFO_MAX = 20;
 const TIME_STEP = 0.02; // 50 steps per second
 
-function calculateParameterValue(change, currentValue) {
+function calculateParameterValue(change, currentValue, arrayParam) {
 	if (change === undefined) {
-		return currentValue;
+		return [undefined, currentValue];
 	}
-	switch (change.type) {
+	let changeType = change.type;
+	if (changeType === ChangeType.MARK) {
+		return [ChangeType.SET, currentValue];
+	}
+	const prefix = changeType[0];
+	let changeValue = change.value;
+	let newValue;
+	switch (prefix) {
 	case ChangeType.DELTA:
-		return currentValue + change.value;
+		if (arrayParam) {
+			newValue = currentValue.slice();
+			for (let i = 0; i < changeValue.length; i++) {
+				newValue[i] += changeValue[i];
+			}
+		} else {
+			newValue = currentValue + changeValue;
+		}
+		changeType = changeType.slice(1);
+		if (changeType === '') {
+			changeType = ChangeType.SET;
+		}
+		break;
 	case ChangeType.MULTIPLY:
-		return currentValue * change.value;
+		if (arrayParam) {
+			newValue = currentValue.slice();
+			for (let i = 0; i < changeValue.length; i++) {
+				newValue[i] *= changeValue[i];
+			}
+		} else {
+			newValue = currentValue * changeValue;
+		}
+		changeType = changeType.slice(1);
+		if (changeType === '') {
+			changeType = ChangeType.SET;
+		}
+		break;
 	default:
-		return change.value;
+		newValue = changeValue;
 	}
+	return [changeType, newValue];
 }
 
 function clamp(value) {
@@ -135,9 +167,10 @@ const Parameter = enumFromArray([
 	'DELAY_LFO',	// which LFO to use
 	'DELAY_MIX',	// percentage (may be more than 100)
 	'FEEDBACK',		// percentage
-	'RING_MOD', // 0 to 100
+	'RING_MOD',		// 0 to 100
 	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
+	'GROOVE',		// an array of line times
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
@@ -1003,7 +1036,8 @@ class SynthSystem {
 		}
 		const parameterMap = new Map();
 		parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
-		this.channels[channelNumber].setParameters(parameterMap, time);
+		const newLine = parameterNumber === Parameter.GATE && (value & Gate.OPEN) !== 0;
+		this.channels[channelNumber].setParameters(parameterMap, time, newLine);
 	}
 
 	getSamplePlayer(instrumentNumber, note) {
@@ -1140,6 +1174,7 @@ class SubtractiveSynthChannel {
 	constructor(system) {
 		const audioContext = system.audioContext;
 		this.system = system;
+		const initialLineTime = system.globalParameters[0];
 		this.parameters = [
 			100,	// velocity
 			2,		// attack
@@ -1216,7 +1251,8 @@ class SubtractiveSynthChannel {
 			0,		// feedback
 			0,		// ring modulation
 			0,		// sync
-			system.globalParameters[0], // line time (125bpm, allegro)
+			initialLineTime, // line time (125bpm, allegro)
+			[initialLineTime], // groove
 			system.globalParameters[1], // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
@@ -1242,6 +1278,7 @@ class SubtractiveSynthChannel {
 		this.distanceFromC = 9;
 		this.detune = 1;
 		this.noteFrequencies = system.getNotes(0);
+		this.grooveIndex = 0;
 		this.retriggerVolumeChangeType = ChangeType.SET;
 		this.noteIndex = 0;
 		this.chordDir = 1;
@@ -1644,9 +1681,31 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
-		let lineTime = calculateParameterValue(parameterMap.get(Parameter.LINE_TIME), parameters[Parameter.LINE_TIME]);
-		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS]);
-		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS]);
+		let lineTime;
+		if (parameterMap.has(Parameter.LINE_TIME)) {
+			lineTime = calculateParameterValue(parameterMap.get(Parameter.LINE_TIME), parameters[Parameter.LINE_TIME], false)[1];
+			parameters[Parameter.GROOVE] = [lineTime];
+			this.grooveIndex = 0;
+		} else {
+			const grooveChange = parameterMap.get(Parameter.GROOVE);
+			let groove, index;
+			if (grooveChange === undefined) {
+				groove = parameters[Parameter.GROOVE];
+				index = this.grooveIndex;
+			} else {
+				groove = calculateParameterValue(grooveChange, parameters[Parameter.GROOVE], true)[1];
+				parameters[Parameter.GROOVE] = groove;
+				index = 0;
+			}
+			lineTime = groove[index];
+			if (newLine) {
+				this.grooveIndex = (index + 1) % groove.length;
+			}
+		}
+		this.system.globalParameters[0] = lineTime;
+
+		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
+		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 
 		if (numTicks > lineTime) {
 			numTicks = lineTime;
@@ -1682,48 +1741,12 @@ class SubtractiveSynthChannel {
 		}
 
 		for (let [paramNumber, change] of parameterMap) {
-			let changeType = change.type;
-			let prefix, value;
-			if (changeType === ChangeType.MARK) {
-				value = parameters[paramNumber];
-				changeType = ChangeType.SET;
-				prefix = '';
-			} else {
-				value = change.value;
-				prefix = changeType[0];
+			if (paramNumber === Parameter.GROOVE) {
+				continue;
 			}
-			let frequency;
-
-			if (paramNumber === Parameter.NOTES) {
-				const list = parameters[paramNumber];
-
-				if (prefix === ChangeType.DELTA) {
-					for (let i = 0; i < value.length; i++) {
-						list[i] = list[i] + list[i];
-					}
-					changeType = changeType.slice(1);
-				} else {
-					for (let i = 0; i < value.length; i++) {
-						list[i] = value[i];
-					}
-				}
-
-			} else {
-
-				if (prefix === ChangeType.DELTA) {
-					value += parameters[paramNumber];
-					changeType = changeType.slice(1);
-				} else if (prefix === ChangeType.MULTIPLY) {
-					value *= parameters[paramNumber];
-					changeType = changeType.slice(1);
-				}
-				parameters[paramNumber] = value;
-
-			}
-
-			if (changeType === "") {
-				changeType = ChangeType.SET;
-			}
+			const arrayParam = paramNumber === Parameter.NOTES;
+			let [changeType, value] = calculateParameterValue(change, parameters[paramNumber], arrayParam);
+			parameters[paramNumber] = value;
 
 			switch (paramNumber) {
 			case Parameter.ATTACK:
@@ -1836,8 +1859,8 @@ class SubtractiveSynthChannel {
 				frequencySet = true;
 				break;
 
-			case Parameter.NOTES:
-				frequency = this.noteFrequencies[value[0]];
+			case Parameter.NOTES: {
+				let frequency = this.noteFrequencies[value[0]];
 				this.setFrequency(changeType, frequency, time);
 				frequencySet = true;
 				this.frequencies[0] = frequency;
@@ -1848,6 +1871,7 @@ class SubtractiveSynthChannel {
 				this.frequencies.splice(value.length);
 				this.distanceFromC = value[0] - 60;
 				break;
+			}
 
 			case Parameter.DETUNE:
 				this.detune = CENT ** value;
@@ -2081,14 +2105,9 @@ class SubtractiveSynthChannel {
 				this.ringInput.gain[changeType](value / 100, time);
 				break;
 
-			case Parameter.LINE_TIME:
-				parameters[Parameter.LINE_TIME] = lineTime;
-				system.globalParameters[0] = lineTime;
-				break;
-
 			case Parameter.TICKS:
 				parameters[Parameter.TICKS] = numTicks;
-				system.globalParameters[1] = numTicks;
+				this.system.globalParameters[1] = numTicks;
 				break;
 
 			case Parameter.DELAY_TICKS:
@@ -2305,7 +2324,7 @@ class SubtractiveSynthChannel {
 					}
 
 					if (tick % retriggerTicks === 0) {
-						volume = calculateParameterValue(retriggerVolumeChange, volume);
+						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
 						this.gate(retriggerGate, notes[noteIndex], volume, sustain, timeOfTick);
 					}
