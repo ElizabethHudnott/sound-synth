@@ -927,11 +927,8 @@ class SynthSystem {
 		const me = this;
 		this.audioContext = audioContext;
 		this.channels = [];
-		this.globalParameters = [
-			24,	// LINE_TIME
-			12,	// TICKS
-		];
-		this.startTime = audioContext.currentTime; // dummy value overridden by start()
+		this.startTime = audioContext.currentTime;	// dummy value overridden by start()
+		this.nextLine = 0;
 
 		this._a4Pitch = 440;
 		this.tunings = new Map();
@@ -962,6 +959,22 @@ class SynthSystem {
 
 	get numberOfChannels() {
 		return this.channels.length;
+	}
+
+	get lineTime() {
+		if (this.channels.length > 0) {
+			return this.channels[0].parameters[Parameter.LINE_TIME];
+		} else {
+			return 6;
+		}
+	}
+
+	get ticksPerLine() {
+		if (this.channels.length > 0) {
+			return this.channels[0].parameters[Parameter.TICKS];
+		} else {
+			return 8;
+		}
 	}
 
 	get a4Pitch() {
@@ -1002,6 +1015,7 @@ class SynthSystem {
 	}
 
 	begin() {
+		this.nextLine -= (this.audioContext.currentTime - this.startTime) / TIME_STEP;
 		this.startTime = this.audioContext.currentTime;
 	}
 
@@ -1174,7 +1188,7 @@ class SubtractiveSynthChannel {
 	constructor(system) {
 		const audioContext = system.audioContext;
 		this.system = system;
-		const initialLineTime = system.globalParameters[0];
+		const initialLineTime = system.lineTime;
 		this.parameters = [
 			100,	// velocity
 			2,		// attack
@@ -1253,7 +1267,7 @@ class SubtractiveSynthChannel {
 			0,		// sync
 			initialLineTime, // line time (125bpm, allegro)
 			[initialLineTime], // groove
-			system.globalParameters[1], // number of ticks for broken chords, glissando and retrigger
+			system.ticksPerLine, // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
@@ -1283,6 +1297,7 @@ class SubtractiveSynthChannel {
 		this.noteIndex = 0;
 		this.chordDir = 1;
 		this.noteRepeated = false;
+		this.scheduledUntil = 0;
 
 		// LFOs
 		const lfo1 = new LFO(audioContext);
@@ -1696,23 +1711,20 @@ class SubtractiveSynthChannel {
 				groove = calculateParameterValue(grooveChange, parameters[Parameter.GROOVE], true)[1];
 				parameters[Parameter.GROOVE] = groove;
 				index = 0;
+
 			}
 			lineTime = groove[index];
-			if (newLine) {
-				this.grooveIndex = (index + 1) % groove.length;
-			}
+			parameters[Parameter.LINE_TIME] = lineTime;
+			this.grooveIndex = (index + 1) % groove.length;
 		}
-		this.system.globalParameters[0] = lineTime;
+
 
 		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
-		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
-
-		if (numTicks > lineTime) {
-			numTicks = lineTime;
-		} else if (numTicks < 1) {
+		if (numTicks < 1) {
 			numTicks = 1;
 		}
 
+		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 		if (delay >= numTicks) {
 			delay = numTicks - 1;
 		}
@@ -1726,11 +1738,13 @@ class SubtractiveSynthChannel {
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
 		let frequencySet = false;
+		let endRetrigger = false;
 
 		const now = this.system.audioContext.currentTime;
 		if (step === undefined) {
-			step = (now - this.system.startTime) / TIME_STEP;
+			step = (Math.max(now, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
 		}
+		this.system.nextLine = step + lineTime;
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
@@ -1870,6 +1884,7 @@ class SubtractiveSynthChannel {
 				}
 				this.frequencies.splice(value.length);
 				this.distanceFromC = value[0] - 60;
+				this.noteIndex = 0;
 				break;
 			}
 
@@ -2105,9 +2120,8 @@ class SubtractiveSynthChannel {
 				this.ringInput.gain[changeType](value / 100, time);
 				break;
 
-			case Parameter.TICKS:
-				parameters[Parameter.TICKS] = numTicks;
-				this.system.globalParameters[1] = numTicks;
+			case Parameter.LINE_TIME:
+				parameters[Parameter.LINE_TIME] = numTicks;
 				break;
 
 			case Parameter.DELAY_TICKS:
@@ -2117,6 +2131,12 @@ class SubtractiveSynthChannel {
 			case Parameter.CHORD_PATTERN:
 				if (value === Chord.CYCLE) {
 					this.chordDir = 1;
+				}
+				break;
+
+			case Parameter.RETRIGGER:
+				if (value === 0) {
+					endRetrigger = true;
 				}
 				break;
 
@@ -2192,6 +2212,7 @@ class SubtractiveSynthChannel {
 		const frequencies = this.frequencies;
 		const notes = parameters[Parameter.NOTES];
 		let glissandoSteps = parameters[Parameter.GLISSANDO];
+		const retriggerTicks = parameters[Parameter.RETRIGGER];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
 		if (gate !== undefined) {
@@ -2212,14 +2233,15 @@ class SubtractiveSynthChannel {
 			noteIndex = this.noteIndex;
 			chordDir = this.chordDir;
 			noteRepeated = this.noteRepeated;
+			if (endRetrigger) {
+				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, time);
+			}
 		}
 
 		if ((gate & Gate.OPEN) > 0 || (gateOpen && newLine)) {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
-			//TODO handle gate status change not aligned with line start time.
 			const numNotes = frequencies.length;
-			const retriggerTicks = parameters[Parameter.RETRIGGER];
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
 				const chordTicks = parameters[Parameter.CHORD_SPEED];
@@ -2234,7 +2256,7 @@ class SubtractiveSynthChannel {
 					glissandoPerTick = (glissandoSteps - 1) / numTicks;
 				}
 
-				let tick = 1;
+				let tick = gate === undefined ? 0 : 1;
 				let volume = this.velocity;
 				const pattern = parameters[Parameter.CHORD_PATTERN];
 
@@ -2254,11 +2276,12 @@ class SubtractiveSynthChannel {
 						retriggerVolumeChange = new Change(ChangeType.MULTIPLY, (endVolume / volume) ** (1 / numTriggers));
 					}
 				}
+				let scheduledUntil = this.scheduledUntil;
 
 				while (tick < numTicks) {
 					const timeOfTick = time + tick * tickTime;
 
-					if (glissandoSteps > 0) {
+					if (glissandoSteps !== 0) {
 						glissandoAmount = Math.trunc(tick * glissandoPerTick);
 					}
 					let newFrequency = glissandoAmount !== prevGlissandoAmount;
@@ -2321,12 +2344,14 @@ class SubtractiveSynthChannel {
 					if (newFrequency) {
 						const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
 						this.setFrequency(ChangeType.SET, frequency, timeOfTick);
+						scheduledUntil = timeOfTick;
 					}
 
 					if (tick % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
-						this.gate(retriggerGate, notes[noteIndex], volume, sustain, timeOfTick);
+						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, timeOfTick);
+						scheduledUntil = timeOfTick;
 					}
 					prevGlissandoAmount = glissandoAmount;
 					tick++;
@@ -2334,6 +2359,7 @@ class SubtractiveSynthChannel {
 				this.noteIndex = noteIndex;
 				this.chordDir = chordDir;
 				this.noteRepeated = noteRepeated;
+				this.scheduledUntil = scheduledUntil;
 			}
 		}
 

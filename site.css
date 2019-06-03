@@ -15,6 +15,10 @@ fieldset {
 	width: 407px;
 }
 
+input[type=range] {
+	vertical-align: middle;
+}
+
 legend {
 	font-family: fantasy;
 }
@@ -39,4 +43,17 @@ legend {
 
 .hidden {
 	display: none;
+}
+
+.readout {
+    background-color: #eee;
+    color: #00A;
+    display: inline-block;
+	font-family: monospace;
+    font-size: 90%;
+    font-weight: 900;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    text-align: center;
+    width: 2em;
 }

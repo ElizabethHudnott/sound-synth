@@ -1,7 +1,7 @@
+const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext();
 const system = new Synth.System(audioContext);
 let gateTemporarilyOpen = false;
-let schedulingStepNumber = 0;
 let octaveOffset = 0;
 let channels, timer;
 
@@ -32,12 +32,10 @@ function initialize() {
 	parameterMap.set(Synth.Param.UNFILTERED_MIX, new Synth.Change(Synth.ChangeType.SET, 100));
 	parameterMap.set(Synth.Param.ATTACK_CURVE, new Synth.Change(Synth.ChangeType.SET, 3));
 	parameterMap.set(Synth.Param.DELAY, new Synth.Change(Synth.ChangeType.SET, 1));
-	parameterMap.set(Synth.Param.LINE_TIME, new Synth.Change(Synth.ChangeType.SET, 50));
-	parameterMap.set(Synth.Param.TICKS, new Synth.Change(Synth.ChangeType.SET, 50));
 	channels[0].setParameters(parameterMap);
 
 	sendNewLine();
-	timer = setInterval(sendNewLine, 1000);
+	timer = setInterval(sendNewLine, BUFFER_LENGTH * 20);
 
 	const piano = new Synth.SampledInstrument();
 	system.instruments[0] = piano;
@@ -66,18 +64,14 @@ function initialize() {
 
 const emptyMap = new Map();
 function sendNewLine() {
-	const lineTime = channels[0].parameters[Synth.Param.LINE_TIME];
-	schedulingStepNumber += lineTime;
-	const nextStep = system.nextStep();
-	const behind = schedulingStepNumber < nextStep;
-	if (behind) {
-		schedulingStepNumber = nextStep;
-	}
-	if (channels[0].parameters[Synth.Param.GATE] === Synth.Gate.OPEN) {
-		channels[0].setParameters(emptyMap, schedulingStepNumber, true);
-	}
-	if (behind) {
-		sendNewLine();
+	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
+		const now = system.nextStep();
+		let nextLine = Math.max(now, system.nextLine);
+		const bufferUntil = now + Math.max(BUFFER_LENGTH, channels[0].parameters[Synth.Param.LINE_TIME]);
+		while (nextLine <= bufferUntil) {
+			channels[0].setParameters(emptyMap, nextLine, true);
+			nextLine = system.nextLine;
+		}
 	}
 }
 
@@ -86,38 +80,32 @@ function playNote(gate) {
 	document.getElementById('frequency').value = channels[0].noteFrequencies[noteNumber];
 	const notes = [noteNumber];
 	const chord = document.getElementById('chord').value;
-	for (let i = 0; i < chord.length; i++) {
-		const interval = parseInt(chord[i], 36);
-		notes.push(noteNumber + interval - 1);
+	const strLen = chord.length;
+	let charIndex = 0;
+	while (charIndex < strLen) {
+		let char = chord[charIndex];
+		let interval;
+		if (char === '-') {
+			charIndex++;
+			if (charIndex < strLen) {
+				interval = -parseInt(chord[charIndex], 36);
+			} else {
+				break;
+			}
+		} else {
+			interval = parseInt(chord[charIndex], 36) - 1;
+		}
+		charIndex++;
+		if (!Number.isNaN(interval)) {
+			notes.push(noteNumber + interval);
+		}
 	}
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes));
-	if (channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN) {
+	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN) {
 		parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 	}
-	const step = system.nextStep();
-	channels[0].setParameters(parameterMap, step, true);
-	schedulingStepNumber = step;
-}
-
-function setLineTime(steps) {
-	clearInterval(timer);
-	timer = setInterval(sendNewLine, steps * 20);
-	const ticksPerSecond = parseFloat(document.getElementById('ticks').value);
-	const ticks = Math.round(steps / 50 * ticksPerSecond);
-	const parameterMap = new Map();
-	parameterMap.set(Synth.Param.LINE_TIME, new Synth.Change(Synth.ChangeType.SET, steps));
-	parameterMap.set(Synth.Param.TICKS, new Synth.Change(Synth.ChangeType.SET, ticks));
-	const step = system.nextStep();
-	channels[0].setParameters(parameterMap, step, true);
-	schedulingStepNumber = step;
-}
-
-function calcTicks() {
-	const lineTime = channels[0].parameters[Synth.Param.LINE_TIME];
-	const ticksPerSecond = parseFloat(document.getElementById('ticks').value);
-	const ticks = Math.round(lineTime / 50 * ticksPerSecond);
-	set(Synth.Param.TICKS, ticks);
+	channels[0].setParameters(parameterMap, undefined, true);
 }
 
 function openGateTemporarily() {
@@ -132,6 +120,21 @@ function closeGateOpenedTemporarily() {
 		set(Synth.Param.GATE, Synth.Gate.CLOSED);
 		gateTemporarilyOpen = false;
 	}
+}
+
+function calcGroove(str) {
+	const strings = str.split(',');
+	const groove = [];
+	for (s of strings) {
+		const number = parseFloat(s);
+		if (number >= 1) {
+			groove.push(number);
+		}
+	}
+	if (groove.length === 0) {
+		groove[0] = parseFloat(document.getElementById('line-time').value);
+	}
+	set(Synth.Param.GROOVE, groove);
 }
 
 document.addEventListener('keydown', function (event) {

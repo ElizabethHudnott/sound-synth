@@ -65,10 +65,9 @@ class Pattern {
 		const length = this.length;
 		const masterColumn = this.columns[0];
 		const masterOffset = this.offsets[0];
+		const channel0Params = system.channels[0].parameters;
 
-		// Initialize control parameters.
-		let lineTime = system.globalParameters[0];
-		let numTicks = system.globalParameters[1];
+		let lineTime, numTicks;
 		let loopStart = 0, loopIndex = 1;
 
 		let rowNum = 0;
@@ -122,8 +121,11 @@ class Pattern {
 				system.channels[columnNumber - 1].setParameters(changes, step, true);
 			}
 
-			lineTime = system.globalParameters[0];
-			numTicks = system.globalParameters[1];
+			lineTime = channel0Params[Synth.Param.LINE_TIME];
+			numTicks = channel0Params[Synth.Param.TICKS];
+			if (numTicks > lineTime) {
+				numTicks = lineTime;
+			}
 			step += lineTime * (1 + patternDelay / numTicks);
 			rowNum = nextRowNum;
 		}
@@ -148,6 +150,7 @@ class Phrase {
 			step = system.nextStep();
 		}
 		const channel = system.channels[channelNumber];
+		const lineTime = channel.parameters[Synth.Param.LINE_TIME];
 		const emptyMap = new Map();
 
 		for (let row of this.rows) {
@@ -156,7 +159,7 @@ class Phrase {
 			} else {
 				channel.setParameters(emptyMap, step, true);
 			}
-			step += system.globalParameters[0];
+			step += lineTime;
 		}
 	}
 }

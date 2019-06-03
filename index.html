@@ -203,19 +203,36 @@
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<input id="line-time" type="range" oninput="setLineTime(parseInt(this.value))" min="2" max="100" value="50" step="1">Playing Time<br>
-				<input id="ticks" type="range" oninput="calcTicks()" min="1" max="50" step="0.1" value="50">Ticks / second<br>
-				1<input type="text" id="chord" oninput="playNote(Synth.Gate.TRIGGER)" size="6"> Broken Chord <small>(chromatic scale, e.g. 158)</small><br>
-				<input type="range" oninput="set(Synth.Param.CHORD_SPEED, parseInt(this.value))" min="0" max="16" value="1" step="1">Chord rotation time<br>
+				<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.LINE_TIME, value); document.getElementById('groove').value = value;}" min="1" max="48" value="6" step="1">
+				Line Time
+				<br>
+				Groove:
+				<input id="groove" type="text" oninput="calcGroove(this.value)" value="6" size="15">
+				<br>
+				<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.TICKS, value); document.getElementById('ticks-readout').innerHTML = value;}" min="1" max="16" value="8" step="1">
+				<span id="ticks-readout" class="readout">8</span>
+				Ticks /line
+				<br>
+				1<input type="text" id="chord" oninput="playNote(Synth.Gate.TRIGGER)" size="8">
+				Broken Chord <small>(chromatic scale, e.g. 158)</small>
+				<br>
+				<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.CHORD_SPEED, value); document.getElementById('chord-speed-readout').innerHTML = value;}" min="1" max="16" value="1" step="1">
+				<span id="chord-speed-readout" class="readout">1</span>
+				Chord rotation time
+				<br>
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.CYCLE)">Cycle
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO)">To and Fro
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO_2)" checked>To and Fro 2
 				<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.RANDOM)">Random
 				<br>
-				<input id="glissando" type="range" oninput="set(Synth.Param.GLISSANDO, parseInt(this.value))" min="-12" max="12" value="0" step="1">Glissando
-				<button type="button" onclick="document.getElementById('glissando').value = '0'; set(Synth.Param.GLISSANDO, 0)">Reset</button>
+				<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GLISSANDO, value); document.getElementById('glissando-readout').innerHTML = value;}" min="-15" max="15" value="0" step="1">
+				<span id="glissando-readout" class="readout">0</span>
+				Glissando
 				<br>
-				<input type="range" oninput="set(Synth.Param.RETRIGGER, parseInt(this.value))" min="0" max="16" value="0" step="1">Retrigger Time
+				<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.RETRIGGER, value); document.getElementById('retrigger-readout').innerHTML = value;}" min="0" max="16" value="0" step="1">
+				<span id="retrigger-readout" class="readout">0</span>
+				Retrigger Time
+				<br>
 				<input type="checkbox" oninput="set(Synth.Param.MULTI_TRIGGER, this.checked ? 1 : 0)">Use Multi-Trigger
 			</fieldset>
 			<fieldset>
