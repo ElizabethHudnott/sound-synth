@@ -118,10 +118,9 @@ class Pattern {
 						changes = masterChanges;
 					}
 				}
-				system.channels[columnNumber - 1].setParameters(changes, step, true);
+				lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
 			}
 
-			lineTime = channel0Params[Synth.Param.LINE_TIME];
 			numTicks = channel0Params[Synth.Param.TICKS];
 			if (numTicks > lineTime) {
 				numTicks = lineTime;
@@ -150,14 +149,14 @@ class Phrase {
 			step = system.nextStep();
 		}
 		const channel = system.channels[channelNumber];
-		const lineTime = channel.parameters[Synth.Param.LINE_TIME];
 		const emptyMap = new Map();
+		let lineTime;
 
 		for (let row of this.rows) {
 			if (row) {
-				channel.setParameters(row, step, true);
+				lineTime = channel.setParameters(row, step, true);
 			} else {
-				channel.setParameters(emptyMap, step, true);
+				lineTime = channel.setParameters(emptyMap, step, true);
 			}
 			step += lineTime;
 		}

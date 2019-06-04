@@ -203,7 +203,7 @@
 			</fieldset>
 			<fieldset>
 				<legend>Sequencing</legend>
-				<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.LINE_TIME, value); document.getElementById('groove').value = value;}" min="1" max="48" value="6" step="1">
+				<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GROOVE, [value]); document.getElementById('groove').value = value;}" min="1" max="48" value="6" step="1">
 				Line Time
 				<br>
 				Groove:

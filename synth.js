@@ -1266,7 +1266,7 @@ class SubtractiveSynthChannel {
 			0,		// ring modulation
 			0,		// sync
 			initialLineTime, // line time (125bpm, allegro)
-			[initialLineTime], // groove
+			[],		// groove
 			system.ticksPerLine, // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
@@ -1696,26 +1696,34 @@ class SubtractiveSynthChannel {
 			gate = gate.value;
 		}
 
-		let lineTime;
-		if (parameterMap.has(Parameter.LINE_TIME)) {
-			lineTime = calculateParameterValue(parameterMap.get(Parameter.LINE_TIME), parameters[Parameter.LINE_TIME], false)[1];
-			parameters[Parameter.GROOVE] = [lineTime];
-			this.grooveIndex = 0;
-		} else {
-			const grooveChange = parameterMap.get(Parameter.GROOVE);
-			let groove, index;
-			if (grooveChange === undefined) {
-				groove = parameters[Parameter.GROOVE];
-				index = this.grooveIndex;
-			} else {
-				groove = calculateParameterValue(grooveChange, parameters[Parameter.GROOVE], true)[1];
-				parameters[Parameter.GROOVE] = groove;
-				index = 0;
-
+		let groove, grooveIndex, numTempos, lineTime;
+		const grooveChange = parameterMap.get(Parameter.GROOVE);
+		if (grooveChange === undefined) {
+			groove = parameters[Parameter.GROOVE];
+			grooveIndex = this.grooveIndex;
+			numTempos = groove.length;
+			if (grooveIndex >= numTempos) {
+				grooveIndex = 0;
 			}
-			lineTime = groove[index];
+		} else {
+			groove = calculateParameterValue(grooveChange, parameters[Parameter.GROOVE], true)[1];
+			parameters[Parameter.GROOVE] = groove;
+			grooveIndex = 0;
+			numTempos = groove.length;
+		}
+		if (numTempos === 0) {
+			lineTime = parameters[Parameter.LINE_TIME];
+		} else {
+			lineTime = groove[grooveIndex];
+			if (newLine) {
+				this.grooveIndex = (grooveIndex + 1) % numTempos;
+			}
+		}
+
+		const lineTimeChange = parameterMap.get(Parameter.LINE_TIME);
+		if (lineTimeChange !== undefined) {
+			lineTime = calculateParameterValue(lineTimeChange, lineTime, false)[1];
 			parameters[Parameter.LINE_TIME] = lineTime;
-			this.grooveIndex = (index + 1) % groove.length;
 		}
 
 
@@ -2375,6 +2383,7 @@ class SubtractiveSynthChannel {
 				}, timeDifference);
 			}
 		}
+		return lineTime;
 	}
 
 }
