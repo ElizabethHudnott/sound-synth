@@ -133,6 +133,8 @@ function calcGroove(str) {
 	}
 	if (groove.length === 0) {
 		groove[0] = parseFloat(document.getElementById('line-time').value);
+	} else if (groove.length === 1) {
+		document.getElementById('line-time').value = groove[0];
 	}
 	set(Synth.Param.GROOVE, groove);
 }

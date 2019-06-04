@@ -2251,9 +2251,9 @@ class SubtractiveSynthChannel {
 				if (glissandoSteps === 0) {
 					glissandoPerTick = 0;
 				} else if (glissandoSteps > 0) {
-				 	glissandoPerTick = (glissandoSteps + 1) / (numTicks - 1);
+				 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
 				} else {
-					glissandoPerTick = (glissandoSteps - 1) / (numTicks - 1);
+					glissandoPerTick = (glissandoSteps - 1) / numTicks;
 				}
 
 				let tick = gate === undefined ? 0 : 1;
