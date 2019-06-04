@@ -1744,7 +1744,6 @@ class SubtractiveSynthChannel {
 		if (step === undefined) {
 			step = (Math.max(now, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
 		}
-		this.system.nextLine = step + lineTime;
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
@@ -2120,8 +2119,8 @@ class SubtractiveSynthChannel {
 				this.ringInput.gain[changeType](value / 100, time);
 				break;
 
-			case Parameter.LINE_TIME:
-				parameters[Parameter.LINE_TIME] = numTicks;
+			case Parameter.TICKS:
+				parameters[Parameter.TICKS] = numTicks;
 				break;
 
 			case Parameter.DELAY_TICKS:
@@ -2241,6 +2240,7 @@ class SubtractiveSynthChannel {
 		if ((gate & Gate.OPEN) > 0 || (gateOpen && newLine)) {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
+			this.system.nextLine = step + lineTime;
 			const numNotes = frequencies.length;
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
@@ -2251,25 +2251,25 @@ class SubtractiveSynthChannel {
 				if (glissandoSteps === 0) {
 					glissandoPerTick = 0;
 				} else if (glissandoSteps > 0) {
-				 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
+				 	glissandoPerTick = (glissandoSteps + 1) / (numTicks - 1);
 				} else {
-					glissandoPerTick = (glissandoSteps - 1) / numTicks;
+					glissandoPerTick = (glissandoSteps - 1) / (numTicks - 1);
 				}
 
 				let tick = gate === undefined ? 0 : 1;
 				let volume = this.velocity;
+				let endVolume = volumeCurve(volume * parameters[Parameter.RETRIGGER_VOLUME]);
+				if (endVolume > 1) {
+					endVolume = 1;
+				}
 				const pattern = parameters[Parameter.CHORD_PATTERN];
 
 				const retriggerGate = Gate.TRIGGER + parameters[Parameter.MULTI_TRIGGER] * Gate.MULTI_TRIGGERABLE;
 				let retriggerVolumeChange;
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
-					retriggerVolumeChange = new Change(ChangeType.SET, volume * parameters[Parameter.RETRIGGER_VOLUME] / 100);
+					retriggerVolumeChange = new Change(ChangeType.SET, endVolume);
 				} else {
-					const numTriggers = Math.trunc(numTicks / retriggerTicks);
-					let endVolume = volume * parameters[Parameter.RETRIGGER_VOLUME] / 100;
-					if (endVolume > 1) {
-						endVolume = 1;
-					}
+					const numTriggers = Math.trunc((numTicks - 1) / retriggerTicks);
 					if (this.retriggerVolumeChangeType === ChangeType.LINEAR) {
 						retriggerVolumeChange = new Change(ChangeType.DELTA, (endVolume - volume) / numTriggers);
 					} else {

@@ -67,7 +67,7 @@ function sendNewLine() {
 	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
 		const now = system.nextStep();
 		let nextLine = Math.max(now, system.nextLine);
-		const bufferUntil = now + Math.max(BUFFER_LENGTH, channels[0].parameters[Synth.Param.LINE_TIME]);
+		const bufferUntil = now + BUFFER_LENGTH;
 		while (nextLine <= bufferUntil) {
 			channels[0].setParameters(emptyMap, nextLine, true);
 			nextLine = system.nextLine;
