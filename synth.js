@@ -22,8 +22,8 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 	case ChangeType.DELTA:
 		if (arrayParam) {
 			newValue = currentValue.slice();
-			for (let i = 0; i < changeValue.length; i++) {
-				newValue[i] += changeValue[i];
+			for (let i = 0; i < currentValue.length; i++) {
+				newValue[i] += changeValue;
 			}
 		} else {
 			newValue = currentValue + changeValue;
@@ -36,8 +36,8 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 	case ChangeType.MULTIPLY:
 		if (arrayParam) {
 			newValue = currentValue.slice();
-			for (let i = 0; i < changeValue.length; i++) {
-				newValue[i] *= changeValue[i];
+			for (let i = 0; i < currentValue.length; i++) {
+				newValue[i] *= changeValue;
 			}
 		} else {
 			newValue = currentValue * changeValue;
