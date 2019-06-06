@@ -276,11 +276,13 @@
 			<fieldset id="graph" style="width: 1000px">
 				<legend>Wave Shaper</legend>
 				Width:
-				<input type="number" min="2" max="256" value="32" oninput="resizeGraph()">
+				<input id="graph-width" type="number" min="2" max="256" value="32">
 				Height:
-				<input id="graph-grid-y" type="number" min="2" step="2" value="16" max="998" oninput="resizeGraph()">
-				<input id="graph-snap-y" type="checkbox" oninput="resizeGraph()" checked>Snap
-				<button onclick="resetGraph()">Reset</button>
+				<input id="graph-grid-y" type="number" min="2" step="2" value="16" max="998">
+				<button onclick="resampleGraphPoints()">Resize</button>
+				<button onclick="setGraphSize()">Set Length</button>
+				<input type="checkbox" oninput="snapGraph(this.checked)" checked>Snap Y
+				<button onclick="resetGraphData()">Reset</button>
 				<br>
 				<canvas id="graph-canvas"></canvas>
 				<div id="mouse-coords"></div>

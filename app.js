@@ -295,26 +295,8 @@ const context2d = canvas.getContext('2d');
 const graphMarkRadius = 5;
 context2d.setTransform(1, 0, 0, 1, 0.5 + graphMarkRadius, 0.5 + graphMarkRadius);
 let graphWidth, graphHeight, graphMidY;
-let graphUnitX, graphGridHeight, graphSnapY;
+let graphUnitX, graphGridHeight, graphSnapY = true;
 let graphMouseX, graphMouseY, graphChangeX;
-
-function resizeGraph() {
-	graphWidth = canvas.width - 2 * graphMarkRadius - 0.5;
-	graphHeight = canvas.height - 2 * graphMarkRadius - 0.5;
-	graphMidY = graphHeight / 2;
-	const numValues = graphPointsX.length;
-	graphUnitX = graphWidth / graphPointsX[numValues - 1];
-	graphGridHeight = document.getElementById('graph-grid-y').value;
-	graphSnapY = document.getElementById('graph-snap-y').checked;
-	if (graphSnapY) {
-		const halfGridHeight = graphGridHeight / 2;
-		for (let i = 0; i < numValues; i++) {
-			graphPointsY[i] = Math.round(graphPointsY[i] * halfGridHeight) / halfGridHeight;
-		}
-		updateGraphedSound();
-	}
-	requestAnimationFrame(drawGraph);
-}
 
 function drawGraph() {
 	context2d.clearRect(-0.5 - graphMarkRadius, -0.5 - graphMarkRadius, graphWidth + 2 * graphMarkRadius + 0.5, graphHeight + 2 * graphMarkRadius + 0.5);
@@ -350,42 +332,113 @@ function drawGraph() {
 		context2d.fill();
 	}
 }
+
+function resizeGraph() {
+	graphWidth = canvas.width - 2 * graphMarkRadius - 0.5;
+	graphHeight = canvas.height - 2 * graphMarkRadius - 0.5;
+	graphMidY = graphHeight / 2;
+	const numValues = graphPointsX.length;
+	graphUnitX = graphWidth / graphPointsX[numValues - 1];
+	graphGridHeight = document.getElementById('graph-grid-y').value;
+	requestAnimationFrame(drawGraph);
+}
 resizeGraph();
 
+function resampleGraphPoints() {
+
+	resizeGraph();
+}
+
+function setGraphSize() {
+	const numValues = graphPointsX.length;
+	const currentSize = graphPointsX[numValues - 1] + 1;
+	const newSize = document.getElementById('graph-width').value;
+	if (newSize === currentSize) {
+		return;
+	} else if (newSize > currentSize) {
+		graphPointsX.push(newSize - 1);
+		graphPointsY.push(graphPointsY[numValues - 1]);
+	} else {
+
+	}
+	updateGraphedSound();
+	resizeGraph();
+}
+
+function snapGraph(snap) {
+	graphSnapY = snap;
+	if (snap) {
+		const numValues = graphPointsX.length;
+		const halfGridHeight = graphGridHeight / 2;
+		for (let i = 0; i < numValues; i++) {
+			graphPointsY[i] = Math.round(graphPointsY[i] * halfGridHeight) / halfGridHeight;
+		}
+		updateGraphedSound();
+		requestAnimationFrame(drawGraph);
+	}
+}
+
+function resetGraphData() {
+	graphPointsX = [0, graphPointsX[graphPointsX.length - 1]];
+	graphPointsY = [-1, 1];
+	updateGraphedSound();
+	requestAnimationFrame(drawGraph);
+}
+
 canvas.addEventListener('mousemove', function (event) {
-	const maxX = graphPointsX[graphPointsX.length - 1];
+	const numValues = graphPointsX.length;
+	const maxX = graphPointsX[numValues - 1];
 	let x = Math.round((event.offsetX - graphMarkRadius - 0.5) / graphUnitX);
 	if (x < 0) {
 		x = 0;
 	} else if (x > maxX) {
 		x = maxX;
 	}
+	const halfGridHeight = graphGridHeight / 2;
 	let y = 1 - Math.round(event.offsetY - graphMarkRadius - 0.5) / graphMidY;
 	let roundedY;
 	if (y < -1) {
 		y = -1;
-		roundedY = -1;
+		roundedY = -halfGridHeight;
 	} else if (y > 1) {
 		y = 1;
-		roundedY = 1;
+		roundedY = halfGridHeight;
 	} else if (graphSnapY) {
-		const halfGridHeight = graphGridHeight / 2;
 		roundedY = Math.round(y * halfGridHeight);
 		y = roundedY / halfGridHeight;
 	} else {
-		roundedY = Math.round(y * 100) / 100;
+		roundedY = Math.round(y * halfGridHeight * 10) / 10;
 	}
 
 	if (x != graphMouseX || y !== graphMouseY) {
-		graphMouseX = x;
-		graphMouseY = y;
-		requestAnimationFrame(drawGraph);
-		document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + roundedY;
+		if (graphChangeX !== undefined) {
+			const index = graphPointsX.indexOf(graphChangeX);
+			if (graphChangeX !== 0 && graphChangeX !== maxX) {
+				if (x > graphPointsX[index - 1] && x < graphPointsX[index + 1]) {
+					graphPointsX[index] = x;
+					graphChangeX = x;
+				} else {
+					x = graphChangeX;
+				}
+			} else {
+				x = graphChangeX;
+			}
+			graphPointsY[index] = y;
+			updateGraphedSound();
+		}
+
+		if (x != graphMouseX || y !== graphMouseY) {
+			graphMouseX = x;
+			graphMouseY = y;
+			requestAnimationFrame(drawGraph);
+			document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + roundedY;
+		}
 	}
 });
 
 canvas.addEventListener('mouseleave', function (event) {
 	graphMouseX = undefined;
+	graphChangeX = undefined;
 	requestAnimationFrame(drawGraph);
 	document.getElementById('mouse-coords').innerHTML = '&nbsp;'
 });
@@ -408,6 +461,10 @@ canvas.addEventListener('mousedown', function (event) {
 	requestAnimationFrame(drawGraph);
 });
 
+canvas.addEventListener('mouseup', function (event) {
+	graphChangeX = undefined;
+});
+
 canvas.addEventListener('dblclick', function (event) {
 	const numValues = graphPointsX.length;
 	if (graphMouseX === 0 || graphMouseX === graphPointsX[numValues - 1]) {
@@ -426,10 +483,3 @@ canvas.addEventListener('dblclick', function (event) {
 		}
 	}
 });
-
-function resetGraph() {
-	graphPointsX = [0, 31];
-	graphPointsY = [-1, 1];
-	updateGraphedSound();
-	requestAnimationFrame(drawGraph);
-}
