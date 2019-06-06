@@ -48,7 +48,11 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 		}
 		break;
 	default:
-		newValue = changeValue;
+		if (arrayParam) {
+			newValue = changeValue.slice();
+		} else {
+			newValue = changeValue;
+		}
 	}
 	return [changeType, newValue];
 }
@@ -182,6 +186,7 @@ const Parameter = enumFromArray([
 	'INSTRUMENT',	// array index of the instrument to play.
 	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
+	'MACHINE',
 	// Parameters below this line only affect the master channel of the sequencer
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
@@ -203,15 +208,15 @@ class Change {
 		this.value = value;
 	}
 
-	equals(obj) {
-		if (obj === undefined) {
-			return false;
-		} else {
-			return this.type === obj.type && this.value === obj.value;
-		}
-	}
+	static MARK = new Change(ChangeType.MARK, 1);
+}
 
-	static MARK = new Change(ChangeType.SET, 1);
+class MachineChange extends Change {
+	constructor(machine, parameterNumber, type, value) {
+		super(type, value);
+		this.machine = machine;
+		this.parameterNumber = parameterNumber;
+	}
 }
 
 /**
@@ -1019,12 +1024,14 @@ class SynthSystem {
 		this.startTime = this.audioContext.currentTime;
 	}
 
-	start() {
-		const startTime = this.audioContext.currentTime;
-		for (let channel of this.channels) {
-			channel.start(startTime);
+	start(when) {
+		if (when === undefined) {
+			when = this.audioContext.currentTime;
 		}
-		this.startTime = startTime;
+		for (let channel of this.channels) {
+			channel.start(when);
+		}
+		this.startTime = when;
 	}
 
 	nextStep() {
@@ -1049,9 +1056,26 @@ class SynthSystem {
 			channelNumber = 0;
 		}
 		const parameterMap = new Map();
-		parameterMap.set(parameterNumber, new Synth.Change(changeType, value));
+		parameterMap.set(parameterNumber, new Change(changeType, value));
 		const newLine = parameterNumber === Parameter.GATE && (value & Gate.OPEN) !== 0;
 		this.channels[channelNumber].setParameters(parameterMap, time, newLine);
+	}
+
+	setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
+		let time;
+		if (delay !== undefined) {
+			time = this.nextStep() + delay;
+		}
+		if (changeType === undefined) {
+			changeType = ChangeType.SET;
+		}
+		if (channelNumber === undefined) {
+			channelNumber = 0;
+		}
+		const machineChanges = [new MachineChange(machine, parameterNumber, changeType, value)];
+		const parameterMap = new Map();
+		parameterMap.set(Parameter.MACHINE, machineChanges);
+		this.channels[channelNumber].setParameters(parameterMap, time, false);
 	}
 
 	getSamplePlayer(instrumentNumber, note) {
@@ -1763,6 +1787,27 @@ class SubtractiveSynthChannel {
 
 		for (let [paramNumber, change] of parameterMap) {
 			if (paramNumber === Parameter.GROOVE) {
+				continue;
+			} else if (paramNumber === Parameter.MACHINE) {
+				const machineChanges = [];
+				const machines = new Set();
+				for (let machineChange of change) {
+					const machine = machineChange.machine;
+					machines.add(machine);
+					const machineParams = machine.parameters;
+					const machineParamNum = machineChange.parameterNumber;
+					const currentValue = machineParams[machineParamNum];
+					const arrayParam = Array.isArray(currentValue);
+					const [changeType, value] = calculateParameterValue(machineChange, currentValue, arrayParam);
+					machineParams[machineParamNum] = value;
+					machineChanges.push(new MachineChange(machine, machineParamNum, changeType, value));
+				}
+				for (let machine of machines) {
+					const machineCallbacks = machine.setParameters(machineChanges, time);
+					if (machineCallbacks) {
+						callbacks.push(...machineCallbacks);
+					}
+				}
 				continue;
 			}
 			const arrayParam = paramNumber === Parameter.NOTES;
@@ -2527,6 +2572,7 @@ global.Synth = {
 	ChangeType: ChangeType,
 	Direction: Direction,
 	Gate: Gate,
+	MachineChange: MachineChange,
 	Pattern: Chord,
 	Param: Parameter,
 	Resource: Resource,
@@ -2545,3 +2591,29 @@ global.Synth = {
 };
 
 })(window);
+
+class Machine {
+	constructor(parameters) {
+		this.inputs = [];
+		this.outputs = [];
+		this.parameters = parameters;
+	}
+
+	connect(before, after) {
+		if (before && after) {
+			before.disconnect(after);
+		}
+		if (before) {
+			for (let input of this.inputs) {
+				before.connect(input);
+			}
+		}
+		if (after) {
+			for (let output of this.outputs) {
+				output.connect(after);
+			}
+		}
+	}
+}
+
+Machines = {};

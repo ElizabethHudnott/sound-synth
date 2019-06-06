@@ -3,7 +3,7 @@ const audioContext = new AudioContext();
 const system = new Synth.System(audioContext);
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
-let channels, timer;
+let channels, piecewiseLinear;
 
 document.getElementById('input-device').prepend(Sampler.devices);
 
@@ -19,12 +19,19 @@ function set(parameterNumber, value, delay, changeType, channelNumber) {
 	system.set(parameterNumber, value, delay, changeType, channelNumber);
 }
 
+function setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
+	system.setMachine(machine, parameterNumber, value, delay, changeType, channelNumber);
+}
+
 function initialize() {
 	audioContext.resume();
 	let channel1 = new Synth.SubtractiveSynthChannel(system, true);
 	let channel2 = new Synth.SubtractiveSynthChannel(system, true);
 	channel2.connect(channel1);
+	piecewiseLinear = new Machines.PiecewiseLinear(audioContext, 'none');
+	piecewiseLinear.connect(channel1.oscillator, channel1.oscillatorGain);
 	channels = [channel1, channel2];
+
 	system.start();
 
 	const parameterMap = new Map();
@@ -35,7 +42,7 @@ function initialize() {
 	channels[0].setParameters(parameterMap);
 
 	sendNewLine();
-	timer = setInterval(sendNewLine, BUFFER_LENGTH * 20);
+	setInterval(sendNewLine, BUFFER_LENGTH * 20);
 
 	const piano = new Synth.SampledInstrument();
 	system.instruments[0] = piano;
