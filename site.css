@@ -24,17 +24,24 @@ legend {
 }
 
 #controls {
-	column-fill: auto;
-	column-width: 407px;
 	display: none;
-	column-gap: 2vw;
 	margin-left: 2vw;
 	margin-right: 2vw;
 	min-height: calc(100vh - 16px);
 }
 
+#main-controls {
+	column-fill: auto;
+	column-width: 407px;
+	column-gap: 2vw;
+}
+
 #input-device select {
 	width: 345px;
+}
+
+#graph-canvas {
+	background-color: #e8e8e8;
 }
 
 .flip-x {

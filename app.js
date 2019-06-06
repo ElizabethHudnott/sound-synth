@@ -1,3 +1,4 @@
+const TWO_PI = 2 * Math.PI;
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext();
 const system = new Synth.System(audioContext);
@@ -147,9 +148,11 @@ function calcGroove(str) {
 }
 
 document.addEventListener('keydown', function (event) {
-	if (event.repeat || event.shiftKey || event.altKey || event.ctrlKey ||
-		document.activeElement.type === 'text'
-	) {
+	if (event.repeat || event.shiftKey || event.altKey || event.ctrlKey) {
+		return;
+	}
+	const elementType = document.activeElement.type;
+	if (elementType === 'text' || elementType === 'number') {
 		return;
 	}
 
@@ -271,3 +274,162 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 		});
 	}
 });
+
+let graphPointsX = [0, 31];
+let graphPointsY = [-1, 1];
+
+function updateGraphedSound() {
+	if (channels !== undefined) {
+		const machineChanges = [
+			new Synth.MachineChange(piecewiseLinear, Machines.PiecewiseLinear.Param.X_VALUES, Synth.ChangeType.SET, graphPointsX),
+			new Synth.MachineChange(piecewiseLinear, Machines.PiecewiseLinear.Param.Y_VALUES, Synth.ChangeType.SET, graphPointsY),
+		];
+		const parameterMap = new Map();
+		parameterMap.set(Synth.Param.MACHINE, machineChanges);
+		channels[0].setParameters(parameterMap, undefined, false);
+	}
+}
+
+const canvas = document.getElementById('graph-canvas');
+const context2d = canvas.getContext('2d');
+const graphMarkRadius = 5;
+context2d.setTransform(1, 0, 0, 1, 0.5 + graphMarkRadius, 0.5 + graphMarkRadius);
+let graphWidth, graphHeight, graphMidY;
+let graphUnitX, graphGridHeight, graphSnapY;
+let graphMouseX, graphMouseY, graphChangeX;
+
+function resizeGraph() {
+	graphWidth = canvas.width - 2 * graphMarkRadius - 0.5;
+	graphHeight = canvas.height - 2 * graphMarkRadius - 0.5;
+	graphMidY = graphHeight / 2;
+	const numValues = graphPointsX.length;
+	graphUnitX = graphWidth / graphPointsX[numValues - 1];
+	graphGridHeight = document.getElementById('graph-grid-y').value;
+	graphSnapY = document.getElementById('graph-snap-y').checked;
+	if (graphSnapY) {
+		const halfGridHeight = graphGridHeight / 2;
+		for (let i = 0; i < numValues; i++) {
+			graphPointsY[i] = Math.round(graphPointsY[i] * halfGridHeight) / halfGridHeight;
+		}
+		updateGraphedSound();
+	}
+	requestAnimationFrame(drawGraph);
+}
+
+function drawGraph() {
+	context2d.clearRect(-0.5 - graphMarkRadius, -0.5 - graphMarkRadius, graphWidth + 2 * graphMarkRadius + 0.5, graphHeight + 2 * graphMarkRadius + 0.5);
+	context2d.beginPath();
+	context2d.moveTo(-graphMarkRadius, graphMidY);
+	context2d.lineTo(graphWidth + graphMarkRadius, graphMidY);
+	context2d.strokeStyle = 'grey';
+	context2d.stroke();
+
+	const numValues = graphPointsX.length;
+	context2d.beginPath();
+	context2d.moveTo(0, Math.round(graphMidY - graphPointsY[0] * graphMidY));
+	for (let i = 1; i < numValues; i++) {
+		const x = Math.round(graphPointsX[i] * graphUnitX);
+		const y = Math.round(graphMidY - graphPointsY[i] * graphMidY);
+		context2d.lineTo(x, y);
+	}
+	context2d.strokeStyle = 'black';
+	context2d.stroke();
+
+	context2d.beginPath();
+	context2d.fillStyle = 'black';
+	for (let i = 0; i < numValues; i++) {
+		const x = Math.round(graphPointsX[i] * graphUnitX);
+		const y = Math.round(graphMidY - graphPointsY[i] * graphMidY);
+		context2d.arc(x, y, graphMarkRadius, 0, TWO_PI);
+		context2d.fill();
+		context2d.beginPath();
+	}
+	if (graphMouseX !== undefined) {
+		context2d.fillStyle = 'red';
+		context2d.arc(graphMouseX * graphUnitX, graphMidY - graphMouseY * graphMidY, graphMarkRadius, 0, TWO_PI);
+		context2d.fill();
+	}
+}
+resizeGraph();
+
+canvas.addEventListener('mousemove', function (event) {
+	const maxX = graphPointsX[graphPointsX.length - 1];
+	let x = Math.round((event.offsetX - graphMarkRadius - 0.5) / graphUnitX);
+	if (x < 0) {
+		x = 0;
+	} else if (x > maxX) {
+		x = maxX;
+	}
+	let y = 1 - Math.round(event.offsetY - graphMarkRadius - 0.5) / graphMidY;
+	let roundedY;
+	if (y < -1) {
+		y = -1;
+		roundedY = -1;
+	} else if (y > 1) {
+		y = 1;
+		roundedY = 1;
+	} else if (graphSnapY) {
+		const halfGridHeight = graphGridHeight / 2;
+		roundedY = Math.round(y * halfGridHeight);
+		y = roundedY / halfGridHeight;
+	} else {
+		roundedY = Math.round(y * 100) / 100;
+	}
+
+	if (x != graphMouseX || y !== graphMouseY) {
+		graphMouseX = x;
+		graphMouseY = y;
+		requestAnimationFrame(drawGraph);
+		document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + roundedY;
+	}
+});
+
+canvas.addEventListener('mouseleave', function (event) {
+	graphMouseX = undefined;
+	requestAnimationFrame(drawGraph);
+	document.getElementById('mouse-coords').innerHTML = '&nbsp;'
+});
+
+canvas.addEventListener('mousedown', function (event) {
+	graphChangeX = graphMouseX;
+	const numValues = graphPointsX.length;
+	for (let i = 0; i < numValues; i++) {
+		const x = graphPointsX[i];
+		if (graphChangeX === x) {
+			graphPointsY[i] = graphMouseY;
+			break;
+		} else if (graphChangeX < x) {
+			graphPointsX.splice(i, 0, graphChangeX);
+			graphPointsY.splice(i, 0, graphMouseY);
+			break;
+		}
+	}
+	updateGraphedSound();
+	requestAnimationFrame(drawGraph);
+});
+
+canvas.addEventListener('dblclick', function (event) {
+	const numValues = graphPointsX.length;
+	if (graphMouseX === 0 || graphMouseX === graphPointsX[numValues - 1]) {
+		return;
+	}
+	for (let i = 0; i < numValues; i++) {
+		const x = graphPointsX[i];
+		if (graphMouseX === x) {
+			graphPointsX.splice(i, 1);
+			graphPointsY.splice(i, 1);
+			updateGraphedSound();
+			requestAnimationFrame(drawGraph);
+			break;
+		} else if (graphMouseX < x) {
+			break;
+		}
+	}
+});
+
+function resetGraph() {
+	graphPointsX = [0, 31];
+	graphPointsY = [-1, 1];
+	updateGraphedSound();
+	requestAnimationFrame(drawGraph);
+}
