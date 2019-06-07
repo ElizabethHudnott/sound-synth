@@ -298,7 +298,7 @@ const graphMarkSize = 7;
 const graphRowColors = ['#e8e8e8', '#d0d0d0'];
 let graphWidth, graphHeight, graphMidY;
 let graphUnitX, graphGridHeight, graphSnapY = true;
-let graphMouseX, graphMouseY, graphChangeX;
+let graphMouseX, graphMouseY, graphChangeX, graphChangeY;
 
 function drawGraph() {
 	context2d.clearRect(-1 - graphMarkSize / 2, -1 - graphMarkSize / 2, canvas.width + 2, canvas.height + 2);
@@ -499,32 +499,55 @@ canvas.addEventListener('mousemove', function (event) {
 
 	const halfGridHeight = graphGridHeight / 2;
 	let y = 1 - Math.round(event.offsetY - graphMarkSize / 2) / graphMidY;
-	let roundedY;
+	let roundedY, displayY;
 	if (y < -1) {
 		y = -1;
 		roundedY = -halfGridHeight;
+		displayY = roundedY;
 	} else if (y > 1) {
 		y = 1;
 		roundedY = halfGridHeight;
-	} else if (graphSnapY) {
-		roundedY = Math.round(y * halfGridHeight);
-		y = roundedY / halfGridHeight;
+		displayY = roundedY;
 	} else {
-		roundedY = Math.round(y * halfGridHeight * 10) / 10;
+		roundedY = Math.round(y * halfGridHeight);
+		if (graphSnapY) {
+			y = roundedY / halfGridHeight;
+			displayY = roundedY;
+		} else {
+			displayY = Math.round(y * halfGridHeight * 10) / 10;
+		}
 	}
 
 	if (x != graphMouseX || y !== graphMouseY) {
 		if (graphChangeX !== undefined) {
-			const index = graphPointsX.indexOf(graphChangeX);
-			if (graphChangeX !== 0 && graphChangeX !== maxX) {
+			let index = graphPointsX.indexOf(graphChangeX);
+			if (graphChangeX === 0 && x > 0) {
+				if (graphPointsX[1] > 1 && graphChangeY === roundedY) {
+					graphPointsX.splice(1, 0, 1);
+					graphPointsY.splice(1, 0, y);
+					graphChangeX = 1;
+					x = 1;
+					index = 1;
+				} else {
+					x = 0;
+				}
+			} else if (graphChangeX === maxX && x < maxX) {
+				if (graphPointsX[numValues - 2] < maxX - 1 && graphChangeY === roundedY) {
+					graphPointsX.splice(numValues - 1, 0, maxX - 1);
+					graphPointsY.splice(numValues - 1, 0, y);
+					graphChangeX = maxX - 1;
+					x = graphChangeX;
+					index = numValues - 1;
+				} else {
+					x = maxX;
+				}
+			} else {
 				if (x > graphPointsX[index - 1] && x < graphPointsX[index + 1]) {
 					graphPointsX[index] = x;
 					graphChangeX = x;
 				} else {
 					x = graphChangeX;
 				}
-			} else {
-				x = graphChangeX;
 			}
 			graphPointsY[index] = y;
 			updateGraphedSound();
@@ -534,7 +557,10 @@ canvas.addEventListener('mousemove', function (event) {
 			graphMouseX = x;
 			graphMouseY = y;
 			requestAnimationFrame(drawGraph);
-			document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + roundedY;
+			document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + displayY;
+			if (graphChangeY !== roundedY) {
+				graphChangeY = undefined;
+			}
 		}
 	}
 });
@@ -562,6 +588,8 @@ canvas.addEventListener('mousedown', function (event) {
 	}
 	updateGraphedSound();
 	requestAnimationFrame(drawGraph);
+	const halfGridHeight = graphGridHeight / 2;
+	graphChangeY = Math.round((1 - Math.round(event.offsetY - graphMarkSize / 2) / graphMidY) * halfGridHeight);
 });
 
 canvas.addEventListener('mouseup', function (event) {
