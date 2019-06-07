@@ -1,7 +1,6 @@
-const TWO_PI = 2 * Math.PI;
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext();
-const system = new Synth.System(audioContext);
+const system = new Synth.System(audioContext, initialize);
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels, piecewiseLinear;
@@ -25,14 +24,12 @@ function setMachine(machine, parameterNumber, value, delay, changeType, channelN
 }
 
 function initialize() {
-	audioContext.resume();
 	let channel1 = new Synth.SubtractiveSynthChannel(system, true);
 	let channel2 = new Synth.SubtractiveSynthChannel(system, true);
 	channel2.connect(channel1);
 	piecewiseLinear = new Machines.PiecewiseLinear(audioContext, 'none');
 	piecewiseLinear.connect(channel1.oscillator, channel1.oscillatorGain);
 	channels = [channel1, channel2];
-
 	system.start();
 
 	const parameterMap = new Map();
@@ -65,9 +62,14 @@ function initialize() {
 		resource.data.sampledNote = 46;
 	})
 	.catch(resourceError);
+}
 
+function begin() {
+	audioContext.resume();
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
+	resizeGraph();
+	window.addEventListener('resize', resizeGraph);
 }
 
 const emptyMap = new Map();
@@ -292,17 +294,25 @@ function updateGraphedSound() {
 
 const canvas = document.getElementById('graph-canvas');
 const context2d = canvas.getContext('2d');
-const graphMarkRadius = 5;
-context2d.setTransform(1, 0, 0, 1, 0.5 + graphMarkRadius, 0.5 + graphMarkRadius);
+const graphMarkSize = 7;
+const graphRowColors = ['#e8e8e8', '#d0d0d0'];
 let graphWidth, graphHeight, graphMidY;
 let graphUnitX, graphGridHeight, graphSnapY = true;
 let graphMouseX, graphMouseY, graphChangeX;
 
 function drawGraph() {
-	context2d.clearRect(-0.5 - graphMarkRadius, -0.5 - graphMarkRadius, graphWidth + 2 * graphMarkRadius + 0.5, graphHeight + 2 * graphMarkRadius + 0.5);
+	context2d.clearRect(-1 - graphMarkSize / 2, -1 - graphMarkSize / 2, canvas.width + 2, canvas.height + 2);
+	const rowHeight = graphHeight / graphGridHeight;
+	let colorIndex = 0;
+	for (let y = -rowHeight / 2; y < graphHeight; y = y + rowHeight) {
+		context2d.fillStyle = graphRowColors[colorIndex];
+		context2d.fillRect(0, y, graphWidth, rowHeight);
+		colorIndex = (colorIndex + 1) % 2;
+	}
+
 	context2d.beginPath();
-	context2d.moveTo(-graphMarkRadius, graphMidY);
-	context2d.lineTo(graphWidth + graphMarkRadius, graphMidY);
+	context2d.moveTo(0, graphMidY);
+	context2d.lineTo(graphWidth, graphMidY);
 	context2d.strokeStyle = 'grey';
 	context2d.stroke();
 
@@ -317,32 +327,47 @@ function drawGraph() {
 	context2d.strokeStyle = 'black';
 	context2d.stroke();
 
-	context2d.beginPath();
 	context2d.fillStyle = 'black';
 	for (let i = 0; i < numValues; i++) {
 		const x = Math.round(graphPointsX[i] * graphUnitX);
 		const y = Math.round(graphMidY - graphPointsY[i] * graphMidY);
-		context2d.arc(x, y, graphMarkRadius, 0, TWO_PI);
-		context2d.fill();
-		context2d.beginPath();
+		context2d.fillRect(x - graphMarkSize / 2, y - graphMarkSize / 2, graphMarkSize, graphMarkSize);
 	}
 	if (graphMouseX !== undefined) {
 		context2d.fillStyle = 'red';
-		context2d.arc(graphMouseX * graphUnitX, graphMidY - graphMouseY * graphMidY, graphMarkRadius, 0, TWO_PI);
-		context2d.fill();
+		context2d.fillRect(graphMouseX * graphUnitX - graphMarkSize / 2, graphMidY - graphMouseY * graphMidY - graphMarkSize / 2, graphMarkSize, graphMarkSize);
 	}
 }
 
 function resizeGraph() {
-	graphWidth = canvas.width - 2 * graphMarkRadius - 0.5;
-	graphHeight = canvas.height - 2 * graphMarkRadius - 0.5;
-	graphMidY = graphHeight / 2;
+	const canvasWidth = canvas.clientWidth;
+	canvas.width = canvasWidth;
 	const numValues = graphPointsX.length;
-	graphUnitX = graphWidth / graphPointsX[numValues - 1];
+	const maxX = graphPointsX[numValues - 1];
+	graphWidth = Math.min(
+		Math.max(
+			Math.trunc((canvasWidth - graphMarkSize) * maxX) / maxX,
+			graphMarkSize * maxX
+		),
+		(graphMarkSize + 4) * maxX
+	);
+	graphUnitX = graphWidth / maxX;
+
+	graphHeight = canvas.height - graphMarkSize;
 	graphGridHeight = document.getElementById('graph-grid-y').value;
+	if (graphGridHeight <= 16) {
+		graphHeight = Math.ceil(150 / graphGridHeight) * graphGridHeight;
+	} else {
+		graphHeight = (graphMarkSize + 2) * graphGridHeight;
+	}
+	const canvasHeight = graphHeight + graphMarkSize;
+	canvas.height = canvasHeight;
+	canvas.style.height = canvasHeight + 'px';
+	graphMidY = graphHeight / 2;
+
+	context2d.setTransform(1, 0, 0, 1, graphMarkSize / 2,  graphMarkSize / 2);
 	requestAnimationFrame(drawGraph);
 }
-resizeGraph();
 
 function resampleGraphPoints() {
 
@@ -352,7 +377,13 @@ function resampleGraphPoints() {
 function setGraphSize() {
 	const numValues = graphPointsX.length;
 	const currentSize = graphPointsX[numValues - 1] + 1;
-	const newSize = document.getElementById('graph-width').value;
+	const textbox = document.getElementById('graph-width');
+	let newSize = textbox.value;
+	const maxSize = Math.trunc((canvas.width - graphMarkSize) / graphMarkSize);
+	if (newSize > maxSize) {
+		newSize = maxSize;
+		textbox.value = newSize;
+	}
 	if (newSize === currentSize) {
 		return;
 	} else if (newSize > currentSize) {
@@ -365,13 +396,19 @@ function setGraphSize() {
 	resizeGraph();
 }
 
-function snapGraph(snap) {
+function snapGraph(snap, force) {
 	graphSnapY = snap;
-	if (snap) {
+	if (snap && (graphGridHeight >= 8 || force)) {
 		const numValues = graphPointsX.length;
 		const halfGridHeight = graphGridHeight / 2;
 		for (let i = 0; i < numValues; i++) {
-			graphPointsY[i] = Math.round(graphPointsY[i] * halfGridHeight) / halfGridHeight;
+			let newValue = Math.round(graphPointsY[i] * halfGridHeight) / halfGridHeight;
+			if (newValue > 1) {
+				newValue = 1;
+			} else if (newValue < -1) {
+				newValue = -1;
+			}
+			graphPointsY[i] = newValue;
 		}
 		updateGraphedSound();
 		requestAnimationFrame(drawGraph);
@@ -388,14 +425,19 @@ function resetGraphData() {
 canvas.addEventListener('mousemove', function (event) {
 	const numValues = graphPointsX.length;
 	const maxX = graphPointsX[numValues - 1];
-	let x = Math.round((event.offsetX - graphMarkRadius - 0.5) / graphUnitX);
+	let x = Math.round((event.offsetX - graphMarkSize / 2) / graphUnitX);
 	if (x < 0) {
 		x = 0;
 	} else if (x > maxX) {
-		x = maxX;
+		graphMouseX = undefined;
+		graphChangeX = undefined;
+		requestAnimationFrame(drawGraph);
+		document.getElementById('mouse-coords').innerHTML = '&nbsp;'
+		return;
 	}
+
 	const halfGridHeight = graphGridHeight / 2;
-	let y = 1 - Math.round(event.offsetY - graphMarkRadius - 0.5) / graphMidY;
+	let y = 1 - Math.round(event.offsetY - graphMarkSize / 2) / graphMidY;
 	let roundedY;
 	if (y < -1) {
 		y = -1;

@@ -13,7 +13,7 @@
 	</head>
 	<body>
 		<div id="intro">
-			<button onclick="initialize()">Initialize</button>
+			<button onclick="begin()">Initialize</button>
 		</div>
 		<div id="controls">
 			<div id="main-controls">
@@ -277,11 +277,11 @@
 				<legend>Wave Shaper</legend>
 				Width:
 				<input id="graph-width" type="number" min="2" max="256" value="32">
-				Height:
-				<input id="graph-grid-y" type="number" min="2" step="2" value="16" max="998">
 				<button onclick="resampleGraphPoints()">Resize</button>
 				<button onclick="setGraphSize()">Set Length</button>
-				<input type="checkbox" oninput="snapGraph(this.checked)" checked>Snap Y
+				Height:
+				<input id="graph-grid-y" type="number" min="2" step="2" value="16" max="998" oninput="resizeGraph(); snapGraph(graphSnapY, false)" onblur="snapGraph(graphSnapY, true)">
+				<input type="checkbox" oninput="snapGraph(this.checked, true)" checked>Snap Y
 				<button onclick="resetGraphData()">Reset</button>
 				<br>
 				<canvas id="graph-canvas"></canvas>
