@@ -423,7 +423,10 @@ function setGraphSize() {
 	const textbox = document.getElementById('graph-width');
 	let newSize = parseInt(textbox.value);
 	const maxSize = Math.trunc((canvas.width - graphMarkSize) / graphMarkSize);
-	if (newSize > maxSize) {
+	if (newSize < 2) {
+		newSize = 2;
+		textbox.value = '2';
+	} else if (newSize > maxSize) {
 		newSize = maxSize;
 		textbox.value = newSize;
 	}
@@ -433,7 +436,26 @@ function setGraphSize() {
 		graphPointsX.push(newSize - 1);
 		graphPointsY.push(graphPointsY[numValues - 1]);
 	} else {
-
+		let before = graphPointsX[numValues - 2];
+		let i = numValues - 2;
+		while (before >= newSize) {
+			i--;
+			before = graphPointsX[i];
+		}
+		const after = graphPointsX[i + 1];
+		const beforeValue = graphPointsY[i];
+		const afterValue = graphPointsY[i + 1];
+		const newX = graphPointsX.slice(0, i + 1);
+		const newY = graphPointsY.slice(0, i + 1);
+		let finalY = beforeValue + (newSize - 1 - before) * (afterValue - beforeValue) / (after - before);
+		if (graphSnapY) {
+			const halfGridHeight = graphGridHeight / 2;
+			finalY = Math.round(finalY * halfGridHeight) / halfGridHeight;
+		}
+		newX.push(newSize - 1);
+		newY.push(finalY);
+		graphPointsX = newX;
+		graphPointsY = newY;
 	}
 	updateGraphedSound();
 	resizeGraph();
