@@ -494,11 +494,7 @@ canvas.addEventListener('mousemove', function (event) {
 	if (x < 0) {
 		x = 0;
 	} else if (x > maxX) {
-		graphMouseX = undefined;
-		graphChangeX = undefined;
-		requestAnimationFrame(drawGraph);
-		document.getElementById('mouse-coords').innerHTML = '&nbsp;'
-		return;
+		x = maxX;
 	}
 
 	const halfGridHeight = graphGridHeight / 2;
