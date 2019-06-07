@@ -491,10 +491,13 @@ canvas.addEventListener('mousemove', function (event) {
 	const numValues = graphPointsX.length;
 	const maxX = graphPointsX[numValues - 1];
 	let x = Math.round((event.offsetX - graphMarkSize / 2) / graphUnitX);
+	let outOfRange = false;
 	if (x < 0) {
 		x = 0;
+		outOfRange = true;
 	} else if (x > maxX) {
 		x = maxX;
+		outOfRange = true;
 	}
 
 	const halfGridHeight = graphGridHeight / 2;
@@ -504,10 +507,12 @@ canvas.addEventListener('mousemove', function (event) {
 		y = -1;
 		roundedY = -halfGridHeight;
 		displayY = roundedY;
+		outOfRange = true;
 	} else if (y > 1) {
 		y = 1;
 		roundedY = halfGridHeight;
 		displayY = roundedY;
+		outOfRange = true;
 	} else {
 		roundedY = Math.round(y * halfGridHeight);
 		if (graphSnapY) {
@@ -554,10 +559,15 @@ canvas.addEventListener('mousemove', function (event) {
 		}
 
 		if (x != graphMouseX || y !== graphMouseY) {
-			graphMouseX = x;
-			graphMouseY = y;
+			if (outOfRange && graphChangeX === undefined) {
+				graphMouseX = undefined;
+				document.getElementById('mouse-coords').innerHTML = '&nbsp;';
+			} else {
+				graphMouseX = x;
+				graphMouseY = y;
+				document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + displayY;
+			}
 			requestAnimationFrame(drawGraph);
-			document.getElementById('mouse-coords').innerHTML = 'x: ' + x + ', y: ' + displayY;
 			if (graphChangeY !== roundedY) {
 				graphChangeY = undefined;
 			}
@@ -569,7 +579,7 @@ canvas.addEventListener('mouseleave', function (event) {
 	graphMouseX = undefined;
 	graphChangeX = undefined;
 	requestAnimationFrame(drawGraph);
-	document.getElementById('mouse-coords').innerHTML = '&nbsp;'
+	document.getElementById('mouse-coords').innerHTML = '&nbsp;';
 });
 
 canvas.addEventListener('mousedown', function (event) {
