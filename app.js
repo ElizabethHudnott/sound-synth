@@ -370,7 +370,50 @@ function resizeGraph() {
 }
 
 function resampleGraphPoints() {
+	const numValues = graphPointsX.length;
+	const currentSize = graphPointsX[numValues - 1] + 1;
+	const textbox = document.getElementById('graph-width');
+	let newSize = parseInt(textbox.value);
+	const maxSize = Math.trunc((canvas.width - graphMarkSize) / graphMarkSize);
+	if (newSize > maxSize) {
+		newSize = maxSize;
+		textbox.value = newSize;
+	}
+	if (newSize === currentSize) {
+		return;
+	}
 
+	const multiplier = (newSize - 1) / (currentSize- 1);
+	const newX = [0];
+	const newY = [graphPointsY[0]];
+	let prevX = 0;
+	for (let i = 1; i < numValues - 1; i++) {
+		let x = Math.round(graphPointsX[i] * multiplier);
+		let y = graphPointsY[i];
+		if (x === prevX) {
+			x++;
+		}
+		if (x >= newSize - 1) {
+			if (x === prevX + 1) {
+				let midValue = (newY[i - 1] + y) / 2;
+				if (graphSnapY) {
+					const halfGridHeight = graphGridHeight / 2;
+					midValue = Math.round(midValue * halfGridHeight) / halfGridHeight;
+				}
+				newY[i - 1] = midValue;
+				break;
+			} else {
+				x--;
+			}
+		}
+		newX[i] = x;
+		newY[i] = y;
+		prevX = x;
+	}
+	newX.push(newSize - 1);
+	newY.push(graphPointsY[numValues - 1]);
+	graphPointsX = newX;
+	graphPointsY = newY;
 	resizeGraph();
 }
 
@@ -378,7 +421,7 @@ function setGraphSize() {
 	const numValues = graphPointsX.length;
 	const currentSize = graphPointsX[numValues - 1] + 1;
 	const textbox = document.getElementById('graph-width');
-	let newSize = textbox.value;
+	let newSize = parseInt(textbox.value);
 	const maxSize = Math.trunc((canvas.width - graphMarkSize) / graphMarkSize);
 	if (newSize > maxSize) {
 		newSize = maxSize;
@@ -524,4 +567,5 @@ canvas.addEventListener('dblclick', function (event) {
 			break;
 		}
 	}
+	graphMouseX = undefined;
 });
