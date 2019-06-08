@@ -65,7 +65,7 @@ class Pattern {
 		const length = this.length;
 		const masterColumn = this.columns[0];
 		const masterOffset = this.offsets[0];
-		const channel0Params = system.channels[0].parameters;
+		const highChannelParams = system.channels[numColumns - 2].parameters;
 
 		let lineTime, numTicks;
 		let loopStart = 0, loopIndex = 1;
@@ -106,7 +106,9 @@ class Pattern {
 						} else {
 							changes = new Map(masterChanges);
 							for (let [key, value] of columnChanges) {
-								changes.set(key, value);
+								if (value !== Synth.Change.MARK || !changes.has(key)) {
+									changes.set(key, value);
+								}
 							}
 						}
 					}
@@ -121,7 +123,7 @@ class Pattern {
 				lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
 			}
 
-			numTicks = channel0Params[Synth.Param.TICKS];
+			numTicks = highChannelParams[Synth.Param.TICKS];
 			if (numTicks > lineTime) {
 				numTicks = lineTime;
 			}
@@ -134,6 +136,7 @@ class Pattern {
 }
 
 class Phrase {
+	static EMPTY = new Phrase('Empty', 0);
 
 	constructor(name, length) {
 		this.name = name;

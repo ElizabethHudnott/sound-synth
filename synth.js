@@ -772,6 +772,14 @@ class Sample {
 		});
 	}
 
+	swapChannels() {
+		const buffer = this.buffer;
+		const leftCopy = new Float32Array(buffer.length);
+		buffer.copyFromChannel(leftCopy, 0);
+		buffer.copyToChannel(buffer.getChannelData(1), 0); // copy right -> left
+		buffer.copyToChannel(leftCopy, 1); // copy old left -> right
+	}
+
 }
 
 class SamplePlayer {
@@ -1058,7 +1066,13 @@ class SynthSystem {
 		const parameterMap = new Map();
 		parameterMap.set(parameterNumber, new Change(changeType, value));
 		const newLine = parameterNumber === Parameter.GATE && (value & Gate.OPEN) !== 0;
-		this.channels[channelNumber].setParameters(parameterMap, time, newLine);
+		if (channelNumber === -1) {
+			for (let channel of this.channels) {
+				channel.setParameters(parameterMap, time, newLine);
+			}
+		} else {
+			this.channels[channelNumber].setParameters(parameterMap, time, newLine);
+		}
 	}
 
 	setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
@@ -1750,18 +1764,18 @@ class SubtractiveSynthChannel {
 			parameters[Parameter.LINE_TIME] = lineTime;
 		}
 
-
 		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
 		if (numTicks < 1) {
 			numTicks = 1;
 		}
 
-		let delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
-		if (delay >= numTicks) {
-			delay = numTicks - 1;
-		}
-
 		const tickTime = (lineTime * TIME_STEP) / numTicks;
+
+		if (step === undefined) {
+			step = (Math.max(this.system.audioContext.currentTime, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
+		}
+		const delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
+		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
@@ -1771,13 +1785,6 @@ class SubtractiveSynthChannel {
 		let dirtySustain = false;
 		let frequencySet = false;
 		let endRetrigger = false;
-
-		const now = this.system.audioContext.currentTime;
-		if (step === undefined) {
-			step = (Math.max(now, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
-		}
-		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
-		const timeDifference = Math.round((time - now) * 1000);
 		const callbacks = [];
 
 		let tuningChange = parameterMap.get(Parameter.TUNING_STRETCH);
@@ -2298,7 +2305,7 @@ class SubtractiveSynthChannel {
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
 				const chordTicks = parameters[Parameter.CHORD_SPEED];
-				numTicks = numTicks - delay;
+				numTicks = numTicks - (delay % numTicks);
 
 				let glissandoPerTick;
 				if (glissandoSteps === 0) {
@@ -2418,6 +2425,7 @@ class SubtractiveSynthChannel {
 
 		const numCallbacks = callbacks.length;
 		if (numCallbacks > 0) {
+			const timeDifference = Math.round((time - this.system.audioContext.currentTime) * 1000);
 			if (numCallbacks === 1) {
 				setTimeout(callbacks[0], timeDifference);
 			} else {
