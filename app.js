@@ -277,7 +277,7 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 	}
 });
 
-let graphPointsX = [0, 31];
+let graphPointsX = [0, 32];
 let graphPointsY = [-1, 1];
 
 function updateGraphedSound() {
