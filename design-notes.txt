@@ -1,0 +1,54 @@
+Song
+*	Short Phrases (Map String -> Phrase)
+*	Initial parameters for Channel 1,... Channel N
+*	Loop from
+	Pattern Matrix Rows (array of SongRow)
+		Master channel phrase name
+*		Phrase name for Channel 1,... Channel N (undefined for unused channels)
+		Starting offset for Channel 1,... Channel N
+		Pattern length
+	Metadata
+
+Phrase
+	Rows (array of Parameter Maps)
+	Length
+
+
+song playback shouldn't all be scheduled at once
+sample finetune
+add sample slicing
+Loop start and end offsets
+Probability
+Instruments
+Macros
+Automations
+
+changes for 1 line vs changes over a pattern vs ongoing results?
+
+
+------
+LFO rate modulated by an envelope
+LFO amount modulated by an LFO
+LFO attack time
+Pulse width modulated by an envelope
+
+--------
+
+			Oscillator
+			(Freq.)
+sine		1
+triangle	2
+custom		3
+sawtooth	3
+pulse		3
+
+noise generator
+new machine example (periodic wave?)
+
+different frequencies "detune" (in cents)
+inverting / suppressing part of the wave
+
+WAVEFORM
+NOISE
+WAVEFORM_LFO
+DETUNE

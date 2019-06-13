@@ -3,7 +3,7 @@ const audioContext = new AudioContext();
 const system = new Synth.System(audioContext, initialize);
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
-let channels, piecewiseLinear;
+let channels;
 
 document.getElementById('input-device').prepend(Sampler.devices);
 
@@ -27,8 +27,6 @@ function initialize() {
 	let channel1 = new Synth.SubtractiveSynthChannel(system, true);
 	let channel2 = new Synth.SubtractiveSynthChannel(system, true);
 	channel2.connect(channel1);
-	piecewiseLinear = new Machines.PiecewiseLinear(audioContext, 'none');
-	piecewiseLinear.connect(channel1.oscillator, channel1.oscillatorGain);
 	channels = [channel1, channel2];
 	system.start();
 
@@ -277,17 +275,14 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 	}
 });
 
-let graphPointsX = [0, 32];
-let graphPointsY = [-1, 1];
+let graphPointsX = [0, 15, 17, 32];
+let graphPointsY = [-1, 0.25, -0.25, 1];
 
 function updateGraphedSound() {
 	if (channels !== undefined) {
-		const machineChanges = [
-			new Synth.MachineChange(piecewiseLinear, Machines.PiecewiseLinear.Param.X_VALUES, Synth.ChangeType.SET, graphPointsX),
-			new Synth.MachineChange(piecewiseLinear, Machines.PiecewiseLinear.Param.Y_VALUES, Synth.ChangeType.SET, graphPointsY),
-		];
 		const parameterMap = new Map();
-		parameterMap.set(Synth.Param.MACHINE, machineChanges);
+		parameterMap.set(Synth.Param.WAVE_X, new Synth.Change(Synth.ChangeType.SET, graphPointsX));
+		parameterMap.set(Synth.Param.WAVE_Y, new Synth.Change(Synth.ChangeType.SET, graphPointsY));
 		channels[0].setParameters(parameterMap, undefined, false);
 	}
 }

@@ -98,6 +98,9 @@ class ResourceLoadError extends Error {
 }
 
 const Parameter = enumFromArray([
+	'NOTES',		// array of MIDI note numbers
+	'WAVE_X',		// coordinates for piecewise linear waveform
+	'WAVE_Y',
 	'VELOCITY',		// percentage
 	'ATTACK',		// in milliseconds
 	'ATTACK_CURVE', // 0.5 = linear approximation, 3 = good exponential choice
@@ -109,10 +112,9 @@ const Parameter = enumFromArray([
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	'DURATION',		// in milliseconds (0 = auto)
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
-	'WAVEFORM',		// combinations of Waveform enum values
+	'WAVEFORM',		// Wavetable position
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// in cents
-	'NOTES',		// MIDI note number
 	'TUNING_STRETCH', // in cents
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
@@ -172,7 +174,6 @@ const Parameter = enumFromArray([
 	'DELAY_MIX',	// percentage (may be more than 100)
 	'FEEDBACK',		// percentage
 	'RING_MOD',		// 0 to 100
-	'SYNC',			// 0 or 1
 	'LINE_TIME',	// in steps
 	'GROOVE',		// an array of line times
 	'TICKS',		// maximum number of events during a LINE_TIME
@@ -234,12 +235,12 @@ const Gate = Object.freeze({
 	MULTI_TRIGGERABLE: 4, // add to OPEN or TRIGGER
 });
 
-const Waveform = Object.freeze({
-	POP: 0,
+const Wave = Object.freeze({
+	SINE: 0,
 	TRIANGLE: 1,
-	SAWTOOTH: 2,
+	CUSTOM: 2,
+	SAW: 3,
 	PULSE: 4,
-	NOISE: 8,
 });
 
 const Chord = Object.freeze({
@@ -385,12 +386,16 @@ class LFO {
 class Modulator {
 	constructor(audioContext, lfo, carrier) {
 		this.lfo = lfo;
-		this.carriers = [carrier];
 		const range = audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
 		lfo.connect(this);
-		range.connect(carrier);
+		if (carrier === undefined) {
+			this.carriers = [];
+		} else {
+			this.carriers = [carrier];
+			range.connect(carrier);
+		}
 	}
 
 	setMinMax(changeType, min, max, time) {
@@ -1194,31 +1199,20 @@ class SynthSystem {
 
 }
 
-class C64OscillatorNode extends AudioWorkletNode {
+class WavetableNode extends AudioWorkletNode {
+	constructor(context, numberOfInputs) {
+		super(context, 'wavetable-processor', {numberOfInputs: numberOfInputs});
+	}
+
+	get position() {
+		return this.parameters.get('position');
+	}
+
+}
+
+class ReciprocalNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'c64-oscillator-processor', {numberOfInputs: 0, numberOfOutputs: 2});
-		this._type = Waveform.TRIANGLE;
-	}
-
-	get frequency() {
-		return this.parameters.get('frequency');
-	}
-
-	get width() {
-		return this.parameters.get('width');
-	}
-
-	get sync() {
-		return this.parameters.get('sync');
-	}
-
-	set type(value) {
-		this.port.postMessage(value);
-		this._type = value;
-	}
-
-	get type() {
-		return this._type;
+		super(context, 'reciprocal-processor');
 	}
 }
 
@@ -1228,6 +1222,9 @@ class SubtractiveSynthChannel {
 		this.system = system;
 		const initialLineTime = system.lineTime;
 		this.parameters = [
+			[69],	// MIDI note numbers
+			[0, 15, 17, 32],		// custom waveform
+			[-1, 0.25, -0.25, 1],
 			100,	// velocity
 			2,		// attack
 			0.5,	// attack curve
@@ -1239,10 +1236,9 @@ class SubtractiveSynthChannel {
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
 			Gate.CLOSED, // gate
-			Waveform.TRIANGLE, // waveform
+			Wave.SINE, // waveform
 			440,	// frequency
 			0,		// detune
-			[69],	// MIDI note numbers
 			0,		// no stretched tuning
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
@@ -1302,7 +1298,6 @@ class SubtractiveSynthChannel {
 			100,	// delay mix
 			0,		// feedback
 			0,		// ring modulation
-			0,		// sync
 			initialLineTime, // line time (125bpm, allegro)
 			[],		// groove
 			system.ticksPerLine, // number of ticks for broken chords, glissando and retrigger
@@ -1348,23 +1343,44 @@ class SubtractiveSynthChannel {
 		this.lfos = [lfo1, lfo2, lfo3];
 
 		// Oscillator and oscillator/sample switch
-		const oscillator = new C64OscillatorNode(audioContext);
-		this.oscillator = oscillator;
+		const sine = audioContext.createOscillator();
+		this.sine = sine;
+		const triangle = audioContext.createOscillator();
+		triangle.type = 'triangle';
+		this.triangle = triangle;
+		const saw = audioContext.createOscillator();
+		saw.type = 'sawtooth';
+		this.saw = saw;
+		const shaper = new WaveShaperNode(audioContext);
+		this.shaper = shaper;
+		shaper.curve = this.waveShapeFromCoordinates();
+		shaper.oversample = '4x';
+		triangle.connect(shaper);
+		const wavetable = new WavetableNode(audioContext, 5);
+		this.wavetable = wavetable;
+		sine.connect(wavetable, 0, 0);
+		triangle.connect(wavetable, 0, 1);
+		shaper.connect(wavetable, 0, 2);
+		saw.connect(wavetable, 0, 3);
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
-		oscillator.connect(oscillatorGain);
+		wavetable.connect(oscillatorGain);
 
 		// Pulse width modulation
-		oscillator.width.value = 0;
-		const pwm = new Modulator(audioContext, lfo1, oscillator.width);
+		const reciprocal = new ReciprocalNode(audioContext);
+		const dutyCycle = audioContext.createGain();
+		reciprocal.connect(dutyCycle);
+		const pwm = new Modulator(audioContext, lfo1, dutyCycle.gain);
 		this.pwm = pwm;
 		pwm.setMinMax(ChangeType.SET, 0.5, 0.5, audioContext.currentTime);
-
-		// Hard sync
-		const syncGain = audioContext.createGain();
-		syncGain.gain.value = 0;
-		syncGain.connect(oscillator.sync);
-		this.syncGain = syncGain;
+		const sawDelay = audioContext.createDelay(0.05);
+		dutyCycle.connect(sawDelay.delayTime);
+		const inverter = audioContext.createGain();
+		inverter.gain.value = -1;
+		saw.connect(inverter);
+		inverter.connect(sawDelay);
+		saw.connect(wavetable, 0, 4);
+		sawDelay.connect(wavetable, 0, 4);
 
 		// Playing samples
 		this.sampleBufferNode = undefined;
@@ -1375,16 +1391,23 @@ class SubtractiveSynthChannel {
 		this.playRateMultiplier = playRateMultiplier;
 		const samplePlaybackRate = audioContext.createConstantSource();
 		samplePlaybackRate.connect(playRateMultiplier);
+		samplePlaybackRate.connect(reciprocal);
 		samplePlaybackRate.start();
 
 		// Vibrato
-		const vibrato = new Modulator(audioContext, lfo1, oscillator.frequency);
+		const vibrato = new Modulator(audioContext, lfo1);
 		this.vibrato = vibrato;
+		vibrato.connect(sine.frequency);
+		vibrato.connect(triangle.frequency);
+		vibrato.connect(saw.frequency);
 		vibrato.connect(samplePlaybackRate.offset);
 
 		// Siren
-		const siren = new Modulator(audioContext, lfo3, oscillator.frequency);
+		const siren = new Modulator(audioContext, lfo3);
 		this.siren = siren;
+		siren.connect(sine.frequency);
+		siren.connect(triangle.frequency);
+		siren.connect(saw.frequency);
 		siren.connect(samplePlaybackRate.offset);
 
 		// Filter
@@ -1483,11 +1506,13 @@ class SubtractiveSynthChannel {
 		const node = channel.ringInput;
 		this.filteredPath.connect(node);
 		this.unfilteredPath.connect(node);
-		this.oscillator.connect(channel.syncGain, 1);
 	}
 
 	start(when) {
 		if (!this.started) {
+			this.sine.start(when);
+			this.triangle.start(when);
+			this.saw.start(when);
 			this.lfo1.start(when);
 			this.lfo2.start(when);
 			this.lfo3.start(when);
@@ -1724,6 +1749,37 @@ class SubtractiveSynthChannel {
 		this.siren.setMinMax(changeType, frequency * sirenExtent, frequency / sirenExtent, when);
 	}
 
+	waveShapeFromCoordinates() {
+		const xValues = this.parameters[Parameter.WAVE_X];
+		const yValues = this.parameters[Parameter.WAVE_Y];
+		let listLength = Math.min(xValues.length, yValues.length);
+		const shapeLength = xValues[listLength - 1] + 1;
+		const shape = new Float32Array(shapeLength);
+		let prevX = 0;
+		let prevY, i;
+		if (xValues[0] === 0) {
+			shape[0] = yValues[0];
+			prevY = shape[0];
+			i = 1;
+		} else {
+			prevY = 0;
+			i = 0;
+		}
+		for (; i < listLength; i++) {
+			const x = xValues[i];
+			const y = yValues[i];
+			const gradient = (y - prevY) / (x - prevX);
+			for (let j = prevX + 1; j < x; j++) {
+				let interpolatedY = prevY + gradient * (j - prevX);
+				shape[j] = interpolatedY;
+			}
+			shape[x] = y;
+			prevX = x;
+			prevY = y;
+		}
+		return shape;
+	}
+
 	setParameters(parameterMap, step, newLine) {
 		const me = this;
 		const parameters = this.parameters;
@@ -1772,7 +1828,7 @@ class SubtractiveSynthChannel {
 		const tickTime = (lineTime * TIME_STEP) / numTicks;
 
 		if (step === undefined) {
-			step = (Math.max(this.system.audioContext.currentTime, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
+			step = (Math.max(this.system.audioContext.currentTime + 0.002, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
 		}
 		const delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
@@ -1783,6 +1839,7 @@ class SubtractiveSynthChannel {
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
+		let dirtyCustomWave = false;
 		let frequencySet = false;
 		let endRetrigger = false;
 		const callbacks = [];
@@ -1817,7 +1874,7 @@ class SubtractiveSynthChannel {
 				}
 				continue;
 			}
-			const arrayParam = paramNumber === Parameter.NOTES;
+			const arrayParam = paramNumber <= Parameter.WAVE_Y;
 			let [changeType, value] = calculateParameterValue(change, parameters[paramNumber], arrayParam);
 			parameters[paramNumber] = value;
 
@@ -1847,9 +1904,12 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.WAVEFORM:
-				callbacks.push(function () {
-					me.oscillator.type = value;
-				});
+				this.wavetable.position[changeType](value, time);
+				break;
+
+			case Parameter.WAVE_X:
+			case Parameter.WAVE_Y:
+				dirtyCustomWave = true;
 				break;
 
 			case Parameter.LFO1_WAVEFORM:
@@ -2088,12 +2148,6 @@ class SubtractiveSynthChannel {
 				}
 				break;
 
-			case Parameter.SYNC:
-				value = Math.trunc(Math.abs(value)) % 2;
-				this.syncGain.gain.setValueAtTime(value, time);
-				parameters[Parameter.SYNC] = value;
-				break;
-
 			case Parameter.PULSE_WIDTH:
 				this.pwm.setMinMax(changeType, value / 100, value / 100, time);
 				parameters[Parameter.MIN_PULSE_WIDTH] = value;
@@ -2242,6 +2296,12 @@ class SubtractiveSynthChannel {
 		}
 		if (dirtySustain) {
 			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
+		}
+		if (dirtyCustomWave) {
+			const shape = this.waveShapeFromCoordinates();
+			callbacks.push(function () {
+				me.shaper.curve = shape;
+			});
 		}
 		if (dirtyFilterFrequency) {
 			this.filterFrequencyMod.setMinMax(dirtyFilterFrequency, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
@@ -2587,12 +2647,13 @@ global.Synth = {
 	ResourceLoadError: ResourceLoadError,
 	Sample: Sample,
 	SampledInstrument: SampledInstrument,
-	Waveform: Waveform,
+	Wave: Wave,
 	keymap: keymap,
 
 	// Internals exposed as generic reusable code
 	Modulator: Modulator,
-	Oscillator: C64OscillatorNode,
+	ReciprocalNode: ReciprocalNode,
+	WavetableNode: WavetableNode,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	volumeCurve: volumeCurve,
