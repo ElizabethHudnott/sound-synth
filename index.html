@@ -30,9 +30,7 @@
 					<legend>Generation</legend>
 					<fieldset>
 						<legend>Waveform</legend>
-						<small>Wave 1</small>
 						<input id="wavetable-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.WAVEFORM]) + parseFloat(this.value))">
-						<small>Wave 2</small>
 						<br>
 						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-fraction').value))" checked>Sine + Triangle<br>
 						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-fraction').value))">Triangle + Custom<br>

@@ -113,6 +113,8 @@ const Parameter = enumFromArray([
 	'DURATION',		// in milliseconds (0 = auto)
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
+	'MIN_WAVEFORM',	// minumum wavetable position
+	'MAX_WAVEFORM',	// maximum wavetable position
 	'CHORUS',		// detune between oscillators in cents
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// overall channel detune in cents
@@ -312,16 +314,11 @@ class LFO {
 			const newOscillator = this.audioContext.createOscillator();
 			this.oscillator = newOscillator;
 			newOscillator.frequency.value = this.frequency;
+			newOscillator.type = oldOscillator.type;
 			newOscillator.start(time);
 			newOscillator.connect(this.delayNode);
 			this.zeroPoint = time;
 			this.rateMod = 1;
-
-			const callbackDelay = Math.trunc((time - this.audioContext.currentTime) * 1000) + 1;
-			const me = this;
-			setTimeout(function () {
-				oldOscillator.disconnect();
-			}, callbackDelay);
 		}
 		this.retrigger = value;
 	}
@@ -335,7 +332,7 @@ class LFO {
 
 		if (this.retrigger) {
 			const period = 1 / this.frequency;
-			const phase = (when - this.zeroPoint) % period;
+			const phase = (when - this.zeroPoint + period) % period;
 			this.delayNode.delayTime.setValueAtTime(phase, when);
 		}
 
@@ -1237,7 +1234,9 @@ class SubtractiveSynthChannel {
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
 			Gate.CLOSED, // gate
-			Wave.SINE, // waveform
+			Wave.SINE,	// waveform
+			Wave.SINE,	// minimum wavetable position
+			Wave.SINE,	// maximum wavetable position
 			0,		// oscillator tuning separation
 			440,	// frequency
 			0,		// detune
@@ -1367,7 +1366,9 @@ class SubtractiveSynthChannel {
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);
-
+		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
+		this.wavetableMod = wavetableMod;
+		wavetableMod.setMinMax(ChangeType.SET, Wave.SINE, Wave.SINE, audioContext.currentTime);
 
 		// Pulse width modulation
 		const pwmDetune = audioContext.createGain();
@@ -1510,8 +1511,8 @@ class SubtractiveSynthChannel {
 
 	connect(channel) {
 		const node = channel.ringInput;
-		this.filteredPath.connect(node);
-		this.unfilteredPath.connect(node);
+		this.oscillatorGain.connect(node);
+		this.sampleGain.connect(node);
 	}
 
 	start(when) {
@@ -1840,8 +1841,8 @@ class SubtractiveSynthChannel {
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 
 		// Each of these holds a change type (or undefined for no change)
-		let dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix, dirtyDelay, dirtyPan;
-		let dirtyLFO2Rate;
+		let dirtyWavetable, dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix;
+		let dirtyDelay, dirtyPan, dirtyLFO2Rate;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -1910,12 +1911,19 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.WAVEFORM:
-				this.wavetable.position[changeType](value, time);
+				this.wavetableMod.setMinMax(changeType, value, value, time);
+				parameters[Parameter.MIN_WAVEFORM] = value;
+				parameters[Parameter.MAX_WAVEFORM] = value;
+				break;
+
+			case Parameter.MIN_WAVEFORM:
+			case Parameter.MAX_WAVEFORM:
+				dirtyWavetable = changeType;
 				break;
 
 			case Parameter.WAVE_X:
 			case Parameter.WAVE_Y:
-				dirtyCustomWave = true;
+				dirtyCustomWave = changeType;
 				break;
 
 			case Parameter.CHORUS:
@@ -2299,6 +2307,14 @@ class SubtractiveSynthChannel {
 
 		if (dirtyLFO2Rate) {
 			this.lfo2Mod.setMinMax(dirtyLFO2Rate, parameters[Parameter.LFO2_MIN_RATE], parameters[Parameter.LFO2_MAX_RATE], time);
+		}
+		if (dirtyWavetable) {
+			const min = parameters[Parameter.MIN_WAVEFORM];
+			let max = parameters[Parameter.MAX_WAVEFORM];
+			if (min > max) {
+				max = max + 5;
+			}
+			this.wavetableMod.setMinMax(dirtyWavetable, min, max, time);
 		}
 		if (dirtyPWM) {
 			this.pwm.setMinMax(dirtyPWM, parameters[Parameter.MIN_PULSE_WIDTH] / 100, parameters[Parameter.MAX_PULSE_WIDTH] / 100, time);

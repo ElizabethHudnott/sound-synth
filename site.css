@@ -18,6 +18,7 @@ fieldset {
 fieldset fieldset {
 	border-style: solid;
 	border-width: 1px;
+	width: 100%;
 }
 
 input[type=range] {
@@ -42,7 +43,7 @@ legend {
 }
 
 #input-device select {
-	width: 345px;
+	width: 324px;
 }
 
 #graph-canvas {
