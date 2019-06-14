@@ -27,24 +27,41 @@
 				</fieldset>
 				<fieldset>
 					<legend>Generation</legend>
-					Oscillator:
-					<input id="wavetable-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.WAVEFORM]) + parseFloat(this.value))"><br>
-					<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-fraction').value))" checked>Sine + Triangle<br>
-					<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-fraction').value))">Triangle + Custom<br>
-					<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-fraction').value))">Custom + Sawtooth<br>
-					<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.SAW + parseFloat(document.getElementById('wavetable-fraction').value))">Sawtooth + Pulse<br>
-					<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-fraction').value))">Pulse + Sine<br>
-					Sample:
-					<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value))">
-						<option value="-1">None</option>
-						<option value="0">Piano</option>
-						<option value="1">Guitar</option>
-						<option value="2">Violin</option>
-					</select>
-					<input id="sample-upload" type="file" accept="audio/*,.8svx,.iff,.raw" multiple oninput="uploadSamples()">
-					<div id="input-device">
-						<button id="sampler-btn"><img src="img/record.png" style="width: 12px; height: 12px"></button>
-					</div>
+					<fieldset>
+						<legend>Waveform</legend>
+						<small>Wave 1</small>
+						<input id="wavetable-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.WAVEFORM]) + parseFloat(this.value))">
+						<small>Wave 2</small>
+						<br>
+						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-fraction').value))" checked>Sine + Triangle<br>
+						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-fraction').value))">Triangle + Custom<br>
+						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-fraction').value))">Custom + Sawtooth<br>
+						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.SAW + parseFloat(document.getElementById('wavetable-fraction').value))">Sawtooth + Pulse<br>
+						<input type="radio" name="waveform" oninput="set(Synth.Param.WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-fraction').value))">Pulse + Sine<br>
+					</fieldset>
+					<fieldset>
+						<legend>Detune</legend>
+						Coarse:
+						<input id="detune-coarse" type="range" min="-12" max="12" value="0" oninput="set(Synth.Param.CHORUS, parseInt(this.value) * 100 + parseInt(document.getElementById('detune-fine').value)); document.getElementById('detune-coarse-readout').innerHTML = this.value">
+						<span id="detune-coarse-readout" class="readout">0</span>
+						<br>
+						Fine:
+						<input id="detune-fine" type="range" min="0" max="99" value="0" oninput="set(Synth.Param.CHORUS, parseInt(document.getElementById('detune-coarse').value) * 100 + parseInt(this.value)); document.getElementById('detune-fine-readout').innerHTML = this.value">
+						<span id="detune-fine-readout" class="readout">0</span>
+					</fieldset>
+					<fieldset>
+						<legend>Sample</legend>
+						<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value))">
+							<option value="-1">None</option>
+							<option value="0">Piano</option>
+							<option value="1">Guitar</option>
+							<option value="2">Violin</option>
+						</select>
+						<input id="sample-upload" type="file" accept="audio/*,.8svx,.iff,.raw" multiple oninput="uploadSamples()">
+						<div id="input-device">
+							<button id="sampler-btn"><img src="img/record.png" style="width: 12px; height: 12px"></button>
+						</div>
+					</fieldset>
 				</fieldset>
 				<fieldset>
 					<legend>LFO 1</legend>
@@ -110,7 +127,6 @@
 					<legend>Frequency</legend>
 					<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="8000" value="440" step="0.001">Frequency<br>
 					<input id="note" type="range" oninput="playNote(Synth.Gate.MULTI_TRIGGER)" min="21" max="108" value="69">Note<br>
-					<input type="range" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))" min="-99" max="99" value="0" step="0.001">Detune<br>
 				</fieldset>
 				<fieldset>
 					<legend>Vibrato</legend>

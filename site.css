@@ -15,6 +15,11 @@ fieldset {
 	width: 407px;
 }
 
+fieldset fieldset {
+	border-style: solid;
+	border-width: 1px;
+}
+
 input[type=range] {
 	vertical-align: middle;
 }

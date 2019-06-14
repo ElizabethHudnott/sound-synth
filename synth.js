@@ -113,8 +113,9 @@ const Parameter = enumFromArray([
 	'DURATION',		// in milliseconds (0 = auto)
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
+	'CHORUS',		// detune between oscillators in cents
 	'FREQUENCY',	// in hertz
-	'DETUNE',		// in cents
+	'DETUNE',		// overall channel detune in cents
 	'TUNING_STRETCH', // in cents
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
@@ -1237,6 +1238,7 @@ class SubtractiveSynthChannel {
 			0,		// set duration to automatic
 			Gate.CLOSED, // gate
 			Wave.SINE, // waveform
+			0,		// oscillator tuning separation
 			440,	// frequency
 			0,		// detune
 			0,		// no stretched tuning
@@ -1366,8 +1368,12 @@ class SubtractiveSynthChannel {
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);
 
+
 		// Pulse width modulation
+		const pwmDetune = audioContext.createGain();
+		this.pwmDetune = pwmDetune;
 		const reciprocal = new ReciprocalNode(audioContext);
+		pwmDetune.connect(reciprocal);
 		const dutyCycle = audioContext.createGain();
 		reciprocal.connect(dutyCycle);
 		const pwm = new Modulator(audioContext, lfo1, dutyCycle.gain);
@@ -1391,7 +1397,7 @@ class SubtractiveSynthChannel {
 		this.playRateMultiplier = playRateMultiplier;
 		const samplePlaybackRate = audioContext.createConstantSource();
 		samplePlaybackRate.connect(playRateMultiplier);
-		samplePlaybackRate.connect(reciprocal);
+		samplePlaybackRate.connect(pwmDetune);
 		samplePlaybackRate.start();
 
 		// Vibrato
@@ -1910,6 +1916,12 @@ class SubtractiveSynthChannel {
 			case Parameter.WAVE_X:
 			case Parameter.WAVE_Y:
 				dirtyCustomWave = true;
+				break;
+
+			case Parameter.CHORUS:
+				this.sine.detune[changeType](value, time);
+				this.saw.detune[changeType](-value, time);
+				this.pwmDetune.gain[changeType](CENT ** -value, time);
 				break;
 
 			case Parameter.LFO1_WAVEFORM:
