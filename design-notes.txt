@@ -34,21 +34,11 @@ Pulse width modulated by an envelope
 
 --------
 
-			Oscillator
-			(Freq.)
-sine		1
-triangle	2
-custom		3
-sawtooth	3
-pulse		3
 
 noise generator
-new machine example (periodic wave?)
 
-different frequencies "detune" (in cents)
 inverting / suppressing part of the wave
 
 WAVEFORM
 NOISE
 WAVEFORM_LFO
-DETUNE
