@@ -1408,25 +1408,31 @@ class SubtractiveSynthChannel {
 		const triangle = audioContext.createOscillator();
 		triangle.type = 'triangle';
 		this.triangle = triangle;
-		const saw = audioContext.createOscillator();
-		saw.type = 'sawtooth';
-		this.saw = saw;
+		const triangleGain = audioContext.createGain();
+		triangle.connect(triangleGain);
 		const shaper = new WaveShaperNode(audioContext);
 		this.shaper = shaper;
 		shaper.curve = this.waveShapeFromCoordinates();
-		triangle.connect(shaper);
+		triangleGain.connect(shaper);
+		const saw = audioContext.createOscillator();
+		saw.type = 'sawtooth';
+		this.saw = saw;
+		const sawGain = audioContext.createGain();
+		saw.connect(sawGain);
 		const wavetable = new WavetableNode(audioContext, 5);
 		this.wavetable = wavetable;
 		sine.connect(wavetable, 0, 0);
-		triangle.connect(wavetable, 0, 1);
+		triangleGain.connect(wavetable, 0, 1);
 		shaper.connect(wavetable, 0, 2);
-		saw.connect(wavetable, 0, 3);
+		sawGain.connect(wavetable, 0, 3);
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);
 		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
 		this.wavetableMod = wavetableMod;
 		wavetableMod.setMinMax(ChangeType.SET, Wave.SINE, Wave.SINE, audioContext.currentTime);
+		triangleGain.gain.value = 0.9;
+		sawGain.gain.value = 0.4;
 
 		// Pulse width modulation
 		const pwmDetune = audioContext.createGain();
@@ -1442,9 +1448,9 @@ class SubtractiveSynthChannel {
 		dutyCycle.connect(sawDelay.delayTime);
 		const inverter = audioContext.createGain();
 		inverter.gain.value = -1;
-		saw.connect(inverter);
+		sawGain.connect(inverter);
 		inverter.connect(sawDelay);
-		saw.connect(wavetable, 0, 4);
+		sawGain.connect(wavetable, 0, 4);
 		sawDelay.connect(wavetable, 0, 4);
 
 		// Playing samples
