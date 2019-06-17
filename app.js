@@ -1,5 +1,5 @@
 const BUFFER_LENGTH = 5;
-const audioContext = new AudioContext();
+const audioContext = new AudioContext({latencyHint: 0.04});
 const system = new Synth.System(audioContext, initialize);
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
@@ -206,6 +206,10 @@ document.addEventListener('keyup', function (event) {
 			event.preventDefault();
 		}
 	}
+});
+
+window.addEventListener('blur', function (event) {
+	//set(Synth.Param.GATE, Synth.Gate.CLOSED);
 });
 
 function resourceLoaded(resource) {

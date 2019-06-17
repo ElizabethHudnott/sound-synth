@@ -67,6 +67,18 @@ function clamp(value) {
 	}
 }
 
+function fillNoise(buffer) {
+	const numberOfChannels = buffer.numberOfChannels;
+	const length = buffer.length;
+	const leftChannel = buffer.getChannelData(0);
+	for (let i = 0; i < length; i++) {
+		leftChannel[i] = Math.random() * 2 - 1;
+	}
+	for (let channelNumber = 1; channelNumber < numberOfChannels; channelNumber++) {
+		buffer.copyToChannel(leftChannel, channelNumber);
+	}
+}
+
 function volumeCurve(value) {
 	if (value === 0) {
 		return 0;
@@ -119,6 +131,9 @@ const Parameter = enumFromArray([
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// overall channel detune in cents
 	'TUNING_STRETCH', // in cents
+	'SAMPLE_AND_HOLD', // number of samples per second
+	'NOISE',		// percentage
+	'NOISE_COLOR',	// in hertz
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
 	'LFO1_GAIN',	// -100 to 100
@@ -941,6 +956,7 @@ class SampledInstrument {
 class SynthSystem {
 	constructor(audioContext, callback) {
 		const me = this;
+		const sampleRate = audioContext.sampleRate;
 		this.audioContext = audioContext;
 		this.channels = [];
 		this.startTime = audioContext.currentTime;	// dummy value overridden by start()
@@ -959,6 +975,22 @@ class SynthSystem {
 		this.appendRecording = false;
 		this.ondatarecorded = undefined;
 		this.setRecordingFormat(undefined, undefined);
+
+		const noiseLength = 30;
+		const stereoNoiseBuffer = audioContext.createBuffer(2, noiseLength * sampleRate, sampleRate);
+		fillNoise(stereoNoiseBuffer);
+		const stereoNoise = audioContext.createBufferSource();
+		this.stereoNoise = stereoNoise;
+		stereoNoise.buffer = stereoNoiseBuffer;
+		stereoNoise.loop = true;
+		stereoNoise.loopEnd = noiseLength;
+		const monoNoiseBuffer = audioContext.createBuffer(1, noiseLength * sampleRate, sampleRate);
+		fillNoise(monoNoiseBuffer);
+		const monoNoise = audioContext.createBufferSource();
+		this.monoNoise = monoNoise;
+		monoNoise.buffer = monoNoiseBuffer;
+		monoNoise.loop = true;
+		monoNoise.loopEnd = noiseLength;
 
 		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
@@ -1042,6 +1074,8 @@ class SynthSystem {
 		for (let channel of this.channels) {
 			channel.start(when);
 		}
+		this.stereoNoise.start();
+		this.monoNoise.start();
 		this.startTime = when;
 	}
 
@@ -1199,7 +1233,11 @@ class SynthSystem {
 
 class WavetableNode extends AudioWorkletNode {
 	constructor(context, numberOfInputs) {
-		super(context, 'wavetable-processor', {numberOfInputs: numberOfInputs});
+		super(context, 'wavetable-processor', {
+			channelCount: 1,
+			channelCountMode: 'explicit',
+			numberOfInputs: numberOfInputs,
+		});
 	}
 
 	get position() {
@@ -1210,7 +1248,23 @@ class WavetableNode extends AudioWorkletNode {
 
 class ReciprocalNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'reciprocal-processor');
+		super(context, 'reciprocal-processor', {
+			channelCount: 1,
+			channelCountMode: 'explicit',
+		});
+	}
+}
+
+class SampleAndHoldNode extends AudioWorkletNode {
+	constructor(context) {
+		super(context, 'sample-and-hold-processor', {
+			channelCount: 2,
+			channelCountMode: 'clamped-max',
+		});
+	}
+
+	get frequency() {
+		return this.parameters.get('frequency');
 	}
 }
 
@@ -1241,6 +1295,9 @@ class SubtractiveSynthChannel {
 			440,	// frequency
 			0,		// detune
 			0,		// no stretched tuning
+			audioContext.sampleRate, // sample and hold frequency
+			0,		// no noise
+			audioContext.sampleRate / 2, // don't filter the noise
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
 			100,	// LFO 1 gain
@@ -1314,6 +1371,7 @@ class SubtractiveSynthChannel {
 			1,		// envelope scaling for AHD portion of the envelope
 		];
 		this.usingOscillator = true;
+		this.samplePlayer = undefined;
 		this.sampleLooping = false;
 		this.velocity = 1;
 		this.sustain = volumeCurve(70); // combined sustain and velocity
@@ -1355,7 +1413,6 @@ class SubtractiveSynthChannel {
 		const shaper = new WaveShaperNode(audioContext);
 		this.shaper = shaper;
 		shaper.curve = this.waveShapeFromCoordinates();
-		shaper.oversample = '4x';
 		triangle.connect(shaper);
 		const wavetable = new WavetableNode(audioContext, 5);
 		this.wavetable = wavetable;
@@ -1393,6 +1450,8 @@ class SubtractiveSynthChannel {
 		this.sampleBufferNode = undefined;
 		const sampleGain = audioContext.createGain();
 		this.sampleGain = sampleGain;
+		const samplePan = audioContext.createStereoPanner();
+		sampleGain.connect(samplePan);
 		const playRateMultiplier = audioContext.createGain();
 		playRateMultiplier.gain.value = 1 / 440;
 		this.playRateMultiplier = playRateMultiplier;
@@ -1400,6 +1459,22 @@ class SubtractiveSynthChannel {
 		samplePlaybackRate.connect(playRateMultiplier);
 		samplePlaybackRate.connect(pwmDetune);
 		samplePlaybackRate.start();
+
+		// Noise
+		const noiseFilter = audioContext.createBiquadFilter();
+		this.noiseFilter = noiseFilter;
+		noiseFilter.frequency.value = audioContext.sampleRate / 2;
+		system.stereoNoise.connect(noiseFilter);
+		const noiseGain = audioContext.createGain();
+		this.noiseGain = noiseGain;
+		noiseGain.gain.value = 0;
+		noiseFilter.connect(noiseGain);
+
+		// Sample and Hold
+		const sampleAndHold = new SampleAndHoldNode(audioContext);
+		this.sampleAndHold = sampleAndHold;
+		samplePan.connect(sampleAndHold);
+		noiseGain.connect(sampleAndHold);
 
 		// Vibrato
 		const vibrato = new Modulator(audioContext, lfo1);
@@ -1422,7 +1497,7 @@ class SubtractiveSynthChannel {
 		this.filter = filter;
 		filter.frequency.value = 4400;
 		oscillatorGain.connect(filter);
-		sampleGain.connect(filter);
+		sampleAndHold.connect(filter);
 
 		// Filter modulation
 		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
@@ -1440,14 +1515,7 @@ class SubtractiveSynthChannel {
 		this.unfilteredPath = unfilteredPath;
 		unfilteredPath.gain.value = 0;
 		oscillatorGain.connect(unfilteredPath);
-		sampleGain.connect(unfilteredPath);
-
-		// Envelope
-		const envelope = audioContext.createGain();
-		this.envelope = envelope;
-		envelope.gain.value = 0;
-		filteredPath.connect(envelope);
-		unfilteredPath.connect(envelope);
+		sampleAndHold.connect(unfilteredPath);
 
 		// Ring modulation
 		const ringMod = audioContext.createGain();
@@ -1456,13 +1524,20 @@ class SubtractiveSynthChannel {
 		ringInput.gain.value = 0;
 		this.ringMod = ringMod;
 		this.ringInput = ringInput;
-		envelope.connect(ringMod);
+		filteredPath.connect(ringMod);
+		unfilteredPath.connect(ringMod);
+
+		// Envelope
+		const envelope = audioContext.createGain();
+		this.envelope = envelope;
+		envelope.gain.value = 0;
+		ringMod.connect(envelope);
 
 		// Tremolo
 		const tremoloGain = audioContext.createGain();
 		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
-		ringMod.connect(tremoloGain);
+		envelope.connect(tremoloGain);
 
 		// Delay effect
 		const delay = audioContext.createDelay(0.25);
@@ -1511,8 +1586,8 @@ class SubtractiveSynthChannel {
 
 	connect(channel) {
 		const node = channel.ringInput;
-		this.oscillatorGain.connect(node);
-		this.sampleGain.connect(node);
+		this.filteredPath.connect(node);
+		this.unfilteredPath.connect(node);
 	}
 
 	start(when) {
@@ -1564,9 +1639,14 @@ class SubtractiveSynthChannel {
 		const sampleBufferNode = samplePlayer.bufferNode;
 		this.playRateMultiplier.connect(sampleBufferNode.playbackRate);
 		sampleBufferNode.connect(this.sampleGain);
-		this.sampleGain.gain.setValueAtTime(samplePlayer.gain, time);
+
+		const volume = samplePlayer.gain;
+		const noise = this.parameters[Parameter.NOISE] / 100;
+		this.sampleGain.gain.setValueAtTime(volume * (1 - noise), time);
+
 		sampleBufferNode.start(time, parameters[Parameter.OFFSET]);
 		this.sampleBufferNode = sampleBufferNode;
+		this.samplePlayer = samplePlayer;
 	}
 
 	triggerLFOs(when) {
@@ -1575,37 +1655,51 @@ class SubtractiveSynthChannel {
 		this.lfo3.trigger(when);
 	}
 
-	gate(state, note, volume, sustainLevel, start) {
+	gate(state, note, volume, sustainLevel, start, gain) {
 		const parameters = this.parameters;
-		let usingSamples = parameters[Parameter.INSTRUMENT] >= 0;
-		if (usingSamples) {
-			if (this.usingOscillator) {
+		const noise = this.parameters[Parameter.NOISE] / 100;
+		let scaleAHD, duration, usingSamples;
+		const releaseTime = this.release;
+
+		if (gain === undefined) {
+			gain = this.envelope.gain;
+			scaleAHD = parameters[Parameter.SCALE_AHD];
+			duration = this.duration;
+			usingSamples = parameters[Parameter.INSTRUMENT] >= 0
+			if (usingSamples) {
+				if (this.usingOscillator) {
+					if ((state & Gate.OPEN) === 0) {
+						usingSamples = false;
+					} else {
+						// First time the gate's been opened since switching into sample mode.
+						this.oscillatorGain.gain.setValueAtTime(0, start);
+						this.usingOscillator = false;
+					}
+				}
+			} else if (!this.usingOscillator) {
 				if ((state & Gate.OPEN) === 0) {
-					usingSamples = false;
+					usingSamples = true;
 				} else {
-					// First time the gate's been opened since switching into sample mode.
-					this.oscillatorGain.gain.setValueAtTime(0, start);
-					this.usingOscillator = false;
+					// First time the gate's been opened since switching into oscillator mode.
+					if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
+						this.sampleGain.gain.setValueAtTime(0, start);
+					}
+					this.oscillatorGain.gain.setValueAtTime(1 - noise, start);
+					this.noiseGain.gain.setValueAtTime(noise, start);
+					this.usingOscillator = true;
 				}
 			}
-		} else if (!this.usingOscillator) {
-			if ((state & Gate.OPEN) === 0) {
-				usingSamples = true;
-			} else {
-				// First time the gate's been opened since switching into oscillator mode.
-				if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
-					this.sampleGain.gain.setValueAtTime(0, start);
-				}
-				this.oscillatorGain.gain.setValueAtTime(1, start);
-				this.usingOscillator = true;
-			}
+		} else {
+			usingSamples = false;
+			const playbackRate = this.noteFrequencies[note] * this.samplePlayer.samplePeriod;
+			scaleAHD = 1 / playbackRate;
+			duration = this.sampleBufferNode.buffer.duration / playbackRate - releaseTime;
 		}
 
-		const gain = this.envelope.gain;
-		const scaleAHD = parameters[Parameter.SCALE_AHD];
 		const endAttack = start + scaleAHD * this.endAttack;
 		const attackConstant = this.attackConstant * scaleAHD;
 		let beginRelease, endTime;
+		const releaseConstant = 4;
 
 		if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
 			gain.cancelAndHoldAtTime(start - 0.001);
@@ -1652,7 +1746,6 @@ class SubtractiveSynthChannel {
 				this.triggerLFOs(start);
 				this.playSample(note, start);
 				const sampleBufferNode = this.sampleBufferNode;
-				const duration = this.duration;
 				if (duration > sampleBufferNode.loopStart * sampleBufferNode.playbackRate) {
 					sampleBufferNode.loop = true;
 					this.sampleLooping = true;
@@ -1677,11 +1770,11 @@ class SubtractiveSynthChannel {
 				}
 				break;
 			}
+			if (noise > 0) {
+				this.gate(state, note, volume * noise, sustainLevel * noise, start, this.noiseGain.gain);
+			}
 			return;
 		}
-
-		const releaseTime = this.release;
-		const releaseConstant = 4;
 
 		switch (state) {
 		case Gate.OPEN:
@@ -1706,9 +1799,8 @@ class SubtractiveSynthChannel {
 			this.triggerLFOs(start);
 			let endHold = start + scaleAHD * this.endHold;
 			let endDecay = start + scaleAHD * this.endDecay;
-			const duration = this.duration;
 			if (duration > 0) {
-				beginRelease = start + this.duration;
+				beginRelease = start + duration;
 				if (beginRelease < endDecay) {
 					// shorten hold phase to accommodate short duration
 					let newEndHold = endHold - (endDecay - beginRelease);
@@ -2034,6 +2126,14 @@ class SubtractiveSynthChannel {
 			case Parameter.VIBRATO_EXTENT:
 			case Parameter.SIREN_EXTENT:
 				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
+				break;
+
+			case Parameter.NOISE_COLOR:
+				this.noiseFilter.frequency[changeType](value, time);
+				break;
+
+			case Parameter.SAMPLE_AND_HOLD:
+				this.sampleAndHold.frequency[changeType](value, time);
 				break;
 
 			case Parameter.VOLUME:
@@ -2681,9 +2781,11 @@ global.Synth = {
 	// Internals exposed as generic reusable code
 	Modulator: Modulator,
 	ReciprocalNode: ReciprocalNode,
+	SampleAndHoldNode: SampleAndHoldNode,
 	WavetableNode: WavetableNode,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
+	fillNoise: fillNoise,
 	volumeCurve: volumeCurve,
 };
 

@@ -35,10 +35,8 @@ Pulse width modulated by an envelope
 --------
 
 
-noise generator
+FM synth
 
-inverting / suppressing part of the wave
-
-WAVEFORM
-NOISE
+MIN_WAVEFORM
+MAX_WAVEFORM
 WAVEFORM_LFO
