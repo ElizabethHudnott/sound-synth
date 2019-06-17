@@ -79,11 +79,11 @@ function fillNoise(buffer) {
 	}
 }
 
-function volumeCurve(value) {
+function expCurve(value, power) {
 	if (value === 0) {
 		return 0;
 	} else {
-		return 10 ** (-1 * (100 - value) / 99);
+		return 10 ** (-power * (100 - value) / 99);
 	}
 }
 
@@ -1373,8 +1373,9 @@ class SubtractiveSynthChannel {
 		this.usingOscillator = true;
 		this.samplePlayer = undefined;
 		this.sampleLooping = false;
+		this.noiseLevel = 0;
 		this.velocity = 1;
-		this.sustain = volumeCurve(70); // combined sustain and velocity
+		this.sustain = expCurve(70, 1); // combined sustain and velocity
 		this.release = 0.3;
 		this.duration = 0.2;
 		this.calcEnvelope();
@@ -1641,8 +1642,7 @@ class SubtractiveSynthChannel {
 		sampleBufferNode.connect(this.sampleGain);
 
 		const volume = samplePlayer.gain;
-		const noise = this.parameters[Parameter.NOISE] / 100;
-		this.sampleGain.gain.setValueAtTime(volume * (1 - noise), time);
+		this.sampleGain.gain.setValueAtTime(volume * (1 - this.noiseLevel), time);
 
 		sampleBufferNode.start(time, parameters[Parameter.OFFSET]);
 		this.sampleBufferNode = sampleBufferNode;
@@ -1657,7 +1657,7 @@ class SubtractiveSynthChannel {
 
 	gate(state, note, volume, sustainLevel, start, gain) {
 		const parameters = this.parameters;
-		const noise = this.parameters[Parameter.NOISE] / 100;
+		const noise = this.noiseLevel;
 		let scaleAHD, duration, usingSamples;
 		const releaseTime = this.release;
 
@@ -1994,7 +1994,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.VELOCITY:
-				this.velocity = volumeCurve(value);
+				this.velocity = expCurve(value, 1);
 				dirtySustain = true;
 				break;
 
@@ -2128,6 +2128,10 @@ class SubtractiveSynthChannel {
 				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
 				break;
 
+			case Parameter.NOISE:
+				this.noiseLevel = expCurve(value, 0.75);
+				break;
+
 			case Parameter.NOISE_COLOR:
 				this.noiseFilter.frequency[changeType](value, time);
 				break;
@@ -2137,7 +2141,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.VOLUME:
-				this.volume.gain[changeType](volumeCurve(value), time);
+				this.volume.gain[changeType](expCurve(value, 1), time);
 				break;
 
 			case Parameter.TREMOLO_DEPTH:
@@ -2423,7 +2427,7 @@ class SubtractiveSynthChannel {
 			this.calcEnvelope();
 		}
 		if (dirtySustain) {
-			this.sustain = volumeCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100);
+			this.sustain = expCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100, 1);
 		}
 		if (dirtyCustomWave) {
 			const shape = this.waveShapeFromCoordinates();
@@ -2438,8 +2442,8 @@ class SubtractiveSynthChannel {
 			this.filterQMod.setMinMax(dirtyFilterQ, parameters[Parameter.MIN_Q], parameters[Parameter.MAX_Q], time);
 		}
 		if (dirtyMix) {
-			let filtered = volumeCurve(parameters[Parameter.FILTER_MIX]);
-			let unfiltered = volumeCurve(parameters[Parameter.UNFILTERED_MIX]);
+			let filtered = expCurve(parameters[Parameter.FILTER_MIX], 1);
+			let unfiltered = expCurve(parameters[Parameter.UNFILTERED_MIX], 1);
 			const total = filtered + unfiltered;
 			if (total < 1 && total > 0) {
 				filtered = filtered / total;
@@ -2506,7 +2510,7 @@ class SubtractiveSynthChannel {
 
 				let tick = gate === undefined ? 0 : 1;
 				let volume = this.velocity;
-				let endVolume = volumeCurve(volume * parameters[Parameter.RETRIGGER_VOLUME]);
+				let endVolume = expCurve(volume * parameters[Parameter.RETRIGGER_VOLUME], 1);
 				if (endVolume > 1) {
 					endVolume = 1;
 				}
@@ -2786,7 +2790,7 @@ global.Synth = {
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	fillNoise: fillNoise,
-	volumeCurve: volumeCurve,
+	expCurve: expCurve,
 };
 
 })(window);

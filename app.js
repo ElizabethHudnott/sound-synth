@@ -64,6 +64,10 @@ function initialize() {
 
 function begin() {
 	audioContext.resume();
+	const nyquist = audioContext.sampleRate / 2;
+	const noiseColor = document.getElementById('noise-color');
+	noiseColor.max = nyquist;
+	noiseColor.value = nyquist;
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
 	resizeGraph();

@@ -61,6 +61,11 @@
 							<button id="sampler-btn"><img src="img/record.png" style="width: 12px; height: 12px"></button>
 						</div>
 					</fieldset>
+					<fieldset>
+						<legend>Distortion</legend>
+						<input type="range" min="0" max="100" value="0" oninput="set(Synth.Param.NOISE, parseFloat(this.value))">Noise Level<br>
+						<input id="noise-color" type="range" min="10" oninput="set(Synth.Param.NOISE_COLOR, parseFloat(this.value))">Noise Color<br>
+					</fieldset>
 				</fieldset>
 				<fieldset>
 					<legend>LFO 1</legend>
