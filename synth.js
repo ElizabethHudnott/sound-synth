@@ -270,7 +270,7 @@ const Wave = Object.freeze({
 	SINE: 0,
 	TRIANGLE: 1,
 	CUSTOM: 2,
-	SAW: 3,
+	SAWTOOTH: 3,
 	PULSE: 4,
 });
 
