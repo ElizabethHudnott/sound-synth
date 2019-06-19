@@ -3,6 +3,7 @@
 
 const SEMITONE = 2 ** (1 / 12);
 const CENT = 2 ** (1 / 1200);
+const TWO_PI = 2 * Math.PI;
 
 const LFO_MAX = 20;
 const TIME_STEP = 0.02; // 50 steps per second
@@ -85,6 +86,18 @@ function expCurve(value, power) {
 	} else {
 		return 10 ** (-power * (100 - value) / 99);
 	}
+}
+
+function aWeighting(frequency) {
+	const twoPiF4 = 12194.217 * TWO_PI;
+	const k = twoPiF4 * twoPiF4 * 10 ** (1.9997 / 20);
+	const numerator = 72611603118.9077 * frequency ** 4;
+	const divisor1 = frequency + 20.598997 * TWO_PI;
+	const divisor2 = frequency + 107.65265 * TWO_PI;
+	const divisor3 = frequency + 737.86223 * TWO_PI;
+	const divisor4 = frequency + twoPiF4;
+	const denominator = divisor1 * divisor1 * divisor2 * divisor3 * divisor4 * divisor4;
+	return denominator / numerator;
 }
 
 function enumFromArray(array) {
@@ -1431,8 +1444,8 @@ class SubtractiveSynthChannel {
 		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
 		this.wavetableMod = wavetableMod;
 		wavetableMod.setMinMax(ChangeType.SET, Wave.SINE, Wave.SINE, audioContext.currentTime);
-		triangleGain.gain.value = 0.9;
-		sawGain.gain.value = 0.4;
+		triangleGain.gain.value = 0.85;
+		sawGain.gain.value = 0.38;
 
 		// Pulse width modulation
 		const pwmDetune = audioContext.createGain();
@@ -1481,7 +1494,6 @@ class SubtractiveSynthChannel {
 		const sampleAndHold = new SampleAndHoldNode(audioContext);
 		this.sampleAndHold = sampleAndHold;
 		samplePan.connect(sampleAndHold);
-		noiseGain.connect(sampleAndHold);
 
 		// Vibrato
 		const vibrato = new Modulator(audioContext, lfo1);
@@ -1533,6 +1545,7 @@ class SubtractiveSynthChannel {
 		this.ringInput = ringInput;
 		filteredPath.connect(ringMod);
 		unfilteredPath.connect(ringMod);
+		noiseGain.connect(ringMod);
 
 		// Envelope
 		const envelope = audioContext.createGain();
@@ -2135,11 +2148,12 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.NOISE:
-				this.noiseLevel = expCurve(value, 0.75);
+				this.noiseLevel = expCurve(value, 1);
 				break;
 
 			case Parameter.NOISE_COLOR:
 				this.noiseFilter.frequency[changeType](value, time);
+				this.noiseGain.gain[changeType](expCurve(parameters[Parameter.NOISE], 1) * aWeighting(value), time);
 				break;
 
 			case Parameter.SAMPLE_AND_HOLD:
@@ -2793,6 +2807,7 @@ global.Synth = {
 	ReciprocalNode: ReciprocalNode,
 	SampleAndHoldNode: SampleAndHoldNode,
 	WavetableNode: WavetableNode,
+	aWeighting: aWeighting,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	fillNoise: fillNoise,
