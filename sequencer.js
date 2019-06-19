@@ -1,6 +1,8 @@
 (function(global) {
 'use strict';
 
+const defaultChanges = new Map();
+
 class Song {
 
 	constructor() {
@@ -19,21 +21,29 @@ class Song {
 	play(system, step) {
 		for (let pattern of this.patterns) {
 			if (pattern !== undefined) {
-				step = pattern.play(system, step);
+				step = pattern.play(system, this, step);
 			}
 		}
+	}
+
+	addPhrase(phrase) {
+		this.phrases.set(phrase.name, phrase);
+	}
+
+	removePhrase(phrase) {
+		this.phrases.delete(phrase.name);
 	}
 
 }
 
 class Pattern {
-	static defaultChanges = new Map();
 
-	constructor(numColumns, length) {
+	constructor(numTracks, length) {
 		if (length === undefined) {
 			length = 64;
 		}
 		// Column 0 is the master column
+		const numColumns = numTracks + 1;
 		this.columns = new Array(numColumns);
 		this.offsets = new Array(numColumns);
 		for (let i = 0; i < numColumns; i++) {
@@ -56,23 +66,27 @@ class Pattern {
 		return this.offsets.length;
 	}
 
-	play(system, step) {
+	play(system, song, step) {
 		if (step === undefined) {
 			step = system.nextStep();
 		}
 
+		const phrases = song.phrases;
 		const numColumns = this.columns.length;
 		const length = this.length;
 		const masterColumn = this.columns[0];
+		const masterRows = masterColumn === undefined ? [] : masterColumn.rows;
 		const masterOffset = this.offsets[0];
 		const highChannelParams = system.channels[numColumns - 2].parameters;
 
 		let lineTime, numTicks;
 		let loopStart = 0, loopIndex = 1;
+		const activePhrases = [];
+		const phraseOffsets = [];
 
 		let rowNum = 0;
 		while (rowNum < length) {
-			const masterChanges = masterColumn[rowNum + masterOffset];
+			const masterChanges = masterRows[rowNum + masterOffset];
 			let nextRowNum = rowNum + 1;
 			let patternDelay = 0;
 
@@ -97,36 +111,69 @@ class Pattern {
 
 			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
 				const column = this.columns[columnNumber];
-				let changes;
+				let changeSources = masterChanges === undefined ? 0 : 1;
+				let changes, phraseChanges, columnChanges;
+
 				if (column !== undefined) {
-					const columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
-					if (columnChanges !== undefined) {
-						if (masterChanges === undefined) {
-							changes = columnChanges;
-						} else {
-							changes = new Map(masterChanges);
-							for (let [key, value] of columnChanges) {
-								if (value !== Synth.Change.MARK || !changes.has(key)) {
-									changes.set(key, value);
-								}
+					columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
+				}
+				if (columnChanges !== undefined) {
+					if (columnChanges.has(Synth.Param.PHRASE)) {
+						const phraseName = columnChanges.get(Synth.Param.PHRASE).value;
+						activePhrases[columnNumber] = phrases.get(phraseName);
+						phraseOffsets[columnNumber] = 0;
+						if (columnChanges.size > 1) {
+							changeSources += 4;
+						}
+					} else {
+						changeSources += 4;
+					}
+				}
+
+				const phrase = activePhrases[columnNumber];
+				if (phrase !== undefined) {
+					let phraseOffset = phraseOffsets[columnNumber];
+					phraseChanges = phrase.rows[phraseOffset];
+					phraseOffsets[columnNumber]++;
+					if (phraseChanges !== undefined) {
+						changeSources += 2;
+					}
+				}
+
+				switch (changeSources) {
+				case 0:
+					changes = defaultChanges;
+					break;
+				case 1:
+					changes = masterChanges;
+					break;
+				case 2:
+					changes = phraseChanges;
+					break;
+				case 4:
+					changes = columnChanges;
+					break;
+				default:
+					changes = new Map(masterChanges);
+					if (phraseChanges !== undefined) {
+						for (let [key, value] of phraseChanges) {
+							if (value !== Synth.Change.MARK || !changes.has(key)) {
+								changes.set(key, value);
 							}
 						}
 					}
-				}
-				if (changes === undefined) {
-					if (masterChanges === undefined) {
-						changes = Pattern.defaultChanges;
-					} else {
-						changes = masterChanges;
+					if (columnChanges !== undefined) {
+						for (let [key, value] of columnChanges) {
+							if (value !== Synth.Change.MARK || !changes.has(key)) {
+								changes.set(key, value);
+							}
+						}
 					}
 				}
 				lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
 			}
 
 			numTicks = highChannelParams[Synth.Param.TICKS];
-			if (numTicks > lineTime) {
-				numTicks = lineTime;
-			}
 			step += lineTime * (1 + patternDelay / numTicks);
 			rowNum = nextRowNum;
 		}
@@ -144,23 +191,60 @@ class Phrase {
 		this.length = length;
 	}
 
-	play(system, channelNumber, step) {
+	play(system, song, channelNumber, step) {
 		if (channelNumber === undefined) {
 			channelNumber = 0;
 		}
 		if (step === undefined) {
 			step = system.nextStep();
 		}
+		const length = this.length;
 		const channel = system.channels[channelNumber];
-		const emptyMap = new Map();
-		let lineTime;
+		let lineTime, subphrase, subphraseOffset;
 
-		for (let row of this.rows) {
-			if (row) {
-				lineTime = channel.setParameters(row, step, true);
-			} else {
-				lineTime = channel.setParameters(emptyMap, step, true);
+		for (let rowNum = 0; rowNum < length; rowNum++) {
+			let changes, subphraseChanges;
+			let changeSources = 0;
+			let myChanges = this.rows[rowNum];
+			if (myChanges !== undefined) {
+				if (myChanges.has(Synth.Param.PHRASE)) {
+					const phraseName = myChanges.get(Synth.Param.PHRASE).value;
+					subphrase = song.phrases.get(phraseName);
+					subphraseOffset = 0;
+					if (myChanges.size > 1) {
+						changeSources += 4;
+					}
+				} else {
+					changeSources += 4;
+				}
 			}
+			if (subphrase !== undefined) {
+				subphraseChanges = subphrase.rows[subphraseOffset];
+				subphraseOffset++;
+				if (subphraseChanges !== undefined) {
+					changeSources += 2;
+				}
+
+			}
+			switch (changeSources) {
+			case 0:
+				changes = defaultChanges;
+				break;
+			case 2:
+				changes = subphraseChanges;
+				break;
+			case 4:
+				changes = myChanges;
+				break;
+			default:
+				changes = new Map(subphraseChanges);
+				for (let [key, value] of myChanges) {
+					if (value !== Synth.Change.MARK || !changes.has(key)) {
+						changes.set(key, value);
+					}
+				}
+			}
+			lineTime = channel.setParameters(changes, step, true);
 			step += lineTime;
 		}
 	}

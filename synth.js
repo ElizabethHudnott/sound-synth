@@ -220,6 +220,7 @@ const Parameter = enumFromArray([
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'MACHINE',
 	// Parameters below this line only affect the master channel of the sequencer
+	'PHRASE',		// name of the phrase currently playing
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
 	'LOOPS',			// a positive integer

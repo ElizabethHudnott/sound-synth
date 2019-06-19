@@ -2,18 +2,14 @@ Song
 *	Short Phrases (Map String -> Phrase)
 *	Initial parameters for Channel 1,... Channel N
 *	Loop from
-	Pattern Matrix Rows (array of SongRow)
-		Master channel phrase name
-*		Phrase name for Channel 1,... Channel N (undefined for unused channels)
-		Starting offset for Channel 1,... Channel N
-		Pattern length
-	Metadata
 
 Phrase
 	Rows (array of Parameter Maps)
 	Length
 
 
+Change.NONE
+Looping phrases
 song playback shouldn't all be scheduled at once
 sample finetune
 add sample slicing
