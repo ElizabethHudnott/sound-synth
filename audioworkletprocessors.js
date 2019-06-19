@@ -83,7 +83,7 @@ class SampleAndHoldProcessor extends AudioWorkletProcessor {
  		const output = outputs[0];
  		const frequency = parameters.frequency[0];
  		const sample = this.sample;
- 		let inputChannel, outputChannel, timeHeld;
+ 		let inputChannel, outputChannel, value, timeHeld;
 
  		if (frequency === sampleRate) {
  			for (let j = 0; j < numChannels; j++) {
@@ -100,15 +100,17 @@ class SampleAndHoldProcessor extends AudioWorkletProcessor {
  		for (let j = 0; j < numChannels; j++) {
  			inputChannel = input[j];
  			outputChannel = output[j];
+ 			value = sample[j];
 	 		timeHeld = this.timeHeld;
 	 		for (let i = 0; i < 128; i++) {
 	 			timeHeld++;
 	 			if (timeHeld >= holdTime) {
-					sample[j] = inputChannel[i];
+					value = inputChannel[i];
 	 				timeHeld -= holdTime;
 	 			}
-				outputChannel[i] = sample[j];
+				outputChannel[i] = value;
 	 		}
+	 		sample[j] = value;
 	 	}
 
  		this.timeHeld = timeHeld;
