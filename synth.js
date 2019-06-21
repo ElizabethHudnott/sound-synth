@@ -236,12 +236,16 @@ const ChangeType = Object.freeze({
 });
 
 class Change {
+	static MARK = new Change(ChangeType.MARK, 1);
+
 	constructor(type, value) {
 		this.type = type;
 		this.value = value;
 	}
 
-	static MARK = new Change(ChangeType.MARK, 1);
+	clone() {
+		return new Change(this.type, this.value);
+	}
 }
 
 class MachineChange extends Change {

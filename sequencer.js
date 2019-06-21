@@ -183,12 +183,26 @@ class Pattern {
 }
 
 class Phrase {
-	static EMPTY = new Phrase('Empty', 0);
 
 	constructor(name, length) {
 		this.name = name;
 		this.rows = [];
 		this.length = length;
+	}
+
+	fill(param, change, from, step, to, copy) {
+		if (to === undefined) {
+			to = this.length - 1;
+		}
+		for (let i = from; i <= to; i += step) {
+			let changes = this.rows[i];
+			if (changes === undefined) {
+				changes = new Map();
+				this.rows[i] = changes;
+			}
+			const newChange = copy === false ? change : change.clone();
+			changes.set(param, newChange);
+		}
 	}
 
 	play(system, song, channelNumber, step) {
