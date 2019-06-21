@@ -13,13 +13,14 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 		return [undefined, currentValue];
 	}
 	let changeType = change.type;
-	if (changeType === ChangeType.MARK) {
-		return [ChangeType.SET, currentValue];
-	}
 	const prefix = changeType[0];
 	let changeValue = change.value;
 	let newValue;
 	switch (prefix) {
+	case ChangeType.MARK:
+		changeType = ChangeType.SET;
+		newValue = currentValue;
+		break;
 	case ChangeType.DELTA:
 		if (arrayParam) {
 			newValue = currentValue.slice();
@@ -233,10 +234,12 @@ const ChangeType = Object.freeze({
 	DELTA: '+',		//standalone or prefixed before LINEAR or EXPONENTIAL
 	MULTIPLY: '*',	//standalone or prefixed before LINEAR or EXPONENTIAL
 	MARK: '=',
+	NONE: 'none',
 });
 
 class Change {
-	static MARK = new Change(ChangeType.MARK, 1);
+	static MARK = new Change(ChangeType.MARK);
+	static NONE = new Change(ChangeType.NONE);
 
 	constructor(type, value) {
 		this.type = type;

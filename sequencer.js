@@ -150,22 +150,25 @@ class Pattern {
 				case 2:
 					changes = phraseChanges;
 					break;
-				case 4:
-					changes = columnChanges;
-					break;
 				default:
 					changes = new Map(masterChanges);
 					if (phraseChanges !== undefined) {
-						for (let [key, value] of phraseChanges) {
-							if (value !== Synth.Change.MARK || !changes.has(key)) {
-								changes.set(key, value);
+						for (let [key, change] of phraseChanges) {
+							if (change !== Synth.Change.MARK || !changes.has(key)) {
+								changes.set(key, change);
 							}
 						}
 					}
 					if (columnChanges !== undefined) {
-						for (let [key, value] of columnChanges) {
-							if (value !== Synth.Change.MARK || !changes.has(key)) {
-								changes.set(key, value);
+						for (let [key, change] of columnChanges) {
+							if (change === Synth.Change.NONE) {
+								if (masterChanges !== undefined && masterChanges.has(key)) {
+									changes.set(key, masterChanges.get(key));
+								} else {
+									changes.delete(key);
+								}
+							} else if (change !== Synth.Change.MARK || !changes.has(key)) {
+								changes.set(key, change);
 							}
 						}
 					}
@@ -247,14 +250,13 @@ class Phrase {
 			case 2:
 				changes = subphraseChanges;
 				break;
-			case 4:
-				changes = myChanges;
-				break;
 			default:
 				changes = new Map(subphraseChanges);
-				for (let [key, value] of myChanges) {
-					if (value !== Synth.Change.MARK || !changes.has(key)) {
-						changes.set(key, value);
+				for (let [key, change] of myChanges) {
+					if (change === Synth.Change.NONE) {
+						changes.delete(key);
+					} else if (change !== Synth.Change.MARK || !changes.has(key)) {
+						changes.set(key, change);
 					}
 				}
 			}
