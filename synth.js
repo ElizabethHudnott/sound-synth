@@ -308,12 +308,13 @@ for (let i = 0; i <= 127; i++) {
 }
 
 class MacroFunction {
-	static ID = new MacroFunction(0, 1, 1);
+	static ID = new MacroFunction(0, 1, 1, 1);
 
-	constructor(zeroValue, oneValue, curviness) {
-		this.zeroValue = zeroValue;
-		this.oneValue = oneValue;
-		this.range = oneValue - zeroValue;
+	constructor(y0, x1, y1, curviness) {
+		this.y0 = y0;
+		this.x1 = x1;
+		this.y1 = y1;
+		this.range = y1 - y0;
 
 		if (curviness >= 0) {
 			this.equation = 1;
@@ -322,16 +323,17 @@ class MacroFunction {
 			this.equation = -1;
 			this.exponent = -curviness;
 		}
-		if (zeroValue > oneValue) {
+		if (y0 > y1) {
 			this.equation = -this.equation;
 		}
+		this.y1Prime = x1 ** this.exponent;
 	}
 
 	value(macroValue) {
 		if (this.equation === 1) {
-			return macroValue ** this.exponent * this.range + this.zeroValue;
+			return macroValue ** this.exponent / this.y1Prime * this.range + this.y0;
 		} else {
-			return this.oneValue - (1 - macroValue) ** this.exponent * this.range;
+			return this.y1 - (1 - macroValue / this.x1) ** this.exponent * this.range;
 		}
 	}
 }
