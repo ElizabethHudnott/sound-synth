@@ -19,6 +19,10 @@ function set(parameterNumber, value, delay, changeType, channelNumber) {
 	system.set(parameterNumber, value, delay, changeType, channelNumber);
 }
 
+function setMacro(macro, value, delay, changeType, channelNumber) {
+	system.setMacro(macro, value, delay, changeType, channelNumber);
+}
+
 function setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
 	system.setMachine(machine, parameterNumber, value, delay, changeType, channelNumber);
 }

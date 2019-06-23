@@ -219,8 +219,9 @@ const Parameter = enumFromArray([
 	'INSTRUMENT',	// array index of the instrument to play.
 	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
+	'MACRO',
 	'MACHINE',
-	// Parameters below this line only affect the master channel of the sequencer
+	// Parameters below this line only affect the sequencer
 	'PHRASE',		// name of the phrase currently playing
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
@@ -248,6 +249,13 @@ class Change {
 
 	clone() {
 		return new Change(this.type, this.value);
+	}
+}
+
+class MacroChange extends Change {
+	constructor(type, macro, value) {
+		super(type, value);
+		this.macro = macro;
 	}
 }
 
@@ -297,6 +305,55 @@ const Direction = Object.freeze({
 const noteFrequencies = [];
 for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
+}
+
+class MacroFunction {
+	static ID = new MacroFunction(0, 1, 1);
+
+	constructor(zeroValue, oneValue, curviness) {
+		this.zeroValue = zeroValue;
+		this.oneValue = oneValue;
+		this.range = oneValue - zeroValue;
+
+		if (curviness >= 0) {
+			this.equation = 1;
+			this.exponent = curviness
+		} else {
+			this.equation = -1;
+			this.exponent = -curviness;
+		}
+		if (zeroValue > oneValue) {
+			this.equation = -this.equation;
+		}
+	}
+
+	value(macroValue) {
+		if (this.equation === 1) {
+			return macroValue ** this.exponent * this.range + this.zeroValue;
+		} else {
+			return this.oneValue - (1 - macroValue) ** this.exponent * this.range;
+		}
+	}
+}
+
+class Macro {
+	constructor() {
+		// Map parameter numbers to MacroFunctions
+		this.items = new Map();
+	}
+
+	set(param, macroFunction) {
+		this.items.set(param, macroFunction);
+	}
+
+	changes(changeType, macroValue) {
+		const changes = new Map();
+		for (let [paramNum, func] of this.items) {
+			const paramValue = func.value(macroValue);
+			changes.set(paramNum, new Change(changeType, paramValue));
+		}
+		return changes;
+	}
 }
 
 class LFO {
@@ -1133,6 +1190,29 @@ class SynthSystem {
 		}
 	}
 
+	setMacro(macro, value, delay, changeType, channelNumber) {
+		let time;
+		if (delay !== undefined) {
+			time = this.nextStep() + delay;
+		}
+		if (changeType === undefined) {
+			changeType = ChangeType.SET;
+		}
+		if (channelNumber === undefined) {
+			channelNumber = 0;
+		}
+		const parameterMap = new Map();
+		parameterMap.set(Parameter.MACRO, new MacroChange(changeType, macro, value));
+		if (channelNumber === -1) {
+			for (let channel of this.channels) {
+				channel.setParameters(parameterMap, time, false);
+			}
+		} else {
+			this.channels[channelNumber].setParameters(parameterMap, time, false);
+		}
+
+	}
+
 	setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
 		let time;
 		if (delay !== undefined) {
@@ -1400,6 +1480,7 @@ class SubtractiveSynthChannel {
 		this.release = 0.3;
 		this.duration = 0.2;
 		this.calcEnvelope();
+		this.macroValues = new Map();
 
 		// State information for processing chords
 		this.frequencies = [440];
@@ -1910,6 +1991,25 @@ class SubtractiveSynthChannel {
 		const me = this;
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
+
+		const macroChange = parameterMap.get(Parameter.MACRO);
+		if (macroChange !== undefined) {
+			parameterMap = new Map(parameterMap);
+			const macro = macroChange.macro;
+			let oldMacroValue = this.macroValues.get(macro);
+			if (oldMacroValue === undefined) {
+				oldMacroValue = 0;
+			}
+			const [changeType, newMacroValue] = calculateParameterValue(macroChange, oldMacroValue, false);
+			this.macroValues.set(macro, newMacroValue);
+			const macroChanges = macro.changes(changeType, newMacroValue);
+			for (let [paramNumber, change] of macroChanges) {
+				const explicitChange = parameterMap.get(paramNumber);
+				if (explicitChange === undefined || explicitChange.type === ChangeType.MARK) {
+					parameterMap.set(paramNumber, change);
+				}
+			}
+		}
 
 		let gate = parameterMap.get(Parameter.GATE);
 		if (gate !== undefined) {
@@ -2801,6 +2901,9 @@ global.Synth = {
 	Direction: Direction,
 	Gate: Gate,
 	MachineChange: MachineChange,
+	Macro: Macro,
+	MacroFunction: MacroFunction,
+	MacroChange: MacroChange,
 	Pattern: Chord,
 	Param: Parameter,
 	Resource: Resource,
