@@ -261,7 +261,11 @@ class Change {
 	}
 
 	clone() {
-		return new Change(this.type, this.value);
+		if (Array.isArray(this.value)) {
+			return new Change(this.type, this.value.slice());
+		} else {
+			return new Change(this.type, this.value);
+		}
 	}
 }
 
@@ -270,6 +274,10 @@ class MacroChange extends Change {
 		super(type, value);
 		this.macro = macro;
 	}
+
+	clone() {
+		return new MacroChange(this.type, this.macro, this.value);
+	}
 }
 
 class MachineChange extends Change {
@@ -277,6 +285,14 @@ class MachineChange extends Change {
 		super(type, value);
 		this.machine = machine;
 		this.parameterNumber = parameterNumber;
+	}
+
+	clone() {
+		if (Array.isArray(this.value)) {
+			return new MachineChange(this.machine, this.parameterNumber, this.type, this.value.slice());
+		} else {
+			return new MachineChange(this.machine, this.parameterNumber, this.type, this.value);
+		}
 	}
 }
 

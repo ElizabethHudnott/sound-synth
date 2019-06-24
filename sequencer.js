@@ -62,10 +62,6 @@ class Pattern {
 		this.offsets.splice(columnNumber, 1);
 	}
 
-	get numberOfColumns() {
-		return this.offsets.length;
-	}
-
 	play(system, song, step) {
 		if (step === undefined) {
 			step = system.nextStep();
@@ -203,7 +199,16 @@ class Phrase {
 				changes = new Map();
 				this.rows[i] = changes;
 			}
-			const newChange = copy === false ? change : change.clone();
+			let newChange;
+			if (copy === false) {
+				newChange = change;
+			} else {
+				if (Array.isArray(change)) {
+					newChange = change.map(x => x.clone());
+				} else {
+					newChange = change.clone();
+				}
+			}
 			changes.set(param, newChange);
 		}
 	}
