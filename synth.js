@@ -124,9 +124,14 @@ class ResourceLoadError extends Error {
 }
 
 const Parameter = enumFromArray([
+	'LINE_TIME',	// in steps
+	'GROOVE',		// an array of line times
+	'MACRO',
+	// Parameters above this line are calculated before the main loop
 	'NOTES',		// array of MIDI note numbers
 	'WAVE_X',		// coordinates for piecewise linear waveform
 	'WAVE_Y',
+	// Parameters above this line are array parameters
 	'VELOCITY',		// percentage
 	'ATTACK',		// in milliseconds
 	'ATTACK_CURVE', // 0.5 = linear approximation, 3 = good exponential choice
@@ -206,8 +211,6 @@ const Parameter = enumFromArray([
 	'DELAY_MIX',	// percentage (may be more than 100)
 	'FEEDBACK',		// percentage
 	'RING_MOD',		// 0 to 100
-	'LINE_TIME',	// in steps
-	'GROOVE',		// an array of line times
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
@@ -219,7 +222,6 @@ const Parameter = enumFromArray([
 	'INSTRUMENT',	// array index of the instrument to play.
 	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
-	'MACRO',
 	'MACHINE',
 	// Parameters below this line only affect the sequencer
 	'PHRASE',		// name of the phrase currently playing
@@ -330,7 +332,9 @@ class MacroFunction {
 	}
 
 	value(macroValue) {
-		if (this.equation === 1) {
+		if (macroValue >= this.x1) {
+			return this.y1;
+		} else if (this.equation === 1) {
 			return macroValue ** this.exponent / this.y1Prime * this.range + this.y0;
 		} else {
 			return this.y1 - (1 - macroValue / this.x1) ** this.exponent * this.range;
@@ -1204,7 +1208,7 @@ class SynthSystem {
 			channelNumber = 0;
 		}
 		const parameterMap = new Map();
-		parameterMap.set(Parameter.MACRO, new MacroChange(changeType, macro, value));
+		parameterMap.set(Parameter.MACRO, [new MacroChange(changeType, macro, value)]);
 		if (channelNumber === -1) {
 			for (let channel of this.channels) {
 				channel.setParameters(parameterMap, time, false);
@@ -1375,8 +1379,10 @@ class SubtractiveSynthChannel {
 	constructor(system) {
 		const audioContext = system.audioContext;
 		this.system = system;
-		const initialLineTime = system.lineTime;
 		this.parameters = [
+			system.lineTime, // line time (125bpm, allegro)
+			[],		// groove
+			undefined, // actual macro values are held in macroValues property
 			[69],	// MIDI note numbers
 			[0, 15, 17, 32],		// custom waveform
 			[-1, 0.25, -0.25, 1],
@@ -1459,8 +1465,6 @@ class SubtractiveSynthChannel {
 			100,	// delay mix
 			0,		// feedback
 			0,		// ring modulation
-			initialLineTime, // line time (125bpm, allegro)
-			[],		// groove
 			system.ticksPerLine, // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
 			0,		// retrigger time (ticks)
@@ -1994,21 +1998,23 @@ class SubtractiveSynthChannel {
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
 
-		const macroChange = parameterMap.get(Parameter.MACRO);
-		if (macroChange !== undefined) {
-			parameterMap = new Map(parameterMap);
-			const macro = macroChange.macro;
-			let oldMacroValue = this.macroValues.get(macro);
-			if (oldMacroValue === undefined) {
-				oldMacroValue = 0;
-			}
-			const [changeType, newMacroValue] = calculateParameterValue(macroChange, oldMacroValue, false);
-			this.macroValues.set(macro, newMacroValue);
-			const macroChanges = macro.changes(changeType, newMacroValue);
-			for (let [paramNumber, change] of macroChanges) {
-				const explicitChange = parameterMap.get(paramNumber);
-				if (explicitChange === undefined || explicitChange.type === ChangeType.MARK) {
-					parameterMap.set(paramNumber, change);
+		const macroChanges = parameterMap.get(Parameter.MACRO);
+		if (macroChanges !== undefined) {
+			for (let macroChange of macroChanges) {
+				parameterMap = new Map(parameterMap);
+				const macro = macroChange.macro;
+				let oldMacroValue = this.macroValues.get(macro);
+				if (oldMacroValue === undefined) {
+					oldMacroValue = 0;
+				}
+				const [changeType, newMacroValue] = calculateParameterValue(macroChange, oldMacroValue, false);
+				this.macroValues.set(macro, newMacroValue);
+				const changes = macro.changes(changeType, newMacroValue);
+				for (let [paramNumber, change] of changes) {
+					const explicitChange = parameterMap.get(paramNumber);
+					if (explicitChange === undefined || explicitChange.type === ChangeType.MARK) {
+						parameterMap.set(paramNumber, change);
+					}
 				}
 			}
 		}
@@ -2078,7 +2084,7 @@ class SubtractiveSynthChannel {
 		}
 
 		for (let [paramNumber, change] of parameterMap) {
-			if (paramNumber === Parameter.GROOVE) {
+			if (paramNumber <= Parameter.MACRO) {
 				continue;
 			} else if (paramNumber === Parameter.MACHINE) {
 				const machineChanges = [];
