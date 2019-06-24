@@ -8,6 +8,18 @@ const TWO_PI = 2 * Math.PI;
 const LFO_MAX = 20;
 const TIME_STEP = 0.02; // 50 steps per second
 
+function aWeighting(frequency) {
+	const twoPiF4 = 12194.217 * TWO_PI;
+	const k = twoPiF4 * twoPiF4 * 10 ** (1.9997 / 20);
+	const numerator = 72611603118.9077 * frequency ** 4;
+	const divisor1 = frequency + 20.598997 * TWO_PI;
+	const divisor2 = frequency + 107.65265 * TWO_PI;
+	const divisor3 = frequency + 737.86223 * TWO_PI;
+	const divisor4 = frequency + twoPiF4;
+	const denominator = divisor1 * divisor1 * divisor2 * divisor3 * divisor4 * divisor4;
+	return denominator / numerator;
+}
+
 function calculateParameterValue(change, currentValue, arrayParam) {
 	if (change === undefined) {
 		return [undefined, currentValue];
@@ -69,6 +81,22 @@ function clamp(value) {
 	}
 }
 
+function enumFromArray(array) {
+	const result = {};
+	for (let i = 0; i < array.length; i++) {
+		result[array[i]] = i;
+	}
+	return Object.freeze(result);
+}
+
+function expCurve(value, power) {
+	if (value === 0) {
+		return 0;
+	} else {
+		return 10 ** (-power * (100 - value) / 99);
+	}
+}
+
 function fillNoise(buffer) {
 	const numberOfChannels = buffer.numberOfChannels;
 	const length = buffer.length;
@@ -81,32 +109,15 @@ function fillNoise(buffer) {
 	}
 }
 
-function expCurve(value, power) {
-	if (value === 0) {
-		return 0;
-	} else {
-		return 10 ** (-power * (100 - value) / 99);
+function gcd(a, b) {
+	while (a !== b) {
+		if (a > b) {
+			a = a - b;
+		} else {
+			b = b - a;
+		}
 	}
-}
-
-function aWeighting(frequency) {
-	const twoPiF4 = 12194.217 * TWO_PI;
-	const k = twoPiF4 * twoPiF4 * 10 ** (1.9997 / 20);
-	const numerator = 72611603118.9077 * frequency ** 4;
-	const divisor1 = frequency + 20.598997 * TWO_PI;
-	const divisor2 = frequency + 107.65265 * TWO_PI;
-	const divisor3 = frequency + 737.86223 * TWO_PI;
-	const divisor4 = frequency + twoPiF4;
-	const denominator = divisor1 * divisor1 * divisor2 * divisor3 * divisor4 * divisor4;
-	return denominator / numerator;
-}
-
-function enumFromArray(array) {
-	const result = {};
-	for (let i = 0; i < array.length; i++) {
-		result[array[i]] = i;
-	}
-	return Object.freeze(result);
+	return a;
 }
 
 class Resource {
@@ -328,7 +339,12 @@ class MacroFunction {
 		if (y0 > y1) {
 			this.equation = -this.equation;
 		}
-		this.y1Prime = x1 ** this.exponent;
+		if (this.equation === 1) {
+			let y1Prime = x1 ** this.exponent;
+			const divisor = gcd(y1Prime, this.range);
+			this.y1Prime = y1Prime / divisor;
+			this.range = this.range / divisor;
+		}
 	}
 
 	value(macroValue) {
@@ -340,6 +356,10 @@ class MacroFunction {
 			return this.y1 - (1 - macroValue / this.x1) ** this.exponent * this.range;
 		}
 	}
+}
+
+MacroFunction.ID.value = function (macroValue) {
+	return macroValue;
 }
 
 class Macro {
@@ -2929,8 +2949,9 @@ global.Synth = {
 	aWeighting: aWeighting,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
-	fillNoise: fillNoise,
 	expCurve: expCurve,
+	fillNoise: fillNoise,
+	gcd: gcd,
 };
 
 })(window);
