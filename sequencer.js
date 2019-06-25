@@ -26,12 +26,26 @@ class Song {
 		}
 	}
 
-	addPhrase(phrase) {
+	getPhrase(phraseName) {
+		return this.phrases.get(phraseName);
+	}
+
+	getPhrases() {
+		return this.phrases.keys();
+	}
+
+	addOrReplacePhrase(phrase) {
 		this.phrases.set(phrase.name, phrase);
 	}
 
-	removePhrase(phrase) {
-		this.phrases.delete(phrase.name);
+	removePhrase(phraseName) {
+		this.phrases.delete(phraseName);
+	}
+
+	copyPhrase(oldName, newName) {
+		const clone = this.phrases.get(oldName).clone();
+		clone.name = newName;
+		this.phrases.set(newName, clone);
 	}
 
 }
@@ -220,6 +234,41 @@ class Phrase {
 		this.length = length;
 	}
 
+	clone() {
+		const newPhrase = new Phrase(this.name, this.length);
+		newPhrase.rows = this.rows.slice();
+		return newPhrase;
+	}
+
+	expand(multiple) {
+		const oldLength = this.length;
+		const newLength = oldLength * multiple;
+		const oldRows = this.rows;
+		const newRows = new Array(newLength);
+		for (let i = 0; i < oldLength; i++) {
+			newRows[i * multiple] = oldRows[i];
+		}
+		this.rows = newRows;
+		this.length = newLength;
+	}
+
+	compact(multiple) {
+		const oldLength = this.length;
+		const newLength = Math.floor(oldLength / multiple);
+		const oldRows = this.rows;
+		const newRows = new Array(newLength);
+		for (let i = 0; i < oldLength; i++) {
+			const oldRow = oldRows[i];
+			if (i % multiple === 0) {
+				newRows[i / multiple] = oldRow;
+			} else if (oldRow !== undefined && oldRow.size > 0) {
+				throw new PatternEditError('Unable to compact. Data found', undefined, i);
+			}
+		}
+		this.rows = newRows;
+		this.length = newLength;
+	}
+
 	fill(param, change, from, step, to, copy) {
 		if (to === undefined) {
 			to = this.length - 1;
@@ -244,35 +293,40 @@ class Phrase {
 		}
 	}
 
-	expand(multiple) {
-		const oldLength = this.length;
-		const newLength = oldLength * multiple;
-		const oldRows = this.rows;
-		const newRows = new Array(newLength);
-		for (let i = 0; i < oldLength; i++) {
-			newRows[i * multiple] = oldRows[i];
+	transpose(amount, from, to) {
+		if (arguments.length === 1) {
+			from = 0;
+			to = this.length - 1;
 		}
-		const newPhrase = new Phrase(this.name, newLength);
-		newPhrase.rows = newRows;
-		return newPhrase;
-	}
-
-	compact(multiple) {
-		const oldLength = this.length;
-		const newLength = Math.floor(oldLength / multiple);
-		const oldRows = this.rows;
-		const newRows = new Array(newLength);
-		for (let i = 0; i < oldLength; i++) {
-			const oldRow = oldRows[i];
-			if (i % multiple === 0) {
-				newRows[i / multiple] = oldRow;
-			} else if (oldRow !== undefined && oldRow.size > 0) {
-				throw new PatternEditError('Unable to compact. Data found', undefined, i);
+		const modified = new Set();
+		for (let i = from; i < to; i++) {
+			const changes = this.rows[i];
+			if (changes !== undefined) {
+				const noteChange = changes.get(Synth.Param.NOTES);
+				if (noteChange !== undefined) {
+					const changeType = noteChange.type;
+					const prefix = changeType[0];
+					if (
+						changeType !== Synth.ChangeType.NONE &&
+						prefix !== Synth.ChangeType.DELTA &&
+						prefix !== Synth.ChangeType.MULTIPLY &&
+						prefix !== Synth.ChangeType.MARK &&
+						!modified.has(changes)
+					) {
+						const notes = noteChange.value;
+						for (let j = 0; j < notes.length; j++) {
+							notes[j] += amount;
+						}
+						modified.add(changes);
+					}
+				}
+				const phraseTransposeChange = changes.get(Synth.Param.PHRASE_TRANSPOSE);
+				if (phraseTransposeChange !== undefined) {
+					phraseTransposeChange.value += amount;
+					modified.add(changes);
+				}
 			}
 		}
-		const newPhrase = new Phrase(this.name, newLength);
-		newPhrase.rows = newRows;
-		return newPhrase;
 	}
 
 	play(system, song, channelNumber, step) {

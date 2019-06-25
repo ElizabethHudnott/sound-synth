@@ -1142,7 +1142,7 @@ class SynthSystem {
 		if (this.channels.length > 0) {
 			return this.channels[0].parameters[Parameter.TICKS];
 		} else {
-			return 8;
+			return 6;
 		}
 	}
 
