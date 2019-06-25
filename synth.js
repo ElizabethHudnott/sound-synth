@@ -1399,15 +1399,6 @@ class ReciprocalNode extends AudioWorkletNode {
 	}
 }
 
-class RectifierNode extends AudioWorkletNode {
-	construct(context) {
-		super(context, 'rectifier', {
-			channelCount: 1,
-			channelCountMode: 'explicit',
-		});
-	}
-}
-
 class SampleAndHoldNode extends AudioWorkletNode {
 	constructor(context) {
 		super(context, 'sample-and-hold', {
@@ -2975,7 +2966,6 @@ global.Synth = {
 	// Internals exposed as generic reusable code
 	Modulator: Modulator,
 	ReciprocalNode: ReciprocalNode,
-	RectifierNode: RectifierNode,
 	SampleAndHoldNode: SampleAndHoldNode,
 	WavetableNode: WavetableNode,
 	aWeighting: aWeighting,

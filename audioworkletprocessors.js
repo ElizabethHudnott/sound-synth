@@ -60,30 +60,6 @@ class ReciprocalProcessor extends AudioWorkletProcessor {
 
 registerProcessor('reciprocal', ReciprocalProcessor);
 
-class RectifierProcessor extends AudioWorkletProcessor {
-	static get parameterDescriptors() {
-		return [];
-	}
-
-	process(inputs, outputs) {
-		const input = inputs[0][0];
-		const output = outputs[0][0];
-		let value;
-
-		for (let i = 0; i < 128; i++) {
-			value = input[i];
-			if (value < 0) {
-				output[i] = -value;
-			} else {
-				output[i] = value;
-			}
-		}
-		return true;
-	}
-}
-
-registerProcessor('rectifier', RectifierProcessor);
-
 class SampleAndHoldProcessor extends AudioWorkletProcessor {
  	static get parameterDescriptors() {
  		return [{
