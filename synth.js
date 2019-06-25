@@ -1377,7 +1377,7 @@ class SynthSystem {
 
 class WavetableNode extends AudioWorkletNode {
 	constructor(context, numberOfInputs) {
-		super(context, 'wavetable-processor', {
+		super(context, 'wavetable', {
 			channelCount: 1,
 			channelCountMode: 'explicit',
 			numberOfInputs: numberOfInputs,
@@ -1392,7 +1392,16 @@ class WavetableNode extends AudioWorkletNode {
 
 class ReciprocalNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'reciprocal-processor', {
+		super(context, 'reciprocal', {
+			channelCount: 1,
+			channelCountMode: 'explicit',
+		});
+	}
+}
+
+class RectifierNode extends AudioWorkletNode {
+	construct(context) {
+		super(context, 'rectifier', {
 			channelCount: 1,
 			channelCountMode: 'explicit',
 		});
@@ -1401,7 +1410,7 @@ class ReciprocalNode extends AudioWorkletNode {
 
 class SampleAndHoldNode extends AudioWorkletNode {
 	constructor(context) {
-		super(context, 'sample-and-hold-processor', {
+		super(context, 'sample-and-hold', {
 			channelCount: 2,
 			channelCountMode: 'clamped-max',
 		});
@@ -2966,6 +2975,7 @@ global.Synth = {
 	// Internals exposed as generic reusable code
 	Modulator: Modulator,
 	ReciprocalNode: ReciprocalNode,
+	RectifierNode: RectifierNode,
 	SampleAndHoldNode: SampleAndHoldNode,
 	WavetableNode: WavetableNode,
 	aWeighting: aWeighting,
