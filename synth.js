@@ -236,6 +236,7 @@ const Parameter = enumFromArray([
 	'MACHINE',
 	// Parameters below this line only affect the sequencer
 	'PHRASE',		// name of the phrase currently playing
+	'PHRASE_TRANSPOSE', // note that replaces the first note in the phrase
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)
 	'LOOPS',			// a positive integer
@@ -1526,8 +1527,7 @@ class SubtractiveSynthChannel {
 
 		// State information for processing chords
 		this.frequencies = [440];
-		this.distanceFromC = 9;
-		this.detune = 1;
+		this.detune = 1; // i.e. no detuning, actual frequency = notional frequency
 		this.noteFrequencies = system.getNotes(0);
 		this.grooveIndex = 0;
 		this.retriggerVolumeChangeType = ChangeType.SET;
@@ -2104,8 +2104,8 @@ class SubtractiveSynthChannel {
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 
 		// Each of these holds a change type (or undefined for no change)
-		let dirtyWavetable, dirtyPWM, dirtyFilterFrequency, dirtyFilterQ, dirtyMix;
-		let dirtyDelay, dirtyPan, dirtyLFO2Rate;
+		let dirtyWavetable, dirtyPWM, dirtyNotes, dirtyFilterFrequency, dirtyFilterQ;
+		let dirtyMix, dirtyDelay, dirtyPan, dirtyLFO2Rate;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -2113,11 +2113,6 @@ class SubtractiveSynthChannel {
 		let frequencySet = false;
 		let endRetrigger = false;
 		const callbacks = [];
-
-		let tuningChange = parameterMap.get(Parameter.TUNING_STRETCH);
-		if (tuningChange !== undefined) {
-			this.noteFrequencies = this.system.getNotes(tuningChange.value);
-		}
 
 		for (let [paramNumber, change] of parameterMap) {
 			if (paramNumber <= Parameter.MACRO) {
@@ -2271,24 +2266,22 @@ class SubtractiveSynthChannel {
 
 			case Parameter.FREQUENCY:
 				this.setFrequency(changeType, value, time);
-				this.frequencies[0] = value;
+				this.frequencies = [value];
+				this.noteIndex = 0;
 				frequencySet = true;
 				break;
 
-			case Parameter.NOTES: {
-				let frequency = this.noteFrequencies[value[0]];
-				this.setFrequency(changeType, frequency, time);
-				frequencySet = true;
-				this.frequencies[0] = frequency;
-				parameters[Parameter.FREQUENCY] = frequency;
-				for (let i = 1; i < value.length; i++) {
-					this.frequencies[i] = this.noteFrequencies[value[i]];
+			case Parameter.TUNING_STRETCH:
+				this.noteFrequencies = this.system.getNotes(value);
+				if (dirtyNotes === undefined) {
+					dirtyNotes = changeType;
 				}
-				this.frequencies.splice(value.length);
-				this.distanceFromC = value[0] - 60;
-				this.noteIndex = 0;
 				break;
-			}
+
+			case Parameter.NOTES:
+				this.frequencies.splice(value.length);
+				dirtyNotes = changeType;
+				break;
 
 			case Parameter.DETUNE:
 				this.detune = CENT ** value;
@@ -2296,7 +2289,7 @@ class SubtractiveSynthChannel {
 
 			case Parameter.VIBRATO_EXTENT:
 			case Parameter.SIREN_EXTENT:
-				this.setFrequency(changeType, parameters[Parameter.FREQUENCY], time);
+				this.setFrequency(changeType, this.frequencies[this.noteIndex], time);
 				break;
 
 			case Parameter.NOISE:
@@ -2581,6 +2574,9 @@ class SubtractiveSynthChannel {
 			} // end switch
 		} // end loop over each parameter
 
+		const notes = parameters[Parameter.NOTES];
+		const frequencies = this.frequencies;
+
 		if (dirtyLFO2Rate) {
 			this.lfo2Mod.setMinMax(dirtyLFO2Rate, parameters[Parameter.LFO2_MIN_RATE], parameters[Parameter.LFO2_MAX_RATE], time);
 		}
@@ -2607,6 +2603,18 @@ class SubtractiveSynthChannel {
 				me.shaper.curve = shape;
 			});
 		}
+		if (dirtyNotes) {
+			const firstNote = notes[0];
+			const frequency = this.noteFrequencies[firstNote];
+			this.setFrequency(dirtyNotes, frequency, time);
+			frequencies[0] = frequency;
+			parameters[Parameter.FREQUENCY] = frequency;
+			frequencySet = true;
+			for (let i = 1; i < notes.length; i++) {
+				frequencies[i] = this.noteFrequencies[notes[i]];
+			}
+			this.noteIndex = 0;
+		}
 		if (dirtyFilterFrequency) {
 			this.filterFrequencyMod.setMinMax(dirtyFilterFrequency, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
 		}
@@ -2632,8 +2640,6 @@ class SubtractiveSynthChannel {
 		}
 
 		const gateOpen = (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN;
-		const frequencies = this.frequencies;
-		const notes = parameters[Parameter.NOTES];
 		let glissandoSteps = parameters[Parameter.GLISSANDO];
 		const retriggerTicks = parameters[Parameter.RETRIGGER];
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;

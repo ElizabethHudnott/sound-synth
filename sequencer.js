@@ -79,6 +79,7 @@ class Pattern {
 		let loopStart = 0, loopIndex = 1;
 		const activePhrases = [];
 		const phraseOffsets = [];
+		const transpositions = [];
 
 		let rowNum = 0;
 		while (rowNum < length) {
@@ -118,6 +119,7 @@ class Pattern {
 						const phraseName = columnChanges.get(Synth.Param.PHRASE).value;
 						activePhrases[columnNumber] = phrases.get(phraseName);
 						phraseOffsets[columnNumber] = 0;
+						transpositions[columnNumber] = 0;
 						if (columnChanges.size > 1) {
 							changeSources += 4;
 						}
@@ -136,6 +138,14 @@ class Pattern {
 					}
 				}
 
+				if ((changeSources & 6) === 6 &&
+					columnChanges.has(Synth.Param.PHRASE_TRANSPOSE) &&
+					phraseChanges.has(Synth.Param.NOTES)
+				) {
+					transpositions[columnNumber] = columnChanges.get(Synth.Param.PHRASE_TRANSPOSE).value - phraseChanges.get(Synth.Param.NOTES).value[0];
+				}
+				const transpose = transpositions[columnNumber];
+
 				switch (changeSources) {
 				case 0:
 					changes = defaultChanges;
@@ -144,14 +154,27 @@ class Pattern {
 					changes = masterChanges;
 					break;
 				case 2:
-					changes = phraseChanges;
-					break;
+					if (!transpose) {
+						changes = phraseChanges;
+						break;
+					}
 				default:
 					changes = new Map(masterChanges);
 					if (phraseChanges !== undefined) {
 						for (let [key, change] of phraseChanges) {
 							if (change !== Synth.Change.MARK || !changes.has(key)) {
 								changes.set(key, change);
+							}
+						}
+						if (transpose) {
+							const phraseNoteChange = phraseChanges.get(Synth.Param.NOTES);
+							if (phraseNoteChange !== undefined) {
+								const transposedNoteChange = phraseNoteChange.clone();
+								changes.set(Synth.Param.NOTES, transposedNoteChange);
+								const transposedNotes = transposedNoteChange.value;
+								for (let i = 0; i < transposedNotes.length; i++) {
+									transposedNotes[i] += transpose;
+								}
 							}
 						}
 					}
@@ -222,6 +245,7 @@ class Phrase {
 		}
 		const length = this.length;
 		const channel = system.channels[channelNumber];
+		let transpose = 0;
 		let lineTime, subphrase, subphraseOffset;
 
 		for (let rowNum = 0; rowNum < length; rowNum++) {
@@ -233,6 +257,7 @@ class Phrase {
 					const phraseName = myChanges.get(Synth.Param.PHRASE).value;
 					subphrase = song.phrases.get(phraseName);
 					subphraseOffset = 0;
+					transpose = 0;
 					if (myChanges.size > 1) {
 						changeSources += 4;
 					}
@@ -248,20 +273,41 @@ class Phrase {
 				}
 
 			}
+			if ((changeSources & 6) === 6 && myChanges.has(Synth.Param.PHRASE_TRANSPOSE) &&
+				subphraseChanges.has(Synth.Param.NOTES)
+			) {
+				transpose = myChanges.get(Synth.Param.PHRASE_TRANSPOSE).value - subphraseChanges.get(Synth.Param.NOTES).value[0];
+			}
+
 			switch (changeSources) {
 			case 0:
 				changes = defaultChanges;
 				break;
 			case 2:
-				changes = subphraseChanges;
-				break;
+				if (transpose === 0) {
+					changes = subphraseChanges;
+					break;
+				}
 			default:
 				changes = new Map(subphraseChanges);
-				for (let [key, change] of myChanges) {
-					if (change === Synth.Change.NONE) {
-						changes.delete(key);
-					} else if (change !== Synth.Change.MARK || !changes.has(key)) {
-						changes.set(key, change);
+				if (transpose !== 0 && subphraseChanges !== undefined) {
+					const subphraseNoteChange = subphraseChanges.get(Synth.Param.NOTES);
+					if (subphraseNoteChange !== undefined) {
+						const transposedNoteChange = subphraseNoteChange.clone();
+						changes.set(Synth.Param.NOTES, transposedNoteChange);
+						const transposedNotes = transposedNoteChange.value;
+						for (let i = 0; i < transposedNotes.length; i++) {
+							transposedNotes[i] += transpose;
+						}
+					}
+				}
+				if (myChanges !== undefined) {
+					for (let [key, change] of myChanges) {
+						if (change === Synth.Change.NONE) {
+							changes.delete(key);
+						} else if (change !== Synth.Change.MARK || !changes.has(key)) {
+							changes.set(key, change);
+						}
 					}
 				}
 			}
