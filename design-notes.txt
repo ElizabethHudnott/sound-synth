@@ -7,8 +7,6 @@ Phrase
 	Rows (array of Parameter Maps)
 	Length
 
-
-Change.NONE
 Looping phrases
 song playback shouldn't all be scheduled at once
 sample finetune
@@ -16,7 +14,6 @@ add sample slicing
 Loop start and end offsets
 Probability
 Instruments
-Macros
 Automations
 
 changes for 1 line vs changes over a pattern vs ongoing results?

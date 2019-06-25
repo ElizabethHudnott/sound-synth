@@ -36,6 +36,14 @@ class Song {
 
 }
 
+class PatternEditError extends Error {
+	constructor(message, column, row) {
+		super(message + ' at row ' + row + (column !== undefined ? ', column ' + column : '') + '.');
+		this.column = column;
+		this.row = row;
+	}
+}
+
 class Pattern {
 
 	constructor(numTracks, length) {
@@ -234,6 +242,37 @@ class Phrase {
 			}
 			changes.set(param, newChange);
 		}
+	}
+
+	expand(multiple) {
+		const oldLength = this.length;
+		const newLength = oldLength * multiple;
+		const oldRows = this.rows;
+		const newRows = new Array(newLength);
+		for (let i = 0; i < oldLength; i++) {
+			newRows[i * multiple] = oldRows[i];
+		}
+		const newPhrase = new Phrase(this.name, newLength);
+		newPhrase.rows = newRows;
+		return newPhrase;
+	}
+
+	compact(multiple) {
+		const oldLength = this.length;
+		const newLength = Math.floor(oldLength / multiple);
+		const oldRows = this.rows;
+		const newRows = new Array(newLength);
+		for (let i = 0; i < oldLength; i++) {
+			const oldRow = oldRows[i];
+			if (i % multiple === 0) {
+				newRows[i / multiple] = oldRow;
+			} else if (oldRow !== undefined && oldRow.size > 0) {
+				throw new PatternEditError('Unable to compact. Data found', undefined, i);
+			}
+		}
+		const newPhrase = new Phrase(this.name, newLength);
+		newPhrase.rows = newRows;
+		return newPhrase;
 	}
 
 	play(system, song, channelNumber, step) {
