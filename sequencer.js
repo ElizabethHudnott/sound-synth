@@ -3,6 +3,26 @@
 
 const defaultChanges = new Map();
 
+function cloneChange(change) {
+	if (Array.isArray(change)) {
+		return change.map(x => x.clone());
+	} else {
+		return change.clone();
+	}
+}
+
+function cloneChanges(parameterMap) {
+	if (parameterMap === undefined) {
+		return undefined;
+	}
+
+	const newMap = new Map();
+	for (let [key, change] of parameterMap) {
+		newMap.set(key, cloneChange(change));
+	}
+	return newMap;
+}
+
 class Song {
 
 	constructor() {
@@ -235,8 +255,28 @@ class Phrase {
 	}
 
 	clone() {
+		const length = this.rows.length;
+		const oldRows = this.rows;
+		const newRows = new Array(length);
+		for (let i = 0; i < length; i++) {
+			newRows[i] = cloneChanges(oldRows[i]);
+		}
 		const newPhrase = new Phrase(this.name, this.length);
-		newPhrase.rows = this.rows.slice();
+		newPhrase.rows = newRows;
+		return newPhrase;
+	}
+
+	clear(from, to) {
+		const rows = this.rows;
+		for (let i = from; i < to; i++) {
+			rows[i] = undefined;
+		}
+	}
+
+	copy(from, to) {
+		const newName = this.name + ' ' + from + '-' + to;
+		const newPhrase = new Phrase(newName, to - from + 1);
+		newPhrase.rows = this.rows.slice(from, to + 1);
 		return newPhrase;
 	}
 
@@ -283,13 +323,28 @@ class Phrase {
 			if (copy === false) {
 				newChange = change;
 			} else {
-				if (Array.isArray(change)) {
-					newChange = change.map(x => x.clone());
-				} else {
-					newChange = change.clone();
-				}
+				newChange = cloneChange(change);
 			}
 			changes.set(param, newChange);
+		}
+	}
+
+	paste(insertPhrase, position) {
+		const insertLength = Math.min(insertPhrase.rows.length, this.length - position);
+		const rows = this.rows;
+		const insertRows = insertPhrase.rows;
+		for (let i = 0; i < insertLength; i++) {
+			const insertRow = insertRows[i];
+			if (insertRow !== undefined) {
+				let row = rows[i];
+				if (row === undefined) {
+					row = new Map(insertRow);
+					rows[i] = row;
+				}
+				for (let [key, value] of insertRow) {
+					row.set(key, cloneChange(value));
+				}
+			}
 		}
 	}
 
@@ -414,6 +469,7 @@ global.Sequencer = {
 	Pattern: Pattern,
 	Phrase: Phrase,
 	Song: Song,
+	cloneChanges: cloneChanges,
 };
 
 })(window);
