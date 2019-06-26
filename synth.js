@@ -990,14 +990,23 @@ class Sample {
 		});
 	}
 
-	swapChannels() {
+	separateStereo(separation) {
 		const buffer = this.buffer;
-		const leftCopy = new Float32Array(buffer.length);
-		buffer.copyFromChannel(leftCopy, 0);
-		buffer.copyToChannel(buffer.getChannelData(1), 0); // copy right -> left
-		buffer.copyToChannel(leftCopy, 1); // copy old left -> right
+		const leftChannel = buffer.getChannelData(0);
+		const rightChannel = buffer.getChannelData(1);
+		const length = buffer.length;
+		const midMultiplier = (1 - Math.abs(separation)) / 2;
+		for (let i = 0; i < length; i++) {
+			const oldLeft = leftChannel[i];
+			const oldRight = rightChannel[i];
+			const oldMid = oldLeft + oldRight;
+			const oldSide = oldLeft - oldRight;
+			const newMid = oldMid - midMultiplier * oldSide;
+			const newSide = oldSide * separation;
+			leftChannel[i] = (newMid + newSide) / 2;
+			rightChannel[i] = (newMid - newSide) / 2;
+		}
 	}
-
 }
 
 class SamplePlayer {
