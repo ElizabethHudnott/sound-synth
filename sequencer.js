@@ -329,10 +329,10 @@ class Phrase {
 		}
 	}
 
-	paste(insertPhrase, position) {
-		const insertLength = Math.min(insertPhrase.rows.length, this.length - position);
+	merge(mergePhrase, position) {
+		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
 		const rows = this.rows;
-		const insertRows = insertPhrase.rows;
+		const insertRows = mergePhrase.rows;
 		for (let i = 0; i < insertLength; i++) {
 			const insertRow = insertRows[i];
 			if (insertRow !== undefined) {

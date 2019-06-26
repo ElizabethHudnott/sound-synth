@@ -738,6 +738,80 @@ class Sample {
 		});
 	}
 
+	findZero(position, channelNumber, direction) {
+		const length = this.buffer.length;
+		const data = this.buffer.getChannelData(channelNumber);
+		let afterPosition = position;
+		let afterValue = data[position];
+		let beforePosition = position;
+		let beforeValue = afterValue;
+		if (afterValue > 0) {
+			for (let searchPosition = position + 1; searchPosition < length; searchPosition++) {
+				const value = data[searchPosition];
+				if (value < afterValue) {
+					if (value < 0 && -value >= afterValue) {
+						break;
+					}
+					afterValue = value;
+					afterPosition = searchPosition;
+					if (afterValue <= 0) {
+						break;
+					}
+				}
+			}
+		} else if (afterValue < 0) {
+			for (let searchPosition = position + 1; searchPosition < length; searchPosition++) {
+				const value = data[searchPosition];
+				if (value >= afterValue) {
+					if (value > 0 && value >= -afterValue) {
+						break;
+					}
+					afterValue = value;
+					afterPosition = searchPosition;
+					if (afterValue >= 0) {
+						break;
+					}
+				}
+			}
+		}
+
+		if (beforeValue > 0) {
+			for (let searchPosition = position - 1; searchPosition >= 0; searchPosition--) {
+				const value = data[searchPosition];
+				if (value < beforeValue) {
+					if (value < 0 && -value >= beforeValue) {
+						break;
+					}
+					beforeValue = value;
+					beforePosition = searchPosition;
+					if (beforeValue <= 0) {
+						break;
+					}
+				}
+			}
+		} else if (beforeValue < 0) {
+			for (let searchPosition = position - 1; searchPosition >= 0; searchPosition--) {
+				const value = data[searchPosition];
+				if (value >= beforeValue) {
+					if (value > 0 && value >= -beforeValue) {
+						break;
+					}
+					beforeValue = value;
+					beforePosition = searchPosition;
+					if (beforeValue >= 0) {
+						break;
+					}
+				}
+			}
+		}
+
+		if (beforeValue > afterValue || (beforeValue === afterValue && direction === Direction.DOWN)) {
+			return beforePosition;
+		} else {
+			return afterPosition;
+		}
+	}
+
 	copy(from, to) {
 		const buffer = this.buffer;
 		const numberOfChannels = buffer.numberOfChannels;
