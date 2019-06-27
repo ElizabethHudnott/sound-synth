@@ -672,6 +672,11 @@ class Sample {
 		}
 	}
 
+	normalize() {
+		removeOffset();
+		this.gain /= this.amplitude;
+	}
+
 	amplify(startGain, endGain, from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;
@@ -695,23 +700,20 @@ class Sample {
 		}
 	}
 
-	chord(notes, instrumentNoteFreqs) {
+	chord(intervals, instrumentNoteFreqs) {
 		const me = this;
-		const numNotes = notes.length;
 		const oldBuffer = this.buffer;
 		let baseNote = this.sampledNote;
-		if (notes[0] > baseNote) {
-			baseNote = notes[0];
-		}
 		const baseFrequency = noteFrequencies[baseNote];
-		const ratio = baseFrequency / instrumentNoteFreqs[notes[0]];
+		const ratio = baseFrequency / instrumentNoteFreqs[baseNote];
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
 			Math.ceil(oldBuffer.length * ratio),
 			oldBuffer.sampleRate
 		);
 		const nodes = [];
-		for (let note of notes) {
+		for (let interval of intervals) {
+			const note = baseNote + interval - 1;
 			const node = context.createBufferSource();
 			node.buffer = oldBuffer;
 			node.playbackRate.value = instrumentNoteFreqs[note] / baseFrequency;
@@ -724,15 +726,11 @@ class Sample {
 			node.start();
 			nodes.push(node);
 		}
-		let sampledNote = this.sampledNote;
-		if (notes[0] < sampledNote) {
-			sampledNote = notes[0];
-		}
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
 			newSample.loopStart = Math.round(me.loopStart * ratio);
 			newSample.loopEnd = Math.round(me.loopEnd * ratio);
-			newSample.sampledNote = sampledNote;
+			newSample.sampledNote = me.sampledNote;
 			newSample.gain = me.gain;
 			return newSample;
 		});
@@ -1007,6 +1005,30 @@ class Sample {
 			rightChannel[i] = (newMid - newSide) / 2;
 		}
 	}
+
+	mixToMono(pan) {
+		const rightFraction = (pan + 1) / 2;
+		const leftFraction = 1 - rightFraction;
+		const oldBuffer = this.buffer;
+		const left = oldBuffer.getChannelData(0);
+		const right = oldBuffer.getChannelData(1);
+		const length = oldBuffer.length;
+		const newBuffer = new AudioBuffer({
+			length: length,
+			numberOfChannels: 1,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		const mono = newBuffer.getChannelData(0);
+		for (let i = 0; i < length; i++) {
+			mono[i] = left[i] * leftFraction + right[i] * rightFraction;
+		}
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
+	}
 }
 
 class SamplePlayer {
@@ -1083,6 +1105,23 @@ class SampledInstrument {
 		}
 	}
 
+	get amplitude() {
+		let max = 0;
+		for (let sample of this.samples) {
+			const amplitude = sample.amplitude;
+			if (amplitude > max) {
+				max = amplitude;
+			}
+		}
+		return max;
+	}
+
+	removeOffset() {
+		for (let sample of this.samples) {
+			sample.removeOffset();
+		}
+	}
+
 	normalize() {
 		let max = 0;
 		for (let sample of this.samples) {
@@ -1094,6 +1133,45 @@ class SampledInstrument {
 		}
 		for (let sample of this.samples) {
 			sample.gain = sample.gain / max;
+		}
+	}
+
+	amplify(gain) {
+		for (let sample of this.samples) {
+			sample.gain *= gain;
+		}
+	}
+
+	chord(intervals, instrumentNoteFreqs) {
+		const me = this;
+		const newInstrument = new SampledInstrument();
+		newInstrument.startingNotes = this.startingNotes.slice();
+
+		function makeChord(sampleIndex) {
+			return me.samples[sampleIndex].chord(intervals, instrumentNoteFreqs).then(function (newSample) {
+				newInstrument.samples[sampleIndex] = newSample;
+			});
+		}
+
+		const numSamples = this.samples.length;
+		const promises = [];
+		for (let sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+			promises.push(makeChord(sampleIndex));
+		}
+
+		return Promise.all(promises).then(function () {
+			newInstrument.removeOffset();
+			const amplitude = newInstrument.amplitude;
+			if (amplitude > 1) {
+				newInstrument.amplify(1 / amplitude);
+			}
+			return newInstrument;
+		});
+	}
+
+	separateStereo(separation) {
+		for (let sample of this.samples) {
+			sample.separateStereo(separation);
 		}
 	}
 
