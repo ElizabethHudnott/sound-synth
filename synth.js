@@ -608,10 +608,22 @@ class Sample {
 		return newSample;
 	}
 
-	reverse() {
-		for (let channelNumber = 0; channelNumber < this.buffer.numberOfChannels; channelNumber++) {
-			const channelData = this.buffer.getChannelData(channelNumber);
-			channelData.reverse();
+	reverse(from, to) {
+		const buffer = this.buffer;
+		if (to === undefined) {
+			to = buffer.length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+		const halfRange = Math.trunc((to - (from - 1)) / 2);
+		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			for (let i = 0; i < halfRange; i++) {
+				const temp = data[from + i];
+				data[from + i] = data[to - i];
+				data[to - i] = temp;
+			}
 		}
 	}
 
@@ -639,13 +651,19 @@ class Sample {
 		return newSample;
 	}
 
-	get amplitude() {
+	amplitude(from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
 		let max = 0;
 		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
 			const data = buffer.getChannelData(channelNumber);
-			for (let i = 0; i < length; i++) {
+			for (let i = from; i <= to; i++) {
 				const value = data[i];
 				if (value > max) {
 					max = value;
@@ -672,9 +690,10 @@ class Sample {
 		}
 	}
 
-	normalize() {
-		removeOffset();
-		this.gain /= this.amplitude;
+	normalize(from, to) {
+		const amplitude = this.amplitude(from, to);
+		const gain = 1 / amplitude;
+		this.amplify(gain, gain, from, to);
 	}
 
 	amplify(startGain, endGain, from, to) {
@@ -808,6 +827,12 @@ class Sample {
 
 		if (position >= length - 1) {
 			return beforePosition;
+		} else if (beforePosition === 0 || afterPosition === length - 1) {
+			if (Math.abs(beforeValue) < Math.abs(afterValue)) {
+				return beforePosition;
+			} else {
+				return afterPosition;
+			}
 		} else if (position - beforePosition <= afterPosition - position) {
 			return beforePosition;
 		} else {
@@ -947,6 +972,38 @@ class Sample {
 			newSample.gain = me.gain;
 			return newSample;
 		});
+	}
+
+	insertSilence(silenceLength, position) {
+		const oldBuffer = this.buffer;
+		const oldBufferLength = oldBuffer.length;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: oldBufferLength + silenceLength,
+			numberOfChannels: numberOfChannels,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		const before = new Float32Array(position);
+		const afterPosition = position + silenceLength;
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			oldBuffer.copyFromChannel(before, channelNumber);
+			newBuffer.copyToChannel(before, channelNumber);
+			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber, afterPosition);
+		}
+		const newSample = new Sample(newBuffer);
+		let loopStart = this.loopStart;
+		if (loopStart >= position) {
+			loopStart += silenceLength;
+		}
+		newSample.loopStart = loopStart;
+		let loopEnd = this.loopEnd;
+		if (loopEnd >= position) {
+			loopEnd += silenceLength;
+		}
+		newSample.loopEnd = loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
 	}
 
 	mix(mixSample, position, loop) {
@@ -1105,10 +1162,10 @@ class SampledInstrument {
 		}
 	}
 
-	get amplitude() {
+	amplitude() {
 		let max = 0;
 		for (let sample of this.samples) {
-			const amplitude = sample.amplitude;
+			const amplitude = sample.amplitude();
 			if (amplitude > max) {
 				max = amplitude;
 			}
@@ -1125,8 +1182,7 @@ class SampledInstrument {
 	normalize() {
 		let max = 0;
 		for (let sample of this.samples) {
-			sample.removeOffset();
-			const amplitude = sample.amplitude;
+			const amplitude = sample.amplitude();
 			if (amplitude > max) {
 				max = amplitude;
 			}
@@ -1161,7 +1217,7 @@ class SampledInstrument {
 
 		return Promise.all(promises).then(function () {
 			newInstrument.removeOffset();
-			const amplitude = newInstrument.amplitude;
+			const amplitude = newInstrument.amplitude();
 			if (amplitude > 1) {
 				newInstrument.amplify(1 / amplitude);
 			}
@@ -1172,6 +1228,13 @@ class SampledInstrument {
 	separateStereo(separation) {
 		for (let sample of this.samples) {
 			sample.separateStereo(separation);
+		}
+	}
+
+	mixToMono() {
+		const samples = this.samples;
+		for (let i = 0; i < samples.length; i++) {
+			samples[i] = samples[i].mixToMono();
 		}
 	}
 
