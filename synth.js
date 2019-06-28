@@ -2304,6 +2304,19 @@ class SubtractiveSynthChannel {
 			grooveIndex = 0;
 			numTempos = groove.length;
 		}
+
+		const lineTimeChange = parameterMap.get(Parameter.LINE_TIME);
+		if (lineTimeChange !== undefined) {
+			lineTime = calculateParameterValue(lineTimeChange, lineTime, false)[1];
+			parameters[Parameter.LINE_TIME] = lineTime;
+			if (grooveChange === undefined) {
+				const multiplier = lineTime / Math.max(...groove);
+				for (let i = 0; i < groove.length; i++) {
+					groove[i] = groove[i] * multiplier;
+				}
+			}
+		}
+
 		if (numTempos === 0) {
 			lineTime = parameters[Parameter.LINE_TIME];
 		} else {
@@ -2311,12 +2324,6 @@ class SubtractiveSynthChannel {
 			if (newLine) {
 				this.grooveIndex = (grooveIndex + 1) % numTempos;
 			}
-		}
-
-		const lineTimeChange = parameterMap.get(Parameter.LINE_TIME);
-		if (lineTimeChange !== undefined) {
-			lineTime = calculateParameterValue(lineTimeChange, lineTime, false)[1];
-			parameters[Parameter.LINE_TIME] = lineTime;
 		}
 
 		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
