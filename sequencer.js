@@ -336,15 +336,24 @@ class Phrase {
 		for (let i = 0; i < insertLength; i++) {
 			const insertRow = insertRows[i];
 			if (insertRow !== undefined) {
-				let row = rows[i];
+				let row = rows[position + i];
 				if (row === undefined) {
 					row = new Map(insertRow);
-					rows[i] = row;
+					rows[position + i] = row;
 				}
 				for (let [key, value] of insertRow) {
 					row.set(key, cloneChange(value));
 				}
 			}
+		}
+	}
+
+	overwrite(replacementPhrase, position) {
+		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+		const rows = this.rows;
+		const replacementRows = replacementPhrase.rows;
+		for (let i = 0; i < replacementLength; i++) {
+			rows[position + i] = cloneChanges(replacementRows[i]);
 		}
 	}
 
