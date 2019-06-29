@@ -1,7 +1,13 @@
 (function(global) {
 'use strict';
 
-const defaultChanges = new Map();
+const DEFAULT_CHANGES = new Map();
+
+const noteParameters = new Set();
+noteParameters.add(Synth.Param.NOTES);
+noteParameters.add(Synth.Param.GATE);
+noteParameters.add(Synth.Param.INSTRUMENT);
+noteParameters.add(Synth.Param.PHRASE);
 
 function cloneChange(change) {
 	if (Array.isArray(change)) {
@@ -88,10 +94,17 @@ class Pattern {
 		const numColumns = numTracks + 1;
 		this.columns = new Array(numColumns);
 		this.offsets = new Array(numColumns);
-		for (let i = 0; i < numColumns; i++) {
-			this.offsets[i] = 0;
-		}
+		this.offsets.fill(0);
 		this.length = length;
+	}
+
+	clone() {
+		const newPattern = new Pattern(0, this.length);
+		const numColumns = this.columns.length;
+		for (let i = 0; i < numColumns; i++) {
+			newPattern.columns[i] = this.columns[i].clone();
+		}
+		newPattern.offsets = this.offsets.slice();
 	}
 
 	addColumn() {
@@ -102,6 +115,16 @@ class Pattern {
 	removeColumn(columnNumber) {
 		this.columns.splice(columnNumber, 1);
 		this.offsets.splice(columnNumber, 1);
+	}
+
+	clear(fromColumn, toColumn, fromLine, toLine) {
+		for (let i = fromColumn; i <= toColumn; i++) {
+			const column = this.columns[i];
+			if (column !== undefined) {
+				const offset = this.offsets[i];
+				column.clear(fromLine + offset, toLine + offset);
+			}
+		}
 	}
 
 	play(system, song, step) {
@@ -190,7 +213,7 @@ class Pattern {
 
 				switch (changeSources) {
 				case 0:
-					changes = defaultChanges;
+					changes = DEFAULT_CHANGES;
 					break;
 				case 1:
 					changes = masterChanges;
@@ -267,10 +290,14 @@ class Phrase {
 	}
 
 	clear(from, to) {
-		const rows = this.rows;
-		for (let i = from; i < to; i++) {
-			rows[i] = undefined;
+		if (from < 0) {
+			from = 0;
 		}
+		const rows = this.rows;
+		if (to >= rows.length) {
+			to = rows.length - 1;
+		}
+		rows.fill(undefined, from, to + 1);
 	}
 
 	copy(from, to) {
@@ -329,7 +356,29 @@ class Phrase {
 		}
 	}
 
-	merge(mergePhrase, position) {
+	insert(insertPhrase, position) {
+		const rows = this.rows;
+		const insertRows = insertPhrase.rows;
+		const insertLength = insertPhrase.length;
+		for (let i = rows.length - 1; i >= position; i--) {
+			rows[i + number] = rows[i];
+		}
+		for (let i = 0; i < insertLength; i++) {
+			rows[position + i] = cloneChanges(insertRows[i]);
+		}
+		this.length += insertLength;
+	}
+
+	insertEmptyRows(number, position) {
+		const rows = this.rows;
+		for (let i = rows.length - 1; i >= position; i--) {
+			rows[i + number] = rows[i];
+		}
+		rows.fill(undefined, position, position + number);
+		this.length += number;
+	}
+
+	mergeAll(mergePhrase, position) {
 		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
 		const rows = this.rows;
 		const insertRows = mergePhrase.rows;
@@ -348,13 +397,115 @@ class Phrase {
 		}
 	}
 
-	overwrite(replacementPhrase, position) {
+	mergeCommands(mergePhrase, position) {
+		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
+		const rows = this.rows;
+		const insertRows = mergePhrase.rows;
+		for (let i = 0; i < insertLength; i++) {
+			const insertRow = insertRows[i];
+			if (insertRow !== undefined) {
+				let row = rows[position + i];
+				if (row === undefined) {
+					row = new Map(insertRow);
+					rows[position + i] = row;
+				}
+				for (let [key, value] of insertRow) {
+					if (!noteParameters.has(key)) {
+						row.set(key, cloneChange(value));
+					}
+				}
+			}
+		}
+	}
+
+	mergeNotes(mergePhrase, position) {
+		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
+		const rows = this.rows;
+		const insertRows = mergePhrase.rows;
+		for (let i = 0; i < insertLength; i++) {
+			const insertRow = insertRows[i];
+			if (insertRow !== undefined) {
+				let row = rows[position + i];
+				if (row === undefined) {
+					row = new Map(insertRow);
+					rows[position + i] = row;
+				}
+				for (let key of noteParameters) {
+					if (insertRow.has(key)) {
+						row.set(key, cloneChange(insertRow.get(value)));
+					}
+				}
+			}
+		}
+	}
+
+	overwriteAll(replacementPhrase, position) {
 		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
 		const rows = this.rows;
 		const replacementRows = replacementPhrase.rows;
 		for (let i = 0; i < replacementLength; i++) {
 			rows[position + i] = cloneChanges(replacementRows[i]);
 		}
+	}
+
+	overwriteCommands(replacementPhrase, position) {
+		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+		const rows = this.rows;
+		const replacementRows = replacementPhrase.rows;
+		for (let i = 0; i < replacementLength; i++) {
+			let row = rows[position + i];
+			if (row === undefined) {
+				row = new Map();
+				rows[position + i] = row;
+			} else {
+				for (key of row.keys()) {
+					if (!noteParameters.has(key)) {
+						row.delete(key);
+					}
+				}
+			}
+			const insertRow = insertRows[i];
+			if (insertRow !== undefined) {
+				for (let [key, value] of insertRow) {
+					if (!noteParameters.has(key)) {
+						row.set(key, cloneChange(value));
+					}
+				}
+			}
+		}
+	}
+
+	overwriteNotes(replacementPhrase, position) {
+		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+		const rows = this.rows;
+		const replacementRows = replacementPhrase.rows;
+		for (let i = 0; i < replacementLength; i++) {
+			let row = rows[position + i];
+			if (row === undefined) {
+				row = new Map();
+				rows[position + i] = row;
+			} else {
+				for (key of row.keys()) {
+					if (noteParameters.has(key)) {
+						row.delete(key);
+					}
+				}
+			}
+			const insertRow = insertRows[i];
+			if (insertRow !== undefined) {
+				for (let [key, value] of insertRow) {
+					if (noteParameters.has(key)) {
+						row.set(key, cloneChange(value));
+					}
+				}
+			}
+		}
+	}
+
+	remove(from, to) {
+		const removeLength = to - from + 1;
+		this.rows.splice(from, removeLength);
+		this.length -= removeLength;
 	}
 
 	transpose(amount, from, to) {
@@ -438,7 +589,7 @@ class Phrase {
 
 			switch (changeSources) {
 			case 0:
-				changes = defaultChanges;
+				changes = DEFAULT_CHANGES;
 				break;
 			case 2:
 				if (transpose === 0) {
@@ -479,6 +630,7 @@ global.Sequencer = {
 	Phrase: Phrase,
 	Song: Song,
 	cloneChanges: cloneChanges,
+	noteParameters: noteParameters,
 };
 
 })(window);

@@ -37,3 +37,59 @@ WAVEFORM_LFO
 Noise.FIXED
 Noise.FILTER
 Noise.SAMPLE_AND_HOLD
+
+--------
+Method				Phrase/Column	Pattern		Song
+clone						X			X
+clear						X			X
+copy						X			x		x
+expand						X			x
+compact						X			x
+fill						X
+transpose					X
+play						X			X		x
+---------
+merge (all, commands, notes)X			x
+overwrite (all, commands, notes)X		x
+insert						X			x		x
+insertEmptyRows				X			x
+remove						X			x		x
+pause											x
+goto											x
+
+
+
+
+Method			Sample		Instrument
+clone			x
+reverse			f,t			x
+pingPong		x			x
+amplitude		f,t			x
+removeOffset	x			x
+normalize		f,t			x
+amplify			f,t			x
+chord			x			x
+findZero		x
+copy			f,t
+remove			f,t
+insert			x
+insertSilence	x
+mix				x
+separateStereo	x			x
+mixToMono		x			x
+
+To Do
+-----
+crossfade
+autotuning
+
+0	1	2	3	4
+5	6	7	8	9
+
+0	5	1	6	2
+7	3	8	4	9
+
+0-4:	n -> 2n
+5-9:	2(n - L) + 1
+
+2,4,8,7,5,1,2
