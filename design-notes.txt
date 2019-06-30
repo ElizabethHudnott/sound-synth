@@ -93,3 +93,35 @@ autotuning
 5-9:	2(n - L) + 1
 
 2,4,8,7,5,1,2
+
+-----------
+Resource
+	LoadError (ResourceLoadError)
+
+synth.mjs
+	Change
+	ChangeType
+	ChordPattern (Pattern/Chord)
+	Direction
+	Gate
+	MachineChange
+	Macro
+	MacroFunction
+	MacroChange
+	Param
+	System (SynthSystem)
+
+synth-channel.mjs
+	Channel (SubtractiveSynthChannel)
+	Wave
+
+keymap.mjs
+	keymap
+
+machine.mjs
+	Machine
+
+Sample
+	static decodeSampleData
+SampledInstrument
+SamplePlayer

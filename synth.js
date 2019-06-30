@@ -3200,6 +3200,7 @@ global.Synth = {
 	keymap: keymap,
 
 	// Internals exposed as generic reusable code
+	LFO: LFO,
 	Modulator: Modulator,
 	ReciprocalNode: ReciprocalNode,
 	SampleAndHoldNode: SampleAndHoldNode,

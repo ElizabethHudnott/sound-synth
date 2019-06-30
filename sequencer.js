@@ -127,6 +127,24 @@ class Pattern {
 		}
 	}
 
+	copy(fromColumn, toColumn, fromLine, toLine) {
+		const copyMaster = fromColumn === 0 ? 1 : 0;
+		const newPattern = new Pattern(toColumn - fromColumn + 1 - copyMaster, toLine - fromLine + 1);
+		for (let columnNumber = fromColumn; columnNumber <= toColumn; columnNumber++) {
+			let offset = this.offsets[columnNumber];
+			let phraseTo = toLine + offset;
+			if (phraseTo >= 0) {
+				let phraseFrom = fromLine + offset;
+				if (phraseFrom < 0) {
+					newPattern.offsets[columnNumber] = phraseFrom;
+					phraseFrom = 0;
+				}
+				newPattern.columns[columnNumber] = this.columns[columnNumber].copy(phraseFrom, phraseTo);
+			}
+		}
+		return newPattern;
+	}
+
 	play(system, song, step) {
 		if (step === undefined) {
 			step = system.nextStep();
@@ -301,7 +319,12 @@ class Phrase {
 	}
 
 	copy(from, to) {
-		const newName = this.name + ' ' + from + '-' + to;
+		let newName;
+		if (from === 0 && to === this.length - 1) {
+			newName = 'Copy of ' + this.name;
+		} else {
+			newName = this.name + ' ' + from + '-' + to;
+		}
 		const newPhrase = new Phrase(newName, to - from + 1);
 		newPhrase.rows = this.rows.slice(from, to + 1);
 		return newPhrase;
