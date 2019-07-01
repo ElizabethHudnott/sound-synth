@@ -43,8 +43,9 @@ Method				Phrase/Column	Pattern		Song
 clone						X			X
 clear						X			X
 copy						X			X		x
-expand						X			x
+expand						X			X
 compact						X			x
+copyAndCompact				X
 fill						X
 transpose					X
 play						X			X		x

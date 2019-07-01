@@ -29,6 +29,47 @@ function cloneChanges(parameterMap) {
 	return newMap;
 }
 
+function equalChange(a, b) {
+	if (a === undefined) {
+		return b === undefined;
+	}
+	if (Array.isArray(a)) {
+		if (!Array.isArray(b)) {
+			return false;
+		}
+		const length = a.length;
+		if (length !== b.length) {
+			return false;
+		}
+		for (let i = 0; i < length; i++) {
+			if (!a[i].equals(b[i])) {
+				return false;
+			}
+		}
+		return true;
+	} else {
+		return a.equals(b);
+	}
+}
+
+function equalChanges(a, b) {
+	if (a === undefined) {
+		return b === undefined;
+	}
+	for (let [key, aChange] of a) {
+		const bChange = b.get(key);
+		if (!equalChange(aChange, bChange)) {
+			return false;
+		}
+	}
+	for (let key of b.keys()) {
+		if (!a.has(key)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 class Song {
 
 	constructor() {
@@ -107,6 +148,39 @@ class Pattern {
 		newPattern.offsets = this.offsets.slice();
 	}
 
+	equals(pattern) {
+		const length = this.length;
+		if (length !== pattern.length) {
+			return false;
+		}
+		const numColumns = this.offsets.length;
+		if (numColumns !== pattern.offsets.length) {
+			return false;
+		}
+		const thisColumns = this.columns;
+		const patternColumns = pattern.columns;
+		for (let i = 0; i < numColumns; i++) {
+			const thisColumn = thisColumns[i];
+			const patternColumn = patternColumns[i];
+			const thisOffset = this.offsets[i];
+			const patternOffset = pattern.offsets[i];
+			if (thisColumn === patternColumn) {
+				// ok
+			} else if (thisColumn === undefined || patternColumn === undefined) {
+				return false;
+			} else {
+				for (let j = 0; j < length; j++) {
+					const thisChanges = thisColumn[j + thisOffset];
+					const patternChanges = patternColumn[j + patternOffset];
+					if (!equalChanges(thisChanges, patternChanges)) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
 	addColumn() {
 		this.offsets.push(0);
 	}
@@ -123,6 +197,7 @@ class Pattern {
 
 	clearColumn(columnNumber) {
 		this.columns[columnNumber] = undefined;
+		this.offsets[columnNumber] = 0;
 	}
 
 	get numberOfColumns() {
@@ -170,6 +245,45 @@ class Pattern {
 			}
 		}
 		this.length *= multiple;
+	}
+
+	static fromArray(...arr) {
+		const columns = [];
+		const offsets = [];
+		const arrLength = arr.length;
+		let i = 0;
+		let numColumns = 0;
+		let Length = 0;
+		while (i < arrLength) {
+			const phrase = arr[i];
+			if (phrase instanceof Phrase) {
+				columns[numColumns] = phrase;
+			} else if (phrase !== undefined) {
+				throw new Error(String(phrase) + ' is not a phrase.');
+			}
+			i++;
+
+			let offset = arr[i];
+			if (Number.isInteger(offset)) {
+				i++
+			} else {
+				offset = 0;
+			}
+			offsets[numColumns] = offset;
+
+			if (phrase !== undefined) {
+				const columnLength = phrase.length - offset;
+				if (columnLength > length) {
+					length = columnLength;
+				}
+			}
+			numColumns++;
+		}
+
+		const pattern = new Pattern(offsets.length - 1, length);
+		pattern.columns = columns;
+		pattern.offsets = offsets;
+		return pattern;
 	}
 
 	play(system, song, step) {
@@ -334,6 +448,29 @@ class Phrase {
 		return newPhrase;
 	}
 
+	equals(phrase) {
+		if (this.length !== phrase.length) {
+			return false;
+		}
+		const thisRows = this.rows;
+		const phraseRows = phrase.rows;
+		const minLength = Math.min(thisRows.length, phraseRows.length);
+		for (let i = 0; i < minLength; i++) {
+			if (!equalChanges(thisRows[i], phraseRows[i])) {
+				return false;
+			}
+		}
+		const longerPhrase = thisRows.length >= minLength ? this : phrase;
+		const longerRows = longerPhrase.rows;
+		const maxLength = longerRows.length;
+		for (let i = minLength; i < maxLength; i++) {
+			if (longerRows[i] !== undefined) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	generateName(from, to) {
 		let newName;
 		if (from === 0 && to === this.length - 1) {
@@ -417,8 +554,6 @@ class Phrase {
 		return newPhrase;
 	}
 
-
-
 	fill(param, change, from, step, to, copy) {
 		if (to === undefined) {
 			to = this.length - 1;
@@ -437,6 +572,29 @@ class Phrase {
 			}
 			changes.set(param, newChange);
 		}
+	}
+
+	static fromObject(obj) {
+		const rows = [];
+		let length;
+		for (let propertyName in obj) {
+			if (propertyName === 'length') {
+				length = obj[propertyName];
+			} else {
+				const changes = obj[propertyName];
+				const map = new Map();
+				const changesLength = changes.length;
+				for (let i = 0; i < changesLength; i+= 2) {
+					const name = changes[i];
+					const value = changes[i + 1];
+					map.set(name, new Synth.Change(Synth.ChangeType.SET, value));
+				}
+				rows[propertyName] = map;
+			}
+		}
+		const newPhrase = new Phrase('Untitled', length);
+		newPhrase.rows = rows;
+		return newPhrase;
 	}
 
 	insert(insertPhrase, position) {
@@ -706,6 +864,7 @@ class Phrase {
 			step += lineTime;
 		}
 	}
+
 }
 
 global.Sequencer = {

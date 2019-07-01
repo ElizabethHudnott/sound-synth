@@ -268,6 +268,34 @@ class Change {
 			return new Change(this.type, this.value);
 		}
 	}
+
+	equals(change) {
+		if (change === undefined) {
+			return false;
+		}
+		if (this.type !== change.type) {
+			return false;
+		}
+		const value = this.value;
+		const otherValue = change.value;
+		if (Array.isArray(value)) {
+			if (!Array.isArray(otherValue)) {
+				return false;
+			}
+			const length = value.length;
+			if (length !== otherValue.length) {
+				return false;
+			}
+			for (let i = 0; i < length; i++) {
+				if (value[i] !== otherValue[i]) {
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return value === otherValue;
+		}
+	}
 }
 
 class MacroChange extends Change {
