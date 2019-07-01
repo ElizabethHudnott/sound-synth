@@ -108,13 +108,25 @@ class Pattern {
 	}
 
 	addColumn() {
-		const columnNumber = this.columns.length;
-		this.offsets[columnNumber] = 0;
+		this.offsets.push(0);
 	}
 
 	removeColumn(columnNumber) {
 		this.columns.splice(columnNumber, 1);
 		this.offsets.splice(columnNumber, 1);
+	}
+
+	setColumn(columnNumber, phrase) {
+		this.columns[columnNumber] = phrase;
+		this.offsets[columnNumber] = 0;
+	}
+
+	clearColumn(columnNumber) {
+		this.columns[columnNumber] = undefined;
+	}
+
+	get numberOfColumns() {
+		return this.offsets.length;
 	}
 
 	clear(fromColumn, toColumn, fromLine, toLine) {
@@ -131,18 +143,33 @@ class Pattern {
 		const copyMaster = fromColumn === 0 ? 1 : 0;
 		const newPattern = new Pattern(toColumn - fromColumn + 1 - copyMaster, toLine - fromLine + 1);
 		for (let columnNumber = fromColumn; columnNumber <= toColumn; columnNumber++) {
-			let offset = this.offsets[columnNumber];
-			let phraseTo = toLine + offset;
-			if (phraseTo >= 0) {
-				let phraseFrom = fromLine + offset;
-				if (phraseFrom < 0) {
-					newPattern.offsets[columnNumber] = phraseFrom;
-					phraseFrom = 0;
+			const column = this.columns[columnNumber];
+			if (column !== undefined) {
+				let offset = this.offsets[columnNumber];
+				const phraseTo = toLine + offset;
+				if (phraseTo >= 0) {
+					const newColumnNumber = columnNumber - fromColumn;
+					let phraseFrom = fromLine + offset;
+					if (phraseFrom < 0) {
+						newPattern.offsets[newColumnNumber] = phraseFrom;
+						phraseFrom = 0;
+					}
+					newPattern.columns[newColumnNumber] = column.copy(phraseFrom, phraseTo);
 				}
-				newPattern.columns[columnNumber] = this.columns[columnNumber].copy(phraseFrom, phraseTo);
 			}
 		}
 		return newPattern;
+	}
+
+	expand(multiple) {
+		for (let i = 0; i < this.columns.length; i++) {
+			const column = this.columns[i];
+			if (column !== undefined) {
+				column.expand(multiple);
+				this.offsets[i] *= multiple;
+			}
+		}
+		this.length *= multiple;
 	}
 
 	play(system, song, step) {
@@ -307,6 +334,16 @@ class Phrase {
 		return newPhrase;
 	}
 
+	generateName(from, to) {
+		let newName;
+		if (from === 0 && to === this.length - 1) {
+			newName = 'Copy of ' + this.name;
+		} else {
+			newName = this.name + ' ' + from + '-' + to;
+		}
+		return newName;
+	}
+
 	clear(from, to) {
 		if (from < 0) {
 			from = 0;
@@ -319,12 +356,7 @@ class Phrase {
 	}
 
 	copy(from, to) {
-		let newName;
-		if (from === 0 && to === this.length - 1) {
-			newName = 'Copy of ' + this.name;
-		} else {
-			newName = this.name + ' ' + from + '-' + to;
-		}
+		const newName = this.generateName(from, to);
 		const newPhrase = new Phrase(newName, to - from + 1);
 		newPhrase.rows = this.rows.slice(from, to + 1);
 		return newPhrase;
@@ -343,10 +375,9 @@ class Phrase {
 	}
 
 	compact(multiple) {
-		const oldLength = this.length;
-		const newLength = Math.floor(oldLength / multiple);
 		const oldRows = this.rows;
-		const newRows = new Array(newLength);
+		const oldLength = oldRows.length;
+		const newRows = new Array(Math.floor(oldLength / multiple));
 		for (let i = 0; i < oldLength; i++) {
 			const oldRow = oldRows[i];
 			if (i % multiple === 0) {
@@ -356,8 +387,37 @@ class Phrase {
 			}
 		}
 		this.rows = newRows;
-		this.length = newLength;
+		this.length = Math.floor(this.length / multiple);
 	}
+
+	copyAndCompact(multiple, from, to) {
+		let modulo;
+		if (from >= 0) {
+			modulo = from % multiple;
+		} else {
+			from = 0;
+			modulo = multiple + from % multiple;
+		}
+		const oldRows = this.rows;
+		const oldLength = oldRows.length;
+		to = Math.min(to, oldLength - 1);
+		const newRows = [];
+		for (let i = from; i <= to; i++) {
+			const oldRow = oldRows[i];
+			if (i % multiple === modulo) {
+				newRows.push(oldRow);
+			} else if (oldRow !== undefined && oldRow.size > 0) {
+				throw new PatternEditError('Unable to compact. Data found', undefined, i);
+			}
+		}
+
+		const newName = this.generateName(from, to);
+		const newPhrase = newPhrase(newName, newRows.length);
+		newPhrase.rows = newRows;
+		return newPhrase;
+	}
+
+
 
 	fill(param, change, from, step, to, copy) {
 		if (to === undefined) {

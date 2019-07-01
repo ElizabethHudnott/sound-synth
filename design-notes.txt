@@ -42,7 +42,7 @@ Noise.SAMPLE_AND_HOLD
 Method				Phrase/Column	Pattern		Song
 clone						X			X
 clear						X			X
-copy						X			x		x
+copy						X			X		x
 expand						X			x
 compact						X			x
 fill						X
