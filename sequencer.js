@@ -29,9 +29,12 @@ function cloneChanges(parameterMap) {
 	return newMap;
 }
 
+/**
+ * Assumes a is not undefined.
+ */
 function equalChange(a, b) {
-	if (a === undefined) {
-		return b === undefined;
+	if (b === undefined) {
+		return a === undefined;
 	}
 	if (Array.isArray(a)) {
 		if (!Array.isArray(b)) {
@@ -53,8 +56,11 @@ function equalChange(a, b) {
 }
 
 function equalChanges(a, b) {
-	if (a === undefined) {
-		return b === undefined;
+	if (a === b) {
+		return true;
+	}
+	if (a === undefined || b === undefined) {
+		return false;
 	}
 	for (let [key, aChange] of a) {
 		const bChange = b.get(key);

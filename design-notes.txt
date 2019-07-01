@@ -41,8 +41,10 @@ Noise.SAMPLE_AND_HOLD
 --------
 Method				Phrase/Column	Pattern		Song
 clone						X			X
+fromArray/fromObj			X			X
 clear						X			X
 copy						X			X		x
+equals						X			X
 expand						X			X
 compact						X			x
 copyAndCompact				X
