@@ -157,6 +157,7 @@ const Parameter = enumFromArray([
 	'WAVEFORM',		// Wavetable position
 	'MIN_WAVEFORM',	// minumum wavetable position
 	'MAX_WAVEFORM',	// maximum wavetable position
+	'WAVEFORM_LFO',	// which LFO to use for the wavetable position
 	'CHORUS',		// detune between oscillators in cents
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// overall channel detune in cents
@@ -1694,6 +1695,7 @@ class SubtractiveSynthChannel {
 			Wave.SINE,	// waveform
 			Wave.SINE,	// minimum wavetable position
 			Wave.SINE,	// maximum wavetable position
+			1,		// wavetable position uses LFO 1
 			0,		// oscillator tuning separation
 			440,	// frequency
 			0,		// detune
@@ -2472,8 +2474,17 @@ class SubtractiveSynthChannel {
 				});
 				break;
 
+			case Parameter.WAVEFORM_LFO:
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
+				parameters[Parameter.WAVEFORM_LFO] = value;
+				callbacks.push(function () {
+					me.wavetableMod.disconnect();
+					me.lfos[value - 1].connect(me.wavetableMod);
+				});
+				break;
+
 			case Parameter.VIBRATO_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.VIBRATO_LFO] = value;
 				callbacks.push(function () {
 					me.vibrato.disconnect();
@@ -2482,7 +2493,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.TREMOLO_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.TREMOLO_LFO] = value;
 				callbacks.push(function () {
 					me.tremolo.disconnect();
@@ -2491,7 +2502,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.PWM_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.PWM_LFO] = value;
 				callbacks.push(function () {
 					me.pwm.disconnect();
@@ -2500,7 +2511,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.FILTER_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.FILTER_LFO] = value;
 				callbacks.push(function () {
 					me.filterFrequencyMod.disconnect();
@@ -2511,7 +2522,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.DELAY_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.DELAY_LFO] = value;
 				callbacks.push(function () {
 					me.flanger.disconnect();
@@ -2520,7 +2531,7 @@ class SubtractiveSynthChannel {
 				break;
 
 			case Parameter.PAN_LFO:
-				value = ((value + numLFOs - 1) % this.lfos.length) + 1;
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.PAN_LFO] = value;
 				callbacks.push(function () {
 					me.panMod.disconnect();

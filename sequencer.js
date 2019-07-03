@@ -253,7 +253,7 @@ class Pattern {
 		this.length *= multiple;
 	}
 
-	static fromArray(...arr) {
+	static fromArgs(...arr) {
 		const columns = [];
 		const offsets = [];
 		const arrLength = arr.length;
