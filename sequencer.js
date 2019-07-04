@@ -297,7 +297,6 @@ class Pattern {
 			step = system.nextStep();
 		}
 
-		const phrases = song.phrases;
 		const numColumns = this.columns.length;
 		const length = this.length;
 		const masterColumn = this.columns[0];
@@ -347,7 +346,7 @@ class Pattern {
 				if (columnChanges !== undefined) {
 					if (columnChanges.has(Synth.Param.PHRASE)) {
 						const phraseName = columnChanges.get(Synth.Param.PHRASE).value;
-						activePhrases[columnNumber] = phrases.get(phraseName);
+						activePhrases[columnNumber] = song.getPhrase(phraseName);
 						phraseOffsets[columnNumber] = 0;
 						transpositions[columnNumber] = 0;
 						if (columnChanges.size > 1) {
@@ -356,15 +355,22 @@ class Pattern {
 					} else {
 						changeSources += 4;
 					}
+					if (columnChanges.has(Synth.Param.PHRASE_OFFSET)) {
+						phraseOffsets[columnNumber] = columnChanges.get(Synth.Param.PHRASE_OFFSET).value;
+					}
 				}
 
 				const phrase = activePhrases[columnNumber];
 				if (phrase !== undefined) {
-					let phraseOffset = phraseOffsets[columnNumber];
-					phraseChanges = phrase.rows[phraseOffset];
-					phraseOffsets[columnNumber]++;
-					if (phraseChanges !== undefined) {
-						changeSources += 2;
+					const phraseOffset = phraseOffsets[columnNumber];
+					if (phraseOffset >= phrase.rows.length) {
+						activePhrases[columnNumber] = undefined;
+					} else {
+						phraseChanges = phrase.rows[phraseOffset];
+						phraseOffsets[columnNumber]++;
+						if (phraseChanges !== undefined) {
+							changeSources += 2;
+						}
 					}
 				}
 
@@ -810,7 +816,7 @@ class Phrase {
 			if (myChanges !== undefined) {
 				if (myChanges.has(Synth.Param.PHRASE)) {
 					const phraseName = myChanges.get(Synth.Param.PHRASE).value;
-					subphrase = song.phrases.get(phraseName);
+					subphrase = song.getPhrase(phraseName);
 					subphraseOffset = 0;
 					transpose = 0;
 					if (myChanges.size > 1) {
@@ -819,14 +825,21 @@ class Phrase {
 				} else {
 					changeSources += 4;
 				}
-			}
-			if (subphrase !== undefined) {
-				subphraseChanges = subphrase.rows[subphraseOffset];
-				subphraseOffset++;
-				if (subphraseChanges !== undefined) {
-					changeSources += 2;
+				if (myChanges.has(Synth.Param.PHRASE_OFFSET)) {
+					subphraseOffset = myChanges.get(Synth.Param.PHRASE_OFFSET).value;
 				}
+			}
 
+			if (subphrase !== undefined) {
+				if (subphraseOffset >= subphrase.rows.length) {
+					subphrase = undefined;
+				} else {
+					subphraseChanges = subphrase.rows[subphraseOffset];
+					subphraseOffset++;
+					if (subphraseChanges !== undefined) {
+						changeSources += 2;
+					}
+				}
 			}
 			if ((changeSources & 6) === 6 && myChanges.has(Synth.Param.PHRASE_TRANSPOSE) &&
 				subphraseChanges.has(Synth.Param.NOTES)

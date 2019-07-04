@@ -155,7 +155,7 @@ const Parameter = enumFromArray([
 	'DURATION',		// in milliseconds (0 = auto)
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
-	'MIN_WAVEFORM',	// minumum wavetable position
+	'MIN_WAVEFORM',	// minimum wavetable position
 	'MAX_WAVEFORM',	// maximum wavetable position
 	'WAVEFORM_LFO',	// which LFO to use for the wavetable position
 	'CHORUS',		// detune between oscillators in cents
@@ -214,7 +214,7 @@ const Parameter = enumFromArray([
 	'MAX_Q',		// 0.0001 to 1000
 	'FILTER_LFO',	// which LFO to use
 	'FILTER_GAIN',	// -40dB to 40dB
-	'FILTER_MIX', // percentage (may be more than 100)
+	'FILTER_MIX',	// percentage (may be more than 100)
 	'UNFILTERED_MIX', // percentage
 	'DELAY',		// milliseconds
 	'MIN_DELAY',	// milliseconds
@@ -236,7 +236,8 @@ const Parameter = enumFromArray([
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'MACHINE',
 	// Parameters below this line only affect the sequencer
-	'PHRASE',		// name of the phrase currently playing
+	'PHRASE',		// name of the phrase currently playing (If the name is not found then no phrase will be used.)
+	'PHRASE_OFFSET', // line number to begin playing the phrase from
 	'PHRASE_TRANSPOSE', // note that replaces the first note in the phrase
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
 	'LOOP_START',	// anything (presence of the parameter is all that matters)

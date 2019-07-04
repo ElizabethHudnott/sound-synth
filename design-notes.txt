@@ -7,7 +7,9 @@ Phrase
 	Rows (array of Parameter Maps)
 	Length
 
-Looping phrases
+Make duration proportional to line time
+Phrase forwards/backward, loop on/off, loop start point
+Add pattern starting offset to song data
 song playback shouldn't all be scheduled at once
 sample finetune
 add sample slicing
@@ -30,8 +32,6 @@ Pulse width modulated by an envelope
 
 FM synth
 
-MIN_WAVEFORM
-MAX_WAVEFORM
 WAVEFORM_LFO
 
 Noise.FIXED
