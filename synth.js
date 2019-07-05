@@ -240,8 +240,7 @@ const Parameter = enumFromArray([
 	'PHRASE_OFFSET', // line number to begin playing the phrase from
 	'PHRASE_TRANSPOSE', // note that replaces the first note in the phrase
 	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
-	'LOOP_START',	// anything (presence of the parameter is all that matters)
-	'LOOPS',			// a positive integer
+	'LOOP',			// a positive integer or zero to set loop start point
 ]);
 
 const ChangeType = Object.freeze({

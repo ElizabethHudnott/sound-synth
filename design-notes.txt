@@ -8,12 +8,14 @@ Phrase
 	Length
 
 Make duration proportional to line time
-Phrase forwards/backward, loop on/off, loop start point
+Phrase loop on/off, loop start point
+Hold and decay samples?
 Add pattern starting offset to song data
 song playback shouldn't all be scheduled at once
 sample finetune
 add sample slicing
-Loop start and end offsets
+Loop start and end position incrementing (how to counter messing up fades?)
+Phrase/pattern forwards/backwards (step 1, -1,...) (how to counter messing up fades?)
 Probability
 Instruments
 Automations

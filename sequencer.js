@@ -321,13 +321,13 @@ class Pattern {
 				if (patternDelayChange !== undefined) {
 					patternDelay = patternDelayChange.value;
 				}
-				if (masterChanges.has(Synth.Param.LOOP_START)) {
-					loopStart = rowNum;
-				}
-				const numLoopsChange = masterChanges.get(Synth.Param.LOOPS);
-				if (numLoopsChange !== undefined) {
-					if (loopIndex < numLoopsChange.value) {
-						rowNum = loopStart;
+				const loopChange = masterChanges.get(Synth.Param.LOOP);
+				if (loopChange !== undefined) {
+					const loopValue = loopChange.value;
+					if (loopValue === 0) {
+						loopStart = rowNum;
+					} else if (loopIndex < loopValue) {
+						nextRowNum = loopStart;
 						loopIndex++;
 					} else {
 						loopIndex = 1;
