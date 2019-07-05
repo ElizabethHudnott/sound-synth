@@ -344,9 +344,9 @@ class Pattern {
 					columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
 				}
 				if (columnChanges !== undefined) {
-					if (columnChanges.has(Synth.Param.PHRASE)) {
-						const phraseName = columnChanges.get(Synth.Param.PHRASE).value;
-						activePhrases[columnNumber] = song.getPhrase(phraseName);
+					const phraseChange = columnChanges.get(Synth.Param.PHRASE);
+					if (phraseChange !== undefined) {
+						activePhrases[columnNumber] = song.getPhrase(phraseChange.value);
 						phraseOffsets[columnNumber] = 0;
 						transpositions[columnNumber] = 0;
 						if (columnChanges.size > 1) {
@@ -355,8 +355,9 @@ class Pattern {
 					} else {
 						changeSources += 4;
 					}
-					if (columnChanges.has(Synth.Param.PHRASE_OFFSET)) {
-						phraseOffsets[columnNumber] = columnChanges.get(Synth.Param.PHRASE_OFFSET).value;
+					const phraseOffsetChange = columnChanges.get(Synth.Param.PHRASE_OFFSET);
+					if (phraseOffsetChange !== undefined) {
+						phraseOffsets[columnNumber] = phraseOffsetChange.value;
 					}
 				}
 
@@ -814,9 +815,9 @@ class Phrase {
 			let changeSources = 0;
 			let myChanges = this.rows[rowNum];
 			if (myChanges !== undefined) {
-				if (myChanges.has(Synth.Param.PHRASE)) {
-					const phraseName = myChanges.get(Synth.Param.PHRASE).value;
-					subphrase = song.getPhrase(phraseName);
+				const subphraseChange = myChanges.get(Synth.Param.PHRASE);
+				if (subphraseChange !== undefined) {
+					subphrase = song.getPhrase(subphraseChange.value);
 					subphraseOffset = 0;
 					transpose = 0;
 					if (myChanges.size > 1) {
@@ -825,8 +826,9 @@ class Phrase {
 				} else {
 					changeSources += 4;
 				}
-				if (myChanges.has(Synth.Param.PHRASE_OFFSET)) {
-					subphraseOffset = myChanges.get(Synth.Param.PHRASE_OFFSET).value;
+				const subphraseOffsetChange = myChanges.get(Synth.Param.PHRASE_OFFSET);
+				if (subphraseOffsetChange !== undefined) {
+					subphraseOffset = subphraseOffsetChange.value;
 				}
 			}
 
