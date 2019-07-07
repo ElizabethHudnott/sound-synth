@@ -1,12 +1,8 @@
 Song
-*	Short Phrases (Map String -> Phrase)
 *	Initial parameters for Channel 1,... Channel N
 *	Loop from
 
-Phrase
-	Rows (array of Parameter Maps)
-	Length
-
+Allow each column to loop independently
 Make duration proportional to line time
 Phrase loop on/off, loop start point
 Hold and decay samples?
@@ -15,10 +11,11 @@ song playback shouldn't all be scheduled at once
 sample finetune
 add sample slicing
 Loop start and end position incrementing (how to counter messing up fades?)
-Phrase/pattern forwards/backwards (step 1, -1,...) (how to counter messing up fades?)
+Phrase/pattern forwards/backwards (step 1, -1,...) (other values may mess up fades)
 Probability
 Instruments
 Automations
+Signal follower machine
 
 changes for 1 line vs changes over a pattern vs ongoing results?
 

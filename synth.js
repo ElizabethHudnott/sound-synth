@@ -167,6 +167,7 @@ const Parameter = enumFromArray([
 	'NOISE_COLOR',	// in hertz
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
+	'LFO1_PHASE',	// 0 to 360
 	'LFO1_GAIN',	// -100 to 100
 	'LFO1_DELAY',	// in milliseconds
 	'LFO1_ATTACK',	// in milliseconds
@@ -177,6 +178,7 @@ const Parameter = enumFromArray([
 	'LFO2_RATE',	// in hertz
 	'LFO2_MIN_RATE', // in hertz
 	'LFO2_MAX_RATE', // in hertz
+	'LFO2_PHASE',	// 0 to 360
 	'LFO2_GAIN',	// -100 to 100
 	'LFO2_DELAY',	// in milliseconds
 	'LFO2_ATTACK',	// in milliseconds
@@ -185,6 +187,7 @@ const Parameter = enumFromArray([
 	'LFO2_RETRIGGER', // 0 or 1
 	'LFO3_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO3_RATE',	// in hertz
+	'LFO3_PHASE',	// 0 to 360
 	'LFO3_GAIN',	// -100 to 100
 	'LFO3_DELAY',	// in milliseconds
 	'LFO3_ATTACK',	// in milliseconds
@@ -444,6 +447,7 @@ class LFO {
 		delayNode.connect(envelope);
 		oscillator.connect(envelope);
 
+		this.phase = 0; // 0 <= phase < 1
 		this.gain = 1;
 		this.delay = 0;
 		this.attack = 0;
@@ -497,7 +501,7 @@ class LFO {
 
 		if (this.retrigger) {
 			const period = 1 / this.frequency;
-			const phase = (when - this.zeroPoint + period) % period;
+			const phase = (when - this.zeroPoint + period * (1 + this.phase)) % period;
 			this.delayNode.delayTime.setValueAtTime(phase, when);
 		}
 
@@ -1705,6 +1709,7 @@ class SubtractiveSynthChannel {
 			audioContext.sampleRate / 2, // don't filter the noise
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
+			0,		// LFO 1 phase
 			100,	// LFO 1 gain
 			0,		// LFO 1 delay
 			0,		// LFO 2 attack
@@ -1715,6 +1720,7 @@ class SubtractiveSynthChannel {
 			5,		// LFO 2 rate
 			5,		// LFO 2 min rate
 			5,		// LFO 2 max rate
+			0,		// LFO 2 phase
 			100,	// LFO 2 gain
 			0,		// LFO 2 delay
 			0,		// LFO 2 attack
@@ -1723,6 +1729,7 @@ class SubtractiveSynthChannel {
 			0,		// LFO 2 doesn't retrigger
 			'sine',	// LFO 3 shape
 			5,		// LFO 3 rate
+			0,		// LFO 3 phase
 			100,	// LFO 3 gain
 			0,		// LFO 3 delay
 			0,		// LFO 3 attack
@@ -2620,6 +2627,18 @@ class SubtractiveSynthChannel {
 				value = clamp(value);
 				this.lfo3.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO3_RATE] = value;
+				break;
+
+			case Parameter.LFO1_PHASE:
+				this.lfo1.phase = value / 360;
+				break;
+
+			case Parameter.LFO2_PHASE:
+				this.lfo2.phase = value / 360;
+				break;
+
+			case Parameter.LFO3_PHASE:
+				this.lfo3.phase = value / 360;
 				break;
 
 			case Parameter.LFO1_GAIN:
