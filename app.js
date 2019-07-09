@@ -295,7 +295,7 @@ function updateGraphedSound() {
 		const parameterMap = new Map();
 		parameterMap.set(Synth.Param.WAVE_X, new Synth.Change(Synth.ChangeType.SET, graphPointsX));
 		parameterMap.set(Synth.Param.WAVE_Y, new Synth.Change(Synth.ChangeType.SET, graphPointsY));
-		channels[0].setParameters(parameterMap, undefined, false);
+		channels[0].setParameters(parameterMap);
 	}
 }
 

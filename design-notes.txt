@@ -19,7 +19,6 @@ Signal follower machine
 
 changes for 1 line vs changes over a pattern vs ongoing results?
 
-
 ------
 LFO rate modulated by an envelope
 LFO amount modulated by an LFO

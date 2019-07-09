@@ -30,8 +30,11 @@ class MyMachine extends Machine {
 				continue;
 			}
 
-			switch (change.parameterNumber) {
-			case this.Param.PARAMETER_NAME:
+			const parameterNumber = change.parameterNumber;
+			let value = parameters[parameterNumber];
+
+			switch (parameterNumber) {
+			case Parameter.PARAMETER_NAME:
 				// Implement the parameter change here.
 				break;
 

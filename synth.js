@@ -1359,7 +1359,7 @@ class SynthSystem {
 		this.ondatarecorded = undefined;
 		this.setRecordingFormat(undefined, undefined);
 
-		const noiseLength = 30;
+		const noiseLength = 3;
 		const stereoNoiseBuffer = audioContext.createBuffer(2, noiseLength * sampleRate, sampleRate);
 		fillNoise(stereoNoiseBuffer);
 		const stereoNoise = audioContext.createBufferSource();
