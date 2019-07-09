@@ -1674,7 +1674,7 @@ class SampleAndHoldNode extends AudioWorkletNode {
 	}
 }
 
-class SubtractiveSynthChannel {
+class Channel {
 	constructor(system) {
 		const audioContext = system.audioContext;
 		this.system = system;
@@ -3239,7 +3239,7 @@ keymap.set('BracketRight', 79);
 
 global.Synth = {
 	Change: Change,
-	SubtractiveSynthChannel: SubtractiveSynthChannel,
+	Channel: Channel,
 	System: SynthSystem,
 	ChangeType: ChangeType,
 	Direction: Direction,

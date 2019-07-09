@@ -26,9 +26,9 @@ class ChebyshevMachine extends Machine {
 		'HARMONIC_10',	// Weighting of T10(x)
 		'ODD',			// Odd harmonics are multiplied by this amount
 		'EVEN',			// Even harmonics are multiplied by this amount
-		'SLOPE',
-		'OFFSET',		// Amount of offset to add as a proportion of the amount of drive.
+		'SLOPE',		// Higher harmonics are reduced when this parameter is less than one.
 		'DRIVE',		// Non-negative number. Zero is no distortion.
+		'OFFSET',		// Amount of offset to add as a proportion of the amount of drive.
 		'ACCURACY',		// An integer from 0 (least accurate) to 31 (most accurate)
 	]);
 
@@ -47,8 +47,8 @@ class ChebyshevMachine extends Machine {
 			1,	// Don't modify odd harmonic weightings.
 			1,	// Don't modify even harmonic weightings.
 			1,	// No slope. Don't modify harmonic weightings.
-			0,	// No offset
 			0,	// No drive
+			0,	// No offset
 			23,	// Default accuracy (280 points)
 		]);
 

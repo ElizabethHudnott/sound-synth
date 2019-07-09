@@ -28,8 +28,8 @@ function setMachine(machine, parameterNumber, value, delay, changeType, channelN
 }
 
 function initialize() {
-	let channel1 = new Synth.SubtractiveSynthChannel(system, true);
-	let channel2 = new Synth.SubtractiveSynthChannel(system, true);
+	let channel1 = new Synth.Channel(system);
+	let channel2 = new Synth.Channel(system);
 	channel2.connect(channel1);
 	channels = [channel1, channel2];
 	system.start();
