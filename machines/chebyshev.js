@@ -61,13 +61,9 @@ class ChebyshevMachine extends Machine {
 		this.outputs = [shaper];
 	}
 
-	setParameters(changes, time) {
-		const Parameter = ChebyshevMachine.Param;		// Parameter names
-		const parameters = this.parameters;		// Parameter values
-		/*Each function in this array gets called at the appropriate time.
-		  This is for changes that that cannot be scheduled using AudioParam automation.
-		*/
-		const callbacks = [];
+	setParameters(changes, time, callbacks) {
+		const Parameter = ChebyshevMachine.Param;	// Parameter names
+		const parameters = this.parameters;			// Parameter values
 		const me = this; // For referring to inside callbacks.
 
 		const numCoefficients = ChebyshevMachine.numberOfPolynomials;
@@ -161,7 +157,6 @@ class ChebyshevMachine extends Machine {
 				me.shaper.curve = curve;
 			});
 		}
-		return callbacks;
 	}
 
 }

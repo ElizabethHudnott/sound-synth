@@ -19,11 +19,11 @@ class PeriodicWaveMachine extends Machine {
 		this.outputs = [];
 	}
 
-	setParameters(changes, time) {
+	setParameters(changes, time, callbacks) {
 		const Parameter = PeriodicWaveMachine.Param; // Parameter names
 		const parameters = this.parameters; // Parameter values
-		const callbacks = [];
 		let dirtyCoefficients = false;
+
 		for (let change of changes) {
 			if (change.machine !== this) {
 				continue;
@@ -40,6 +40,7 @@ class PeriodicWaveMachine extends Machine {
 				break;
 			}
 		}
+
 		if (dirtyCoefficients) {
 			const sin = parameters[Parameter.SIN].slice();
 			sin.unshift(0);
@@ -62,7 +63,6 @@ class PeriodicWaveMachine extends Machine {
 				target.setPeriodicWave(wave);
 			});
 		}
-		return callbacks;
 	}
 
 }

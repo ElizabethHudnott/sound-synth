@@ -2405,10 +2405,7 @@ class Channel {
 					machineChanges.push(new MachineChange(machine, machineParamNum, changeType, value));
 				}
 				for (let machine of machines) {
-					const machineCallbacks = machine.setParameters(machineChanges, time);
-					if (machineCallbacks) {
-						callbacks.push(...machineCallbacks);
-					}
+					machine.setParameters(machineChanges, time, callbacks);
 				}
 				continue;
 			}
@@ -3239,7 +3236,7 @@ keymap.set('BracketRight', 79);
 
 global.Synth = {
 	Change: Change,
-	Channel: Channel,
+	Channel:  Channel,
 	System: SynthSystem,
 	ChangeType: ChangeType,
 	Direction: Direction,

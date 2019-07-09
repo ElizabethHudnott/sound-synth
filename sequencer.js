@@ -605,6 +605,9 @@ class Phrase {
 				rows[propertyName] = map;
 			}
 		}
+		if (length === undefined) {
+			length = rows.length;
+		}
 		const newPhrase = new Phrase('Untitled', length);
 		newPhrase.rows = rows;
 		return newPhrase;

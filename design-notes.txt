@@ -1,40 +1,34 @@
-Song
-*	Initial parameters for Channel 1,... Channel N
-*	Loop from
-
+Sequencer
+---------
+Ability to transpose a column?
 Allow each column to loop independently
-Make duration proportional to line time
 Phrase loop on/off, loop start point
 Hold and decay samples?
 Add pattern starting offset to song data
-song playback shouldn't all be scheduled at once
-sample finetune
-add sample slicing
 Loop start and end position incrementing (how to counter messing up fades?)
 Phrase/pattern forwards/backwards (step 1, -1,...) (other values may mess up fades)
+Song playback shouldn't all be scheduled at once
+Initial song parameters for Channel 1,... Channel N
+Loop from
+
+Synth
+-----
+Make duration proportional to line time
+Choice of New Note Action (release, cut)
+Sample finetune
+Add sample slicing
 Probability
 Instruments
 Automations
 Signal follower machine
-
-changes for 1 line vs changes over a pattern vs ongoing results?
+Changes for 1 line vs changes over a pattern vs ongoing results?
 
 ------
 LFO rate modulated by an envelope
 LFO amount modulated by an LFO
 LFO attack time
 Pulse width modulated by an envelope
-
 --------
-
-
-FM synth
-
-WAVEFORM_LFO
-
-Noise.FIXED
-Noise.FILTER
-Noise.SAMPLE_AND_HOLD
 
 --------
 Method				Phrase/Column	Pattern		Song
@@ -113,7 +107,7 @@ synth.mjs
 	System (SynthSystem)
 
 synth-channel.mjs
-	Channel (SubtractiveSynthChannel)
+	Channel
 	Wave
 
 keymap.mjs

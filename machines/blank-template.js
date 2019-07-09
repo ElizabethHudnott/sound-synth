@@ -17,14 +17,11 @@ class MyMachine extends Machine {
 		this.outputs = [];
 	}
 
-	setParameters(changes, time) {
+	setParameters(changes, time, callbacks) {
 		const Parameter = MyMachine.Param;		// Parameter names
 		const parameters = this.parameters;		// Parameter values
-		/*Each function in this array gets called at the appropriate time.
-		  This is for changes that that cannot be scheduled using AudioParam automation.
-		*/
-		const callbacks = [];
 		const me = this; // For referring to inside callbacks.
+
 		for (let change of changes) {
 			if (change.machine !== this) {
 				continue;
@@ -43,7 +40,6 @@ class MyMachine extends Machine {
 				break;
 			}
 		}
-		return callbacks;
 	}
 
 }
