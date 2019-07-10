@@ -162,7 +162,7 @@
 				<fieldset>
 					<legend>Frequency</legend>
 					<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="80" max="8000" value="440" step="0.001">Frequency<br>
-					<input id="note" type="range" oninput="playNote(Synth.Gate.MULTI_TRIGGER)" min="21" max="108" value="69">Note<br>
+					<input id="note" type="range" oninput="playNote(Synth.Gate.LEGATO_TRIGGER)" min="21" max="108" value="69">Note<br>
 				</fieldset>
 				<fieldset>
 					<legend>Vibrato</legend>
@@ -294,7 +294,7 @@
 					<input type="range" oninput="set(Synth.Param.RETRIGGER_VOLUME, parseFloat(this.value), 0, Synth.ChangeType.EXPONENTIAL)" min="1" max="100" value="100">
 					Retrigger Volume
 					<br>
-					<input type="checkbox" oninput="set(Synth.Param.MULTI_TRIGGER, this.checked)">Use Multi-Trigger
+					<input type="checkbox" oninput="set(Synth.Param.LEGATO_TRIGGER, this.checked)">Use Multi-Trigger
 				</fieldset>
 				<fieldset>
 					<legend>Pan</legend>

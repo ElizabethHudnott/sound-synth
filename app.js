@@ -192,7 +192,7 @@ document.addEventListener('keydown', function (event) {
 				gate = Synth.Gate.OPEN;
 			}
 			if (!document.getElementById('retrigger').checked) {
-				gate = gate + Synth.Gate.MULTI_TRIGGERABLE;
+				gate = gate + Synth.Gate.LEGATO;
 			}
 			playNote(gate);
 			event.preventDefault();

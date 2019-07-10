@@ -33,6 +33,8 @@ class ChebyshevMachine extends Machine {
 	]);
 
 	constructor(audioContext) {
+		// Call the superclass constructor, passing it initial values for each of the
+		// machine's parameters.
 		super([
 			1,	// Amount of 1st harmonic. Default to no distortion.
 			0,	// Amount of 2nd harmonic. Default to no distortion.
@@ -52,12 +54,17 @@ class ChebyshevMachine extends Machine {
 			23,	// Default accuracy (280 points)
 		]);
 
+		// Here we create the machine's internal components using the Web Audio API.
+		// In this case we just need a single WaveShaperNode.
 		const shaper = audioContext.createWaveShaper();
 		this.shaper = shaper;
 
-		// Connecting a node to this machine will connect that node to each of these internal destinations.
+		// Connecting a node to this machine will connect that node to each of these
+		// internal destinations.
 		this.inputs = [shaper];
-		// Connecting this machine to an external destination will connect each of these internal nodes to the external destination.
+
+		// Connecting this machine to an external destination will connect each of these
+		// internal nodes to the external destination.
 		this.outputs = [shaper];
 	}
 
@@ -65,8 +72,6 @@ class ChebyshevMachine extends Machine {
 		const Parameter = ChebyshevMachine.Param;	// Parameter names
 		const parameters = this.parameters;			// Parameter values
 		const me = this; // For referring to inside callbacks.
-
-		const numCoefficients = ChebyshevMachine.numberOfPolynomials;
 		let dirtyCurve = false;
 
 		for (let change of changes) {
@@ -87,7 +92,7 @@ class ChebyshevMachine extends Machine {
 				parameters[Parameter.ACCURACY] = value;
 			}
 
-			if (parameterNumber <= Parameter.ACCURACY) {
+			if (parameterNumber >= 0 && parameterNumber <= Parameter.ACCURACY) {
 				dirtyCurve = true;
 			} else {
 				console.error(this.constructor.name + ': An unknown parameter name was used.');
@@ -96,6 +101,7 @@ class ChebyshevMachine extends Machine {
 
 		if (dirtyCurve) {
 			// Compute the weightings
+			const numCoefficients = ChebyshevMachine.numberOfPolynomials;
 			const coefficients = new Array(numCoefficients);
 			const odd = parameters[Parameter.ODD];
 			for (let i = 0; i < numCoefficients; i += 2) {

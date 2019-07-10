@@ -229,7 +229,7 @@ const Parameter = enumFromArray([
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
-	'MULTI_TRIGGER', // 0 or 1 (for chords)
+	'LEGATO_CHORD', // 0 or 1 (for chords)
 	'RETRIGGER_VOLUME', // percentage of original note volume
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
@@ -340,8 +340,8 @@ const Gate = Object.freeze({
 	OPEN: 2,
 	TRIGGER: 3,
 	REOPEN: 6,
-	MULTI_TRIGGER: 7,
-	MULTI_TRIGGERABLE: 4, // add to OPEN or TRIGGER
+	LEGATO_TRIGGER: 7,
+	LEGATO: 4, // add to OPEN or TRIGGER
 });
 
 const Wave = Object.freeze({
@@ -2097,7 +2097,7 @@ class Channel {
 					usingSamples = true;
 				} else {
 					// First time the gate's been opened since switching into oscillator mode.
-					if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
+					if ((state & Gate.LEGATO) === 0) {
 						this.sampleGain.gain.setValueAtTime(0, start);
 					}
 					this.oscillatorGain.gain.setValueAtTime(1 - noise, start);
@@ -2117,7 +2117,7 @@ class Channel {
 		let beginRelease, endTime;
 		const releaseConstant = 4;
 
-		if ((state & Gate.MULTI_TRIGGERABLE) === 0) {
+		if ((state & Gate.LEGATO) === 0) {
 			gain.cancelAndHoldAtTime(start - 0.001);
 			gain.setTargetAtTime(0, start - 0.001, 0.001 / 2);
 			if ((state & Gate.OPEN) !== 0) {
@@ -2158,7 +2158,7 @@ class Channel {
 				break;
 
 			case Gate.TRIGGER:
-			case Gate.MULTI_TRIGGER:
+			case Gate.LEGATO_TRIGGER:
 				this.triggerLFOs(start);
 				this.playSample(note, start);
 				const sampleBufferNode = this.sampleBufferNode;
@@ -2211,7 +2211,7 @@ class Channel {
 			break;
 
 		case Gate.TRIGGER:
-		case Gate.MULTI_TRIGGER:
+		case Gate.LEGATO_TRIGGER:
 			this.triggerLFOs(start);
 			let endHold = start + scaleAHD * this.endHold;
 			let endDecay = start + scaleAHD * this.endDecay;
@@ -2371,7 +2371,7 @@ class Channel {
 		const tickTime = (lineTime * TIME_STEP) / numTicks;
 
 		if (step === undefined) {
-			step = (Math.max(this.system.audioContext.currentTime + 0.002, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
+			step = (Math.max(this.system.audioContext.currentTime + 0.003, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
 		}
 		const delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
@@ -2833,9 +2833,9 @@ class Channel {
 				}
 				break;
 
-			case Parameter.MULTI_TRIGGER:
+			case Parameter.LEGATO_CHORD:
 				value = Math.trunc(Math.abs(value)) % 2;
-				parameters[Parameter.MULTI_TRIGGER] = value;
+				parameters[Parameter.LEGATO_CHORD] = value;
 				break;
 
 			case Parameter.RETRIGGER_VOLUME:
@@ -2985,7 +2985,7 @@ class Channel {
 				}
 				const pattern = parameters[Parameter.CHORD_PATTERN];
 
-				const retriggerGate = Gate.TRIGGER + parameters[Parameter.MULTI_TRIGGER] * Gate.MULTI_TRIGGERABLE;
+				const retriggerGate = Gate.TRIGGER + parameters[Parameter.LEGATO_CHORD] * Gate.LEGATO;
 				let retriggerVolumeChange;
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
 					retriggerVolumeChange = new Change(ChangeType.SET, endVolume);

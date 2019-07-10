@@ -7,13 +7,18 @@ class MyMachine extends Machine {
 	]);
 
 	constructor(audioContext) {
+		// Call the superclass constructor, passing it initial values for each of the
+		// machine's parameters.
 		super([
 			// Insert the default parameter values here.
 		]);
 
-		// Connecting a node to this machine will connect that node to each of these internal destinations.
+		// Connecting a node to this machine will connect that node to each of these
+		// internal destinations.
 		this.inputs = [];
-		// Connecting this machine to an external destination will connect each of these internal nodes to the external destination.
+
+		// Connecting this machine to an external destination will connect each of these
+		// internal nodes to the external destination.
 		this.outputs = [];
 	}
 
