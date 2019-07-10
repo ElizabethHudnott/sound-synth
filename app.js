@@ -44,6 +44,10 @@ function initialize() {
 	sendNewLine();
 	setInterval(sendNewLine, BUFFER_LENGTH * 20);
 
+	Midi.webLink.addEventListener('synthinput', function (event) {
+		channel1.setParameters(event.changes);
+	});
+
 	const piano = new Synth.SampledInstrument();
 	system.instruments[0] = piano;
 	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').then(resourceLoaded).catch(resourceError);

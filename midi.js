@@ -1,9 +1,19 @@
 (function (global) {
 'use strict';
 
-class Midi {
+class SynthInputEvent extends Event {
+	constructor(synthChannel, changes) {
+		super('synthinput');
+		this.synthChannel = synthChannel;
+		this.changes = changes;
+	}
+}
+
+class Midi extends EventTarget {
 
 	constructor() {
+		super();
+
 		// Map each MIDI channel to one or more synth channels.
 		const fromChannel = new Array(16);
 		const toChannel = new Array(16);
@@ -36,7 +46,7 @@ class Midi {
 		this.midiGates.fill(Synth.Gate.OPEN);
 	}
 
-	convertMIDI(bytes) {
+	parseMIDI(bytes) {
 		const parameterMap = new Map();
 		const command = bytes[0] & 0xf0;
 		const midiChannel = bytes[0] & 0x0f;
@@ -99,6 +109,13 @@ class Midi {
 
 		return [synthChannel, parameterMap];
 	}
+
+	parseAndDispatch(bytes) {
+		const [synthChannel, parameterMap] = this.parseMIDI(bytes);
+		const event = new SynthInputEvent(synthChannel, parameterMap);
+		this.dispatchEvent(event);
+	}
+
 }
 
 const webLink = new Midi();
@@ -118,13 +135,13 @@ function webMIDILinkReceive(event) {
 		}
 		bytes.push(value);
 	}
-	const [synthChannel, parameterMap] = webLink.convertMIDI(bytes);
-	console.log(parameterMap);
+	webLink.parseAndDispatch(bytes);
 }
 
 window.addEventListener("message", webMIDILinkReceive);
 
 global.Midi = {
+	SynthInputEvent: SynthInputEvent,
 	webLink: webLink,
 };
 
