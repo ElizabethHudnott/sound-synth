@@ -143,7 +143,7 @@ const Parameter = enumFromArray([
 	'WAVE_X',		// coordinates for piecewise linear waveform
 	'WAVE_Y',
 	// Parameters above this line are array parameters
-	'VELOCITY',		// percentage
+	'VELOCITY',		// 1 to 127
 	'ATTACK',		// in milliseconds
 	'ATTACK_CURVE', // 0.5 = linear approximation, 3 = good exponential choice
 	'HOLD',			// in milliseconds
@@ -1685,7 +1685,7 @@ class Channel {
 			[69],	// MIDI note numbers
 			[0, 15, 17, 32],		// custom waveform
 			[-1, 0.25, -0.25, 1],
-			100,	// velocity
+			127,	// velocity
 			2,		// attack
 			0.5,	// attack curve
 			0,		// hold
@@ -2430,7 +2430,7 @@ class Channel {
 				break;
 
 			case Parameter.VELOCITY:
-				this.velocity = expCurve(value, 1);
+				this.velocity = expCurve(value / 1.27, 1);
 				dirtySustain = true;
 				break;
 
@@ -2886,7 +2886,7 @@ class Channel {
 			this.calcEnvelope();
 		}
 		if (dirtySustain) {
-			this.sustain = expCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 100, 1);
+			this.sustain = expCurve(parameters[Parameter.VELOCITY] * parameters[Parameter.SUSTAIN] / 127, 1);
 		}
 		if (dirtyCustomWave) {
 			const shape = this.waveShapeFromCoordinates();
