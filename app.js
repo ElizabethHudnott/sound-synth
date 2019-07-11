@@ -44,8 +44,18 @@ function initialize() {
 	sendNewLine();
 	setInterval(sendNewLine, BUFFER_LENGTH * 20);
 
+	Midi.webLink.toChannel[0] = 1;
+
 	Midi.webLink.addEventListener('synthinput', function (event) {
-		channel1.setParameters(event.changes);
+		console.log('MIDI message received.');
+		console.log('Synth channels: ' + event.channels);
+		console.log('Parameters:');
+		for (let [key, change] of event.changes) {
+			console.log('\t' + key + ' -> ' + change.value);
+		}
+		for (let channelNumber of event.channels) {
+			channels[channelNumber].setParameters(event.changes);
+		}
 	});
 
 	const piano = new Synth.SampledInstrument();
@@ -84,7 +94,9 @@ function begin() {
 
 const emptyMap = new Map();
 function sendNewLine() {
-	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
+	const gateOpen = (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN;
+	const midiArpeggio = Midi.webLink.arpeggio[0] && Midi.webLink.notes[0].length > 0;
+	if (gateOpen || midiArpeggio) {
 		const now = system.nextStep();
 		let nextLine = Math.max(now, system.nextLine);
 		const bufferUntil = now + BUFFER_LENGTH;
@@ -284,12 +296,17 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 		Sampler.stopRecording();
 		event.currentTarget.children[0].src = 'img/record.png';
 	} else {
-		Sampler.requestPermission().then(function () {
+		Sampler.requestAccess().then(function () {
 			Sampler.startRecording();
 			document.getElementById('sampler-btn').children[0].src = 'img/stop.png';
 		});
 	}
 });
+
+function testMIDI(channel, command, ...data) {
+	const bytes = [command | channel].concat(data);
+	Midi.webLink.parseAndDispatch(bytes);
+}
 
 let graphPointsX = [0, 15, 17, 32];
 let graphPointsY = [-1, 0.25, -0.25, 1];

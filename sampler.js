@@ -8,7 +8,7 @@ const Sampler = {
 	devices: select,
 	ondatarecorded: undefined,
 	recording: false,
-	requestPermission: requestPermission,
+	requestAccess: requestAccess,
 	startRecording: startRecording,
 	stopRecording: stopRecording,
 	cancelRecording: cancelRecording,
@@ -61,7 +61,7 @@ function dataAvailable(event) {
 	reader.readAsArrayBuffer(event.data);
 }
 
-function requestPermission(constraints) {
+function requestAccess(constraints) {
 	if (constraints === undefined) {
 		constraints = {};
 	}
