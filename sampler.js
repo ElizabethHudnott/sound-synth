@@ -2,6 +2,7 @@
 'use strict';
 
 const select = document.createElement('select');
+select.id = 'recording-device';
 let mediaStream, recorder;
 
 const Sampler = {
@@ -17,7 +18,7 @@ const Sampler = {
 function filterDevices(devices) {
 	select.innerHTML = '';
 	let option = document.createElement('option');
-	option.appendChild(document.createTextNode('Default Recording Device'));
+	option.innerText = 'Default Recording Device';
 	option.value = '';
 	select.appendChild(option);
 
@@ -29,7 +30,7 @@ function filterDevices(devices) {
 			if (label === '') {
 				label = 'Device ' + String(i + 1);
 			}
-			option.appendChild(document.createTextNode(label));
+			option.innerText = label;
 			option.value = device.deviceId;
 			select.appendChild(option);
 		}
@@ -55,7 +56,7 @@ function dataAvailable(event) {
 	stopStream();
 	const reader = new FileReader();
 	reader.onloadend = function (event) {
-		audioContext.decodeAudioData(event.target.result)
+		audioContext.decodeAudioData(this.result)
 		.then(Sampler.ondatarecorded)
 	};
 	reader.readAsArrayBuffer(event.data);

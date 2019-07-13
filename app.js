@@ -1,11 +1,42 @@
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext({latencyHint: 0.04});
 const system = new Synth.System(audioContext, initialize);
+let debug = true;
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels;
+let midiPort, midiChannel = 0;
 
 document.getElementById('input-device').prepend(Sampler.devices);
+{
+	const select = Midi.ports;
+	const div = document.getElementById('midi');
+	div.insertBefore(select, div.children[0]);
+
+	select.addEventListener('input', function (event) {
+		if (midiPort !== undefined) {
+			midiPort.removeEventListener('synthinput', processMIDI);
+		}
+		midiPort = Midi.port(this.value);
+		midiPort.addEventListener('synthinput', processMIDI);
+	});
+}
+
+document.getElementById('midi-channel').addEventListener('input', function (event) {
+	const newChannel = parseInt(this.value);
+	if (midiPort !== undefined) {
+		midiPort.fromChannel[midiChannel] = undefined;
+		midiPort.fromChannel[newChannel] = 0;
+		if (document.getElementById('midi-modes').children[0].checked) {
+			midiPort.toChannel[newChannel] = 1;
+			midiPort.arpeggio[newChannel] = false;
+		} else {
+			midiPort.toChannel[newChannel] = undefined;
+			midiPort.arpeggio[newChannel] = true;
+		}
+		midiChannel = newChannel;
+	}
+});
 
 system.ondatarecorded = function (blob) {
 	const mediaElement = document.getElementById('recording');
@@ -27,12 +58,49 @@ function setMachine(machine, parameterNumber, value, delay, changeType, channelN
 	system.setMachine(machine, parameterNumber, value, delay, changeType, channelNumber);
 }
 
+function processMIDI(event) {
+	if (debug) {
+		console.log('MIDI message received.');
+		console.log('Synth channels: ' + event.channels);
+		console.log('Parameters:');
+		for (let [key, change] of event.changes) {
+			console.log('\t' + key + ' -> ' + change.value);
+		}
+	}
+	const numChannels = channels.length;
+	for (let channelNumber of event.channels) {
+		if (channelNumber < numChannels) {
+			channels[channelNumber].setParameters(event.changes, undefined, true);
+		}
+	}
+}
+
+// Pretends data has arrived from a MIDI device.
+function testMIDI(channel, command, ...data) {
+	const bytes = [command | channel].concat(data);
+	midiPort.parseAndDispatch(bytes);
+}
+
 function initialize() {
 	let channel1 = new Synth.Channel(system);
 	let channel2 = new Synth.Channel(system);
 	channel2.connect(channel1);
 	channels = [channel1, channel2];
 	system.start();
+
+	function initMIDI() {
+		const value = Midi.ports.value;
+		if (value !== "") {
+			midiPort = Midi.port(value);
+		} else if (debug) {
+			midiPort = new Midi.Midi('MIDI Debugger');
+		}
+		midiPort.addEventListener('synthinput', processMIDI);
+		midiPort.fromChannel[0] = 0;
+		midiPort.toChannel[0] = 1;
+	}
+
+	Midi.requestAccess().then(initMIDI, initMIDI);
 
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.FILTER_MIX, new Synth.Change(Synth.ChangeType.SET, 0));
@@ -43,20 +111,6 @@ function initialize() {
 
 	sendNewLine();
 	setInterval(sendNewLine, BUFFER_LENGTH * 20);
-
-	Midi.webLink.toChannel[0] = 1;
-
-	Midi.webLink.addEventListener('synthinput', function (event) {
-		console.log('MIDI message received.');
-		console.log('Synth channels: ' + event.channels);
-		console.log('Parameters:');
-		for (let [key, change] of event.changes) {
-			console.log('\t' + key + ' -> ' + change.value);
-		}
-		for (let channelNumber of event.channels) {
-			channels[channelNumber].setParameters(event.changes);
-		}
-	});
 
 	const piano = new Synth.SampledInstrument();
 	system.instruments[0] = piano;
@@ -95,8 +149,7 @@ function begin() {
 const emptyMap = new Map();
 function sendNewLine() {
 	const gateOpen = (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN;
-	const midiArpeggio = Midi.webLink.arpeggio[0] && Midi.webLink.notes[0].length > 0;
-	if (gateOpen || midiArpeggio) {
+	if (gateOpen) {
 		const now = system.nextStep();
 		let nextLine = Math.max(now, system.nextLine);
 		const bufferUntil = now + BUFFER_LENGTH;
@@ -233,7 +286,9 @@ document.addEventListener('keyup', function (event) {
 });
 
 window.addEventListener('blur', function (event) {
-	//set(Synth.Param.GATE, Synth.Gate.CLOSED);
+	if (!debug) {
+		set(Synth.Param.GATE, Synth.Gate.CLOSED);
+	}
 });
 
 function resourceLoaded(resource) {
@@ -258,7 +313,7 @@ function uploadSamples() {
 	for (let i = 0; i < files.length; i++) {
 		const option = document.createElement('option');
 		option.value = offset + i;
-		option.appendChild(document.createTextNode(files[i].name));
+		option.innerText = files[i].name;
 		dropDown.appendChild(option);
 	}
 
@@ -287,7 +342,7 @@ Sampler.ondatarecorded = function (buffer) {
 	system.instruments.push(instrument);
 	const option = document.createElement('option');
 	option.value = instrumentNumber;
-	option.appendChild(document.createTextNode('Recording ' + instrumentNumber));
+	option.innerText = 'Recording ' + instrumentNumber;
 	dropDown.appendChild(option);
 }
 
@@ -302,11 +357,6 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 		});
 	}
 });
-
-function testMIDI(channel, command, ...data) {
-	const bytes = [command | channel].concat(data);
-	Midi.webLink.parseAndDispatch(bytes);
-}
 
 let graphPointsX = [0, 15, 17, 32];
 let graphPointsY = [-1, 0.25, -0.25, 1];

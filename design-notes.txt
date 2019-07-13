@@ -23,6 +23,13 @@ Automations
 Signal follower machine
 Changes for 1 line vs changes over a pattern vs ongoing results?
 
+MIDI
+----
+handle MIDI channels sharing synth channels
+open & close
+react to device state change (e.g. being unplugged or reconnected)
+message timestamps
+
 ------
 LFO rate modulated by an envelope
 LFO amount modulated by an LFO

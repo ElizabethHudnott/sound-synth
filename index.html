@@ -23,9 +23,35 @@
 					<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
 					<button onclick="set(Synth.Param.GATE, channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
 					<br>
-					<small>You can also play notes using the computer keyboard.</small><br>
+					<small>You can also play notes using the computer keyboard or using MIDI.</small><br>
 					<input id="one-shot" type="checkbox" checked>One Shot
 					<input id="retrigger" type="checkbox" checked>Retrigger
+					<br>
+					<div id="midi">
+						MIDI:
+						<select id="midi-channel">
+							<option value="0">1</option>
+							<option value="1">2</option>
+							<option value="2">3</option>
+							<option value="3">4</option>
+							<option value="4">5</option>
+							<option value="5">6</option>
+							<option value="6">7</option>
+							<option value="7">8</option>
+							<option value="8">9</option>
+							<option value="9">10</option>
+							<option value="10">11</option>
+							<option value="11">12</option>
+							<option value="12">13</option>
+							<option value="13">14</option>
+							<option value="14">15</option>
+							<option value="15">16</option>
+						</select>
+						<div id="midi-modes">
+							<input type="radio" name="midi-mode" value="poly" checked>Two Note Polyphony
+							<input type="radio" name="midi-mode" value="arp">Arpeggio
+						</div>
+					</div>
 				</fieldset>
 				<fieldset>
 					<legend>Generation</legend>

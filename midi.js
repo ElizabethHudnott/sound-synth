@@ -11,18 +11,20 @@ class SynthInputEvent extends Event {
 
 class Midi extends EventTarget {
 
-	constructor() {
+	constructor(name, manufacturer, version) {
 		super();
+		this.name = name || null;
+		this.manufacturer = manufacturer || null;
+		this.version = version || null;
 
-		// Map each MIDI channel to one or more synth channels.
+		/* Map each MIDI channel to one or more synth channels.
+		 * If fromChannel[i] === undefined then the channel doesn't raise events.
+		 */
 		const fromChannel = new Array(16);
 		const toChannel = new Array(16);
 		this.fromChannel = fromChannel;
 		this.toChannel = toChannel;
-		for (let i = 0; i < 16; i++) {
-			fromChannel[i] = i;
-			toChannel[i] = i;
-		}
+		fromChannel[0] = 0;
 
 		/* The notes being recorded on each MIDI channel in ascending pitch order if an
 		 * arpeggio is being played, or from first down to last down if not...
@@ -66,6 +68,16 @@ class Midi extends EventTarget {
 		const parameterMap = new Map();
 		const command = bytes[0] & 0xf0;
 		const midiChannel = bytes[0] & 0x0f;
+		const fromChannel = this.fromChannel[midiChannel];
+		let toChannel = this.toChannel[midiChannel];
+
+		if (fromChannel === undefined) {
+			return [[], parameterMap];
+		}
+		if (toChannel === undefined || toChannel < fromChannel) {
+			toChannel = fromChannel;
+		}
+
 		let synthChannel = 0;
 
 		switch (command) {
@@ -77,7 +89,7 @@ class Midi extends EventTarget {
 					const note = bytes[1];
 					const notes = this.notes[midiChannel];
 					if (this.arpeggio[midiChannel]) {
-						synthChannel = this.fromChannel[midiChannel];
+						synthChannel = fromChannel;
 						let noteIndex = notes.length;
 						while (noteIndex > 0 && notes[noteIndex - 1] < note) {
 							noteIndex--;
@@ -88,8 +100,6 @@ class Midi extends EventTarget {
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes.slice()));
 						}
 					} else {
-						const fromChannel = this.fromChannel[midiChannel];
-						const toChannel = this.toChannel[midiChannel];
 						const numChannels = toChannel - fromChannel + 1;
 						const synthChannels = this.notesToChannels[midiChannel];
 						let noteIndex = notes.indexOf(note);
@@ -150,7 +160,7 @@ class Midi extends EventTarget {
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes.slice()));
 						}
 					} else {
-						const numChannels = this.toChannel[midiChannel] - this.fromChannel[midiChannel] + 1;
+						const numChannels = toChannel - fromChannel + 1;
 						if (notes.length + 1 > numChannels) {
 							let revivedIndex = notes.length - 1;
 							while (synthChannels[revivedIndex] !== undefined) {
@@ -190,51 +200,95 @@ class Midi extends EventTarget {
 
 	parseAndDispatch(bytes) {
 		const [channels, parameterMap] = this.parseMIDI(bytes);
-		const event = new SynthInputEvent(channels, parameterMap);
-		this.dispatchEvent(event);
+		if (channels.length > 0) {
+			const event = new SynthInputEvent(channels, parameterMap);
+			this.dispatchEvent(event);
+		}
 	}
 
 }
 
-const webLink = new Midi();
 
-function webMIDILinkReceive(event) {
-	const message = event.data.split(',');
-	if (message[0].toLowerCase() !== 'midi') {
-		return;
-	}
-	const bytes = [];
-	const numFields = message.length;
-	for (let i = 1; i < numFields; i++) {
-		const value = parseInt(message[i], 16);
-		if (Number.isNaN(value)) {
-			console.warn('Invalid Web MIDI Link message received: ' + event.data);
+const midiObjects = new Map();
+const select = document.createElement('select');
+select.id = 'midi-port';
+
+function addPortToUI(id, name) {
+	const option = document.createElement('option');
+	option.value = id;
+	option.innerText = name;
+	select.appendChild(option);
+}
+
+if (window.parent !== window || window.opener !== null) {
+	const webLink = new Midi('WebMidiLink', 'g200kg', '0');
+	midiObjects.set('WebMidiLink', webLink);
+	addPortToUI('WebMidiLink', 'WebMidiLink');
+
+	function webMIDILinkReceive(event) {
+		const message = event.data.split(',');
+		if (message[0].toLowerCase() !== 'midi') {
 			return;
 		}
-		bytes.push(value);
+		const bytes = [];
+		const numFields = message.length;
+		for (let i = 1; i < numFields; i++) {
+			const value = parseInt(message[i], 16);
+			if (Number.isNaN(value)) {
+				console.warn('Invalid Web MIDI Link message received: ' + event.data);
+				return;
+			}
+			bytes.push(value);
+		}
+		webLink.parseAndDispatch(bytes);
 	}
-	webLink.parseAndDispatch(bytes);
-}
 
-window.addEventListener("message", webMIDILinkReceive);
+	window.addEventListener("message", webMIDILinkReceive);
+}
 
 let access;
 
 function requestAccess() {
 	if (navigator.requestMIDIAccess) {
-		navigator.requestMIDIAccess().then(function (midiAccess) {
+		return navigator.requestMIDIAccess().then(function (midiAccess) {
 			access = midiAccess;
+			for (let [id, port] of midiAccess.inputs) {
+				addPortToUI(id, port.name || id);
+			}
 		});
-		return true;
 	} else {
-		return false;
+		return Promise.reject(new Error("Browser doesn't support Web MIDI."));
 	}
 }
 
+function port(id) {
+	let midiObject = midiObjects.get(id);
+
+	if (midiObject !== undefined) {
+		return midiObject;
+	}
+
+	if (access === undefined) {
+		return undefined;
+	}
+
+	const midiPort = access.inputs.get(id);
+	if (midiPort === undefined) {
+		return undefined;
+	}
+
+	const name = midiPort.name;
+	midiObject = new Midi(name, midiPort.manufacturer, midiPort.version);
+	midiObjects.set(id, midiObject);
+	return midiObject;
+}
+
 global.Midi = {
+	Midi: Midi,
 	SynthInputEvent: SynthInputEvent,
+	port: port,
+	ports: select,
 	requestAccess: requestAccess,
-	webLink: webLink,
 };
 
 })(window);

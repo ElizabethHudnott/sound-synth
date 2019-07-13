@@ -1316,7 +1316,7 @@ class SampledInstrument {
 		return new Promise(function (resolve, reject) {
 			const reader = new FileReader();
 			reader.onloadend = function (event) {
-				const arr = event.target.result;
+				const arr = this.result;
 				const arrCopy = arr.slice(0);
 		  		audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
