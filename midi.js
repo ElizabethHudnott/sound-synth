@@ -2,20 +2,20 @@
 'use strict';
 
 class SynthInputEvent extends Event {
-	constructor(channels, changes) {
+	constructor(channels, changes, timestamp) {
 		super('synthinput');
 		this.channels = channels;
 		this.changes = changes;
+		this.timestamp = timestamp;
 	}
 }
 
 class Midi extends EventTarget {
 
-	constructor(name, manufacturer, version) {
+	constructor(name, port) {
 		super();
-		this.name = name || null;
-		this.manufacturer = manufacturer || null;
-		this.version = version || null;
+		this.name = name;
+		this.port = port;
 
 		/* Map each MIDI channel to one or more synth channels.
 		 * If fromChannel[i] === undefined then the channel doesn't raise events.
@@ -44,8 +44,8 @@ class Midi extends EventTarget {
 		this.arpeggio.fill(false);
 
 		// The gating option used to trigger new notes sent by each MIDI channel.
-		this.midiGates = new Array(16);
-		this.midiGates.fill(Synth.Gate.OPEN);
+		this.gate = new Array(16);
+		this.gate.fill(Synth.Gate.OPEN);
 	}
 
 	enableArpeggio(channel, enabled) {
@@ -137,7 +137,7 @@ class Midi extends EventTarget {
 					}
 
 					parameterMap.set(Synth.Param.VELOCITY, new Synth.Change(Synth.ChangeType.SET, velocity));
-					const gate = this.midiGates[midiChannel];
+					const gate = this.gate[midiChannel];
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 					break;
 				} // else fall through if velocity == 0
@@ -204,11 +204,35 @@ class Midi extends EventTarget {
 		return [[synthChannel], parameterMap];
 	}
 
-	parseAndDispatch(bytes) {
+	parseAndDispatch(bytes, timestamp) {
 		const [channels, parameterMap] = this.parseMIDI(bytes);
 		if (channels.length > 0) {
-			const event = new SynthInputEvent(channels, parameterMap);
+			const event = new SynthInputEvent(channels, parameterMap, timestamp);
 			this.dispatchEvent(event);
+		}
+	}
+
+	open() {
+		const port = this.port;
+		if (port !== undefined) {
+			const me = this;
+			return port.open().then(function (port) {
+				port.onmidimessage = function (event) {
+					me.parseAndDispatch(event.data, event.timestamp);
+				};
+				return me;
+			});
+		}
+	}
+
+	close() {
+		const port = this.port;
+		if (port !== undefined) {
+			const me = this;
+			port.onmidimessage = null;
+			return port.close().then(function (port) {
+				return me;
+			});
 		}
 	}
 
@@ -227,7 +251,7 @@ function addPortToUI(id, name) {
 }
 
 if (window.parent !== window || window.opener !== null) {
-	const webLink = new Midi('WebMidiLink', 'g200kg', '0');
+	const webLink = new Midi('WebMidiLink');
 	midiObjects.set('WebMidiLink', webLink);
 	addPortToUI('WebMidiLink', 'WebMidiLink');
 
@@ -246,10 +270,20 @@ if (window.parent !== window || window.opener !== null) {
 			}
 			bytes.push(value);
 		}
-		webLink.parseAndDispatch(bytes);
+		webLink.parseAndDispatch(bytes, performance.now());
 	}
 
 	window.addEventListener("message", webMIDILinkReceive);
+
+	webLink.open = function () {
+		window.addEventListener("message", webMIDILinkReceive);
+		return Promise.resolve(webLink);
+	}
+
+	webLink.close = function () {
+		window.removeEventListener("message", webMIDILinkReceive);
+		return Promise.resolve(webLink);
+	}
 }
 
 let access;
@@ -283,8 +317,7 @@ function port(id) {
 		return undefined;
 	}
 
-	const name = midiPort.name;
-	midiObject = new Midi(name, midiPort.manufacturer, midiPort.version);
+	midiObject = new Midi(midiPort.name, midiPort);
 	midiObjects.set(id, midiObject);
 	return midiObject;
 }

@@ -1,7 +1,7 @@
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext({latencyHint: 0.04});
 const system = new Synth.System(audioContext, initialize);
-let debug = true;
+let debug = {on: true, midi: false};
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels;
@@ -15,9 +15,10 @@ document.getElementById('input-device').prepend(Sampler.devices);
 
 	select.addEventListener('input', function (event) {
 		if (midiPort !== undefined) {
-			midiPort.removeEventListener('synthinput', processMIDI);
+			midiPort.close();
 		}
 		midiPort = Midi.port(this.value);
+		midiPort.open();
 		midiPort.addEventListener('synthinput', processMIDI);
 	});
 }
@@ -73,7 +74,7 @@ function setMachine(machine, parameterNumber, value, delay, changeType, channelN
 }
 
 function processMIDI(event) {
-	if (debug) {
+	if (debug.midi) {
 		console.log('MIDI message received.');
 		console.log('Synth channels: ' + event.channels);
 		console.log('Parameters:');
@@ -106,12 +107,15 @@ function initialize() {
 		const value = Midi.ports.value;
 		if (value !== "") {
 			midiPort = Midi.port(value);
-		} else if (debug) {
+		} else if (debug.midi) {
 			midiPort = new Midi.Midi('MIDI Debugger');
 		}
-		midiPort.addEventListener('synthinput', processMIDI);
-		midiPort.fromChannel[0] = 0;
-		midiPort.toChannel[0] = 1;
+		if (midiPort !== undefined) {
+			midiPort.open();
+			midiPort.addEventListener('synthinput', processMIDI);
+			midiPort.fromChannel[0] = 0;
+			midiPort.toChannel[0] = 1;
+		}
 	}
 
 	Midi.requestAccess().then(initMIDI, initMIDI);
@@ -300,7 +304,7 @@ document.addEventListener('keyup', function (event) {
 });
 
 window.addEventListener('blur', function (event) {
-	if (!debug) {
+	if (!debug.on) {
 		set(Synth.Param.GATE, Synth.Gate.CLOSED);
 	}
 });
