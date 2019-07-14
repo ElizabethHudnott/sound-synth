@@ -150,19 +150,25 @@ class Midi extends EventTarget {
 				if (noteIndex !== -1) {
 					const synthChannels = this.notesToChannels[midiChannel];
 					synthChannel = synthChannels[noteIndex];
+					const numNotes = notes.length;
 					notes.splice(noteIndex, 1);
 					synthChannels.splice(noteIndex, 1);
 
 					if (this.arpeggio[midiChannel]) {
-						if (notes.length === 0) {
+						if (numNotes === 1) {
+							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
+							if (fromChannel !== synthChannel) {
+								return [[fromChannel, synthChannel], parameterMap];
+							}
+						} else if (synthChannel !== fromChannel) {
 							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 						} else {
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes.slice()));
 						}
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
-						if (notes.length + 1 > numChannels) {
-							let revivedIndex = notes.length - 1;
+						if (numNotes > numChannels) {
+							let revivedIndex = numNotes - 2;
 							while (synthChannels[revivedIndex] !== undefined) {
 								revivedIndex--;
 							}

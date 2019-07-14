@@ -27,14 +27,28 @@ document.getElementById('midi-channel').addEventListener('input', function (even
 	if (midiPort !== undefined) {
 		midiPort.fromChannel[midiChannel] = undefined;
 		midiPort.fromChannel[newChannel] = 0;
-		if (document.getElementById('midi-modes').children[0].checked) {
+		if (document.getElementById('midi-mode-poly').checked) {
 			midiPort.toChannel[newChannel] = 1;
-			midiPort.arpeggio[newChannel] = false;
+			midiPort.enableArpeggio(newChannel, false);
 		} else {
 			midiPort.toChannel[newChannel] = undefined;
-			midiPort.arpeggio[newChannel] = true;
+			midiPort.enableArpeggio(newChannel, true);
 		}
 		midiChannel = newChannel;
+	}
+});
+
+document.getElementById('midi-mode-poly').addEventListener('input', function (event) {
+	if (midiPort !== undefined) {
+		midiPort.toChannel[midiChannel] = 1;
+		midiPort.enableArpeggio(midiChannel, false);
+	}
+});
+
+document.getElementById('midi-mode-arp').addEventListener('input', function (event) {
+	if (midiPort !== undefined) {
+		midiPort.toChannel[midiChannel] = undefined;
+		midiPort.enableArpeggio(midiChannel, true);
 	}
 });
 
