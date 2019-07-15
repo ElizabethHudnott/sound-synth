@@ -328,14 +328,12 @@ function open() {
 }
 
 function close() {
+	for (let midiObject of midiObjects.values()) {
+		midiObject.close();
+	}
 	if (access !== undefined) {
 		access.onstatechange = null;
-		for (let [id, port] of access.inputs) {
-			port.onmidimessage = null;
-			const midiObject = midiObjects.get(id);
-			if (midiObject !== undefined) {
-				midiObject.close();
-			}
+		for (let id of access.inputs.keys()) {
 			removePort(id);
 		}
 		access = undefined;
