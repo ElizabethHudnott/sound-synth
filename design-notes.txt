@@ -26,7 +26,6 @@ Changes for 1 line vs changes over a pattern vs ongoing results?
 MIDI
 ----
 handle MIDI channels sharing synth channels
-react to device state change (e.g. being unplugged or reconnected)
 
 ------
 LFO rate modulated by an envelope

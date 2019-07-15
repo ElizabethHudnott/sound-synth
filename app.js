@@ -118,7 +118,7 @@ function initialize() {
 		}
 	}
 
-	Midi.requestAccess().then(initMIDI, initMIDI);
+	Midi.open().then(initMIDI, initMIDI);
 
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.FILTER_MIX, new Synth.Change(Synth.ChangeType.SET, 0));

@@ -238,22 +238,27 @@ class Midi extends EventTarget {
 
 }
 
-
+// Maps IDs to lazily created 'MIDI objects'.
 const midiObjects = new Map();
 const select = document.createElement('select');
 select.id = 'midi-port';
 
-function addPortToUI(id, name) {
+function addPort(id, name) {
 	const option = document.createElement('option');
 	option.value = id;
 	option.innerText = name;
 	select.appendChild(option);
 }
 
+function removePort(id) {
+	select.querySelector(`option[value="${id}"]`).remove();
+	midiObjects.remove(id);
+}
+
 if (window.parent !== window || window.opener !== null) {
 	const webLink = new Midi('WebMidiLink');
 	midiObjects.set('WebMidiLink', webLink);
-	addPortToUI('WebMidiLink', 'WebMidiLink');
+	addPort('WebMidiLink', 'WebMidiLink');
 
 	function webMIDILinkReceive(event) {
 		const message = event.data.split(',');
@@ -288,16 +293,37 @@ if (window.parent !== window || window.opener !== null) {
 
 let access;
 
-function requestAccess() {
+function open() {
 	if (navigator.requestMIDIAccess) {
 		return navigator.requestMIDIAccess().then(function (midiAccess) {
 			access = midiAccess;
 			for (let [id, port] of midiAccess.inputs) {
-				addPortToUI(id, port.name || id);
+				addPort(id, port.name || id);
 			}
+			access.onstatechange = function (event) {
+				const port = event.port;
+				const id = port.id;
+				if (port.state === 'connected') {
+					addPort(id, port.name || id);
+				} else {
+					removePort(id);
+				}
+			};
 		});
 	} else {
 		return Promise.reject(new Error("Browser doesn't support Web MIDI."));
+	}
+}
+
+function close() {
+	if (access !== undefined) {
+		access.onstatechange = null;
+		for (let [id, port] of access.inputs) {
+			port.onmidimessage = null;
+			port.close();
+			removePort(id);
+		}
+		access = undefined;
 	}
 }
 
@@ -325,9 +351,10 @@ function port(id) {
 global.Midi = {
 	Midi: Midi,
 	SynthInputEvent: SynthInputEvent,
+	open: open,
+	close: close,
 	port: port,
 	ports: select,
-	requestAccess: requestAccess,
 };
 
 })(window);
