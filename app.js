@@ -1,7 +1,7 @@
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext({latencyHint: 0.04});
 const system = new Synth.System(audioContext, initialize);
-let debug = {on: true, midi: false};
+let debug = {on: true, midi: true};
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels;

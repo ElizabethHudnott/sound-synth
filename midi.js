@@ -227,12 +227,23 @@ class Midi extends EventTarget {
 
 	close() {
 		const port = this.port;
+		let promise;
 		if (port !== undefined) {
-			const me = this;
 			port.onmidimessage = null;
-			return port.close().then(function (port) {
+			const me = this;
+			promise = port.close().then(function (port) {
 				return me;
 			});
+		} else {
+			promise = Promise.resolve(this);
+		}
+		this.allSoundOff();
+		return promise;
+	}
+
+	allSoundOff() {
+		for (let i = 0; i < 16; i++) {
+			this.parseAndDispatch([0xb0 | i, 120]); // All notes off
 		}
 	}
 
@@ -287,6 +298,7 @@ if (window.parent !== window || window.opener !== null) {
 
 	webLink.close = function () {
 		window.removeEventListener("message", webMIDILinkReceive);
+		webLink.allSoundOff();
 		return Promise.resolve(webLink);
 	}
 }
@@ -320,7 +332,10 @@ function close() {
 		access.onstatechange = null;
 		for (let [id, port] of access.inputs) {
 			port.onmidimessage = null;
-			port.close();
+			const midiObject = midiObjects.get(id);
+			if (midiObject !== undefined) {
+				midiObject.close();
+			}
 			removePort(id);
 		}
 		access = undefined;
