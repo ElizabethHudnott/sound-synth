@@ -185,6 +185,6 @@ for (let j = 2; j < numPolynomials; j++) {
 }
 
 
-global.Machines.ChebyshevMachine = ChebyshevMachine;
+global.Machines.Chebyshev = ChebyshevMachine;
 
 })(window);

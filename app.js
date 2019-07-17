@@ -1,7 +1,7 @@
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext({latencyHint: 0.04});
 const system = new Synth.System(audioContext, initialize);
-let debug = {on: true, midi: false};
+let debug = {on: true, midi: true};
 let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels;
@@ -108,10 +108,10 @@ function initialize() {
 		if (value !== "") {
 			midiPort = Midi.port(value);
 		} else if (debug.midi) {
-			midiPort = new Midi.Midi('MIDI Debugger');
+			midiPort = new Midi.Midi('Debugger');
+			Midi.addPort('debugger', midiPort);
 		}
 		if (midiPort !== undefined) {
-			midiPort.open();
 			midiPort.addEventListener('synthinput', processMIDI);
 			midiPort.fromChannel[0] = 0;
 			midiPort.toChannel[0] = 1;

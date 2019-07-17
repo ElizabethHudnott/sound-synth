@@ -49,6 +49,6 @@ class MyMachine extends Machine {
 
 }
 
-global.Machines.MyMachine = MyMachine;
+global.Machines.My = MyMachine;
 
 })(window);

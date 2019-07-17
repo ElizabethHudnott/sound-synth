@@ -67,6 +67,6 @@ class PeriodicWaveMachine extends Machine {
 
 }
 
-global.Machines.PeriodicWaveMachine = PeriodicWaveMachine;
+global.Machines.PeriodicWave = PeriodicWaveMachine;
 
 })(window);

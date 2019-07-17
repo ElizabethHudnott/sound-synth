@@ -167,7 +167,7 @@ class Midi extends EventTarget {
 						}
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
-						if (numNotes > numChannels) {
+						if (numNotes > numChannels && synthChannel >= fromChannel && synthChannel <= toChannel) {
 							let revivedIndex = numNotes - 2;
 							while (synthChannels[revivedIndex] !== undefined) {
 								revivedIndex--;
@@ -212,6 +212,12 @@ class Midi extends EventTarget {
 		}
 	}
 
+	allSoundOff() {
+		for (let i = 0; i < 16; i++) {
+			this.parseAndDispatch([0xb0 | i, 120]); // All notes off
+		}
+	}
+
 	open() {
 		const port = this.port;
 		if (port !== undefined) {
@@ -241,10 +247,25 @@ class Midi extends EventTarget {
 		return promise;
 	}
 
-	allSoundOff() {
-		for (let i = 0; i < 16; i++) {
-			this.parseAndDispatch([0xb0 | i, 120]); // All notes off
+	get manufacturer() {
+		if (this.port === undefined) {
+			return null;
+		} else {
+			return this.port.manufacturer;
 		}
+	}
+
+	get version() {
+		if (this.port === undefined) {
+			return null;
+		} else {
+			return this.port.version;
+		}
+	}
+
+	addEventListener(type, listener, options) {
+		this.open();
+		super.addEventListener(type, listener, options);
 	}
 
 }
@@ -262,8 +283,30 @@ function addPort(id, name) {
 }
 
 function removePort(id) {
-	select.querySelector(`option[value="${id}"]`).remove();
-	midiObjects.remove(id);
+	const element = select.querySelector(`option[value="${id}"]`);
+	if (element !== null) {
+		element.remove();
+		const midiObject = midiObjects.get(id);
+		if (midiObject !== undefined) {
+			midiObject.allSoundOff();
+			midiObjects.delete(id);
+		}
+	}
+}
+
+function addCustomPort(id, midiObject) {
+	removePort(id);
+	addPort(id, midiObject.name);
+	midiObjects.set(id, midiObject);
+}
+
+function removeCustomPort(midiObjectToRemove) {
+	for (let [id, midiObject] of midiObjects) {
+		if (midiObject === midiObjectToRemove) {
+			removePort(id);
+			break;
+		}
+	}
 }
 
 if (window.parent !== window || window.opener !== null) {
@@ -288,8 +331,6 @@ if (window.parent !== window || window.opener !== null) {
 		}
 		webLink.parseAndDispatch(bytes, performance.now());
 	}
-
-	window.addEventListener("message", webMIDILinkReceive);
 
 	webLink.open = function () {
 		window.addEventListener("message", webMIDILinkReceive);
@@ -356,7 +397,7 @@ function port(id) {
 		return undefined;
 	}
 
-	midiObject = new Midi(midiPort.name, midiPort);
+	midiObject = new Midi(midiPort.name || id, midiPort);
 	midiObjects.set(id, midiObject);
 	return midiObject;
 }
@@ -368,6 +409,8 @@ global.Midi = {
 	close: close,
 	port: port,
 	ports: select,
+	addPort: addCustomPort,
+	removePort: removeCustomPort,
 };
 
 })(window);

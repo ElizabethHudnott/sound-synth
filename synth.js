@@ -540,23 +540,23 @@ class LFO {
 	}
 
 	connect(destination) {
-		this.envelope.connect(destination.range);
-		destination.lfo = this;
+		this.envelope.connect(destination);
+		destination.modulator = this;
 	}
 
 	disconnect(destination) {
-		this.envelope.disconnect(destination.range);
+		this.envelope.disconnect(destination);
 	}
 
 }
 
 class Modulator {
-	constructor(audioContext, lfo, carrier) {
-		this.lfo = lfo;
+	constructor(audioContext, modulator, carrier) {
+		this.modulator = modulator;
 		const range = audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
-		lfo.connect(this);
+		modulator.connect(this.range);
 		if (carrier === undefined) {
 			this.carriers = [];
 		} else {
@@ -597,7 +597,7 @@ class Modulator {
 	}
 
 	disconnect() {
-		this.lfo.disconnect(this);
+		this.modulator.disconnect(this.range);
 	}
 
 	cancelAndHoldAtTime(when) {
@@ -3271,27 +3271,41 @@ global.Synth = {
 })(window);
 
 class Machine {
+
 	constructor(parameters) {
 		this.inputs = [];
 		this.outputs = [];
 		this.parameters = parameters;
 	}
 
-	connect(before, after) {
-		if (before && after) {
-			before.disconnect(after);
-		}
-		if (before) {
-			for (let input of this.inputs) {
-				before.connect(input);
-			}
-		}
-		if (after) {
-			for (let output of this.outputs) {
-				output.connect(after);
-			}
+	connect(after) {
+		for (let output of this.outputs) {
+			output.connect(after);
 		}
 	}
+
+	connectBetween(before, after) {
+		before.disconnect(after);
+		for (let input of this.inputs) {
+			before.connect(input);
+		}
+		for (let output of this.outputs) {
+			output.connect(after);
+		}
+	}
+
+	connectAfter(before) {
+		for (let input of this.inputs) {
+			before.connect(input);
+		}
+	}
+
+	disconnect(after) {
+		for (let output of this.outputs) {
+			output.disconnect(after);
+		}
+	}
+
 }
 
 Machines = {};
