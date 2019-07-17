@@ -213,8 +213,11 @@ class Midi extends EventTarget {
 	}
 
 	allSoundOff() {
+		const timestamp = performance.now();
+		const bytes = [0, 120];
 		for (let i = 0; i < 16; i++) {
-			this.parseAndDispatch([0xb0 | i, 120]); // All notes off
+			bytes[0] = 0xb0 | i;
+			this.parseAndDispatch(bytes, timestamp); // All notes off
 		}
 	}
 

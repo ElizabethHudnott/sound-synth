@@ -25,6 +25,7 @@ Changes for 1 line vs changes over a pattern vs ongoing results?
 
 MIDI
 ----
+reuse synth channels that become available because of Gate.TRIGGER and Synth.Param.DURATION
 handle MIDI channels sharing synth channels
 
 ------
