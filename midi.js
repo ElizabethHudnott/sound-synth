@@ -46,6 +46,10 @@ class Midi extends EventTarget {
 		// The gating option used to trigger new notes sent by each MIDI channel.
 		this.gate = new Array(16);
 		this.gate.fill(Synth.Gate.OPEN);
+
+		// For each MIDI channel, whether or not to retrigger revived notes.
+		this.retrigger = new Array(16);
+		this.retrigger.fill(false);
 	}
 
 	enableArpeggio(channel, enabled) {
@@ -176,6 +180,10 @@ class Midi extends EventTarget {
 							const revivedNote = notes[revivedIndex];
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [revivedNote]));
 							synthChannels[revivedIndex] = synthChannel;
+							if (this.retrigger[midiChannel]) {
+								const gate = this.gate[midiChannel];
+								parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
+							}
 						} else {
 							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 						}
