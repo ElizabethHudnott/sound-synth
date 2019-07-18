@@ -46,6 +46,13 @@ class Midi extends EventTarget {
 		// The gating option used to trigger new notes sent by each MIDI channel.
 		this.gate = new Array(16);
 		this.gate.fill(Synth.Gate.OPEN);
+
+		/* For each *synthesizer* channel, records when (in line numbers) the current note
+		 * ceases to make a sound (for Synth.Gate.TRIGGER).
+		 */
+		this.complete = [];
+
+		this.lineNumber = 0;
 	}
 
 	enableArpeggio(channel, enabled) {
@@ -103,6 +110,7 @@ class Midi extends EventTarget {
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
 						const synthChannels = this.notesToChannels[midiChannel];
+						const complete = this.complete;
 						let noteIndex = notes.indexOf(note);
 						synthChannel = undefined;
 						if (noteIndex !== -1) {
@@ -121,18 +129,31 @@ class Midi extends EventTarget {
 									}
 								}
 							} else {
-								// Mute an existing note.
-								for (let i = 0; i < numNotes; i++) {
-									const channel = synthChannels[i];
-									if (channel !== undefined) {
-										synthChannel = channel;
-										synthChannels[i] = undefined;
+								const lineNumber = this.lineNumber;
+								for (let i = fromChannel; i <= toChannel; i++) {
+									if (complete[i] <= lineNumber) { // and not undefined
+										synthChannel = i;
+										noteIndex = synthChannels.indexOf(i);
+										notes.splice(noteIndex, 1);
+										synthChannels.splice(noteIndex, 1);
 										break;
+									}
+								}
+								if (synthChannel === undefined) {
+									// Mute an existing note.
+									for (let i = 0; i < numNotes; i++) {
+										const channel = synthChannels[i];
+										if (channel !== undefined) {
+											synthChannel = channel;
+											synthChannels[i] = undefined;
+											break;
+										}
 									}
 								}
 							}
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [note]));
 						}
+						complete[synthChannel] = undefined;
 						notes.push(note);
 						synthChannels.push(synthChannel);
 					}
