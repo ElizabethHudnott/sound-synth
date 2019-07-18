@@ -254,7 +254,7 @@ document.addEventListener('keydown', function (event) {
 	const code = event.code;
 
 	if (code === 'Quote') {
-		set(Synth.Param.GATE, Synth.Gate.CUT);
+		set(Synth.Param.GATE, Synth.Gate.CUT, 0, Synth.ChangeType.SET, -1);
 		event.preventDefault();
 	} else if (code === 'NumpadDivide') {
 		octaveOffset--;

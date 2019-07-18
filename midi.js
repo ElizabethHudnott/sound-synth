@@ -88,9 +88,10 @@ class Midi extends EventTarget {
 				if (velocity > 0) {
 					const note = bytes[1];
 					const notes = this.notes[midiChannel];
+					const numNotes = notes.length;
 					if (this.arpeggio[midiChannel]) {
 						synthChannel = fromChannel;
-						let noteIndex = notes.length;
+						let noteIndex = numNotes;
 						while (noteIndex > 0 && notes[noteIndex - 1] < note) {
 							noteIndex--;
 						}
@@ -111,7 +112,7 @@ class Midi extends EventTarget {
 							synthChannels.splice(noteIndex, 1);
 						}
 						if (synthChannel === undefined) {
-							if (notes.length < numChannels) {
+							if (numNotes < numChannels) {
 								// Find a free channel.
 								for (let i = fromChannel; i <= toChannel; i++) {
 									if (!synthChannels.includes(i)) {
@@ -121,10 +122,10 @@ class Midi extends EventTarget {
 								}
 							} else {
 								// Mute an existing note.
-								for (let i = fromChannel; i <= toChannel; i++) {
+								for (let i = 0; i < numNotes; i++) {
 									const channel = synthChannels[i];
 									if (channel !== undefined) {
-										synthChannel = i;
+										synthChannel = channel;
 										synthChannels[i] = undefined;
 										break;
 									}
