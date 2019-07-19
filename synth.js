@@ -541,7 +541,6 @@ class LFO {
 
 	connect(destination) {
 		this.envelope.connect(destination);
-		destination.modulator = this;
 	}
 
 	disconnect(destination) {
@@ -551,18 +550,17 @@ class LFO {
 }
 
 class Modulator {
-	constructor(audioContext, modulator, carrier) {
-		this.modulator = modulator;
+	constructor(audioContext, controller, carrier) {
 		const range = audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
-		modulator.connect(this.range);
 		if (carrier === undefined) {
 			this.carriers = [];
 		} else {
 			this.carriers = [carrier];
 			range.connect(carrier);
 		}
+		this.setController(controller);
 	}
 
 	setMinMax(changeType, min, max, time) {
@@ -596,8 +594,13 @@ class Modulator {
 		}
 	}
 
+	setController(controller) {
+		controller.connect(this.range);
+		this.controller = controller;
+	}
+
 	disconnect() {
-		this.modulator.disconnect(this.range);
+		this.controller.disconnect(this.range);
 	}
 
 	cancelAndHoldAtTime(when) {
@@ -2483,7 +2486,7 @@ class Channel {
 				parameters[Parameter.WAVEFORM_LFO] = value;
 				callbacks.push(function () {
 					me.wavetableMod.disconnect();
-					me.lfos[value - 1].connect(me.wavetableMod);
+					me.wavetableMod.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2492,7 +2495,7 @@ class Channel {
 				parameters[Parameter.VIBRATO_LFO] = value;
 				callbacks.push(function () {
 					me.vibrato.disconnect();
-					me.lfos[value - 1].connect(me.vibrato);
+					me.vibrato.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2501,7 +2504,7 @@ class Channel {
 				parameters[Parameter.TREMOLO_LFO] = value;
 				callbacks.push(function () {
 					me.tremolo.disconnect();
-					me.lfos[value - 1].connect(me.tremolo);
+					me.tremolo.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2510,7 +2513,7 @@ class Channel {
 				parameters[Parameter.PWM_LFO] = value;
 				callbacks.push(function () {
 					me.pwm.disconnect();
-					me.lfos[value - 1].connect(me.pwm);
+					me.pwm.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2520,8 +2523,8 @@ class Channel {
 				callbacks.push(function () {
 					me.filterFrequencyMod.disconnect();
 					me.filterQMod.disconnect()
-					me.lfos[value - 1].connect(me.filterFrequencyMod);
-					me.lfos[value - 1].connect(me.filterQMod);
+					me.filterFrequencyMod.setController(me.lfos[value - 1]);
+					me.filterQMod.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2530,7 +2533,7 @@ class Channel {
 				parameters[Parameter.DELAY_LFO] = value;
 				callbacks.push(function () {
 					me.flanger.disconnect();
-					me.lfos[value - 1].connect(me.flanger);
+					me.flanger.setController(me.lfos[value - 1]);
 				});
 				break;
 
@@ -2539,7 +2542,7 @@ class Channel {
 				parameters[Parameter.PAN_LFO] = value;
 				callbacks.push(function () {
 					me.panMod.disconnect();
-					me.lfos[value - 1].connect(me.panMod);
+					me.panMod.setController(me.lfos[value - 1]);
 				});
 				break;
 
