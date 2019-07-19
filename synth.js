@@ -347,8 +347,8 @@ const Gate = Object.freeze({
 const Wave = Object.freeze({
 	SINE: 0,
 	TRIANGLE: 1,
-	CUSTOM: 2,
-	SAWTOOTH: 3,
+	SAWTOOTH: 2,
+	CUSTOM: 3,
 	PULSE: 4,
 });
 
@@ -1684,7 +1684,7 @@ class Channel {
 			undefined, // actual macro values are held in macroValues property
 			[69],	// MIDI note numbers
 			[0, 15, 17, 32],		// custom waveform
-			[-1, 0.25, -0.25, 1],
+			[-1, 0.125, -0.125, 1],
 			127,	// velocity
 			2,		// attack
 			0.5,	// attack curve
@@ -1833,8 +1833,8 @@ class Channel {
 		this.wavetable = wavetable;
 		sine.connect(wavetable, 0, 0);
 		triangleGain.connect(wavetable, 0, 1);
-		shaper.connect(wavetable, 0, 2);
-		sawGain.connect(wavetable, 0, 3);
+		sawGain.connect(wavetable, 0, 2);
+		shaper.connect(wavetable, 0, 3);
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);

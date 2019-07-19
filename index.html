@@ -20,7 +20,7 @@
 				<fieldset>
 					<legend>Activation</legend>
 					<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
-					<button onclick="set(Synth.Param.GATE, channels[0].parameters[Synth.Param.GATE] !== Synth.Gate.OPEN? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
+					<button onclick="set(Synth.Param.GATE, (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN ? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
 					<br>
 					<small>You can also play notes using the computer keyboard or using MIDI.</small><br>
 					<input id="one-shot" type="checkbox" checked>One Shot
@@ -65,18 +65,18 @@
 									<input id="wavetable-min-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.MIN_WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.MIN_WAVEFORM]) + parseFloat(this.value))">
 									<br>
 									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-min-fraction').value))" checked>Sine + Triangle<br>
-									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-min-fraction').value))">Triangle + Custom<br>
+									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-min-fraction').value))">Triangle + Sawtooth<br>
+									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-min-fraction').value))">Sawtooth + Custom<br>
 									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-min-fraction').value))">Custom + Sawtooth<br>
-									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-min-fraction').value))">Sawtooth + Pulse<br>
 									<input type="radio" name="min-waveform" oninput="set(Synth.Param.MIN_WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-min-fraction').value))">Pulse + Sine
 								</td>
 								<td>
 									<input id="wavetable-max-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.MAX_WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.MAX_WAVEFORM]) + parseFloat(this.value))">
 									<br>
 									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-max-fraction').value))" checked>Sine + Triangle<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Triangle + Custom<br>
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Triangle + Sawtooth<br>
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-max-fraction').value))">Sawtooth + Custom<br>
 									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-max-fraction').value))">Custom + Sawtooth<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-max-fraction').value))">Sawtooth + Pulse<br>
 									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Pulse + Sine
 								</td>
 							</tr>
@@ -349,7 +349,7 @@
 			<fieldset id="graph" style="width: 1000px; user-select: none">
 				<legend>Custom Wave Shape</legend>
 				Width:
-				<input id="graph-width" type="number" min="2" max="256" value="33">
+				<input id="graph-width" type="number" min="2" max="256" value="32">
 				<button onclick="resampleGraphPoints()">Resize</button>
 				<button onclick="setGraphSize()">Set Length</button>
 				Height:

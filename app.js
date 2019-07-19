@@ -213,7 +213,7 @@ function playNote(gate) {
 }
 
 function openGateTemporarily() {
-	if (channels[0].parameters[Synth.Param.GATE] & 3 !== Synth.Gate.OPEN) {
+	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN) {
 		set(Synth.Param.GATE, Synth.Gate.REOPEN);
 		gateTemporarilyOpen = true;
 	}
@@ -380,8 +380,8 @@ document.getElementById('sampler-btn').addEventListener('click', function (event
 	}
 });
 
-let graphPointsX = [0, 15, 17, 32];
-let graphPointsY = [-1, 0.25, -0.25, 1];
+let graphPointsX = [0, 15, 17, 31];
+let graphPointsY = [-1, 0.125, -0.125, 1];
 
 function updateGraphedSound() {
 	if (channels !== undefined) {
