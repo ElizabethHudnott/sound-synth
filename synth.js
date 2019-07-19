@@ -1841,8 +1841,8 @@ class Channel {
 		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
 		this.wavetableMod = wavetableMod;
 		wavetableMod.setMinMax(ChangeType.SET, Wave.SINE, Wave.SINE, audioContext.currentTime);
-		triangleGain.gain.value = 0.85;
-		sawGain.gain.value = 0.38;
+		triangleGain.gain.value = 0.7;
+		sawGain.gain.value = 0.3;
 
 		// Pulse width modulation
 		const pwmDetune = audioContext.createGain();
@@ -2966,7 +2966,7 @@ class Channel {
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
 				const chordTicks = parameters[Parameter.CHORD_SPEED];
-				numTicks = numTicks - (delay % numTicks);
+				numTicks = Math.trunc(numTicks - (delay % numTicks));
 
 				let glissandoPerTick;
 				if (glissandoSteps === 0) {
@@ -2990,7 +2990,10 @@ class Channel {
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
 					retriggerVolumeChange = new Change(ChangeType.SET, endVolume);
 				} else {
-					const numTriggers = Math.trunc((numTicks - 1) / retriggerTicks);
+					let numTriggers = Math.trunc((numTicks - 1) / retriggerTicks);
+					if (numTriggers === 0) {
+						numTriggers = 1; // When the gate's left open jump straight to the final volume
+					}
 					if (this.retriggerVolumeChangeType === ChangeType.LINEAR) {
 						retriggerVolumeChange = new Change(ChangeType.DELTA, (endVolume - volume) / numTriggers);
 					} else {

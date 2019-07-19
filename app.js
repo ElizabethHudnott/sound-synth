@@ -205,9 +205,10 @@ function playNote(gate) {
 	}
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes));
-	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN) {
-		parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
+	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
+		gate = gate & (Synth.Gate.REOPEN);
 	}
+	parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 	channels[0].setParameters(parameterMap, undefined, true);
 }
 
@@ -254,9 +255,8 @@ document.addEventListener('keydown', function (event) {
 	const code = event.code;
 
 	if (code === 'Quote') {
-		if (midiPort === undefined) {
-			set(Synth.Param.GATE, Synth.Gate.CUT);
-		} else {
+		set(Synth.Param.GATE, Synth.Gate.CUT);
+		if (midiPort !== undefined) {
 			midiPort.allSoundOff();
 		}
 		event.preventDefault();
