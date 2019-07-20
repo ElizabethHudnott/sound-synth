@@ -1699,9 +1699,9 @@ class Channel {
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
 			Gate.CLOSED, // gate
-			Wave.SINE,	// waveform
-			Wave.SINE,	// minimum wavetable position
-			Wave.SINE,	// maximum wavetable position
+			Wave.TRIANGLE,	// waveform
+			Wave.TRIANGLE,	// minimum wavetable position
+			Wave.TRIANGLE,	// maximum wavetable position
 			1,		// wavetable position uses LFO 1
 			0,		// oscillator tuning separation
 			440,	// frequency
@@ -1842,7 +1842,7 @@ class Channel {
 		wavetable.connect(oscillatorGain);
 		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
 		this.wavetableMod = wavetableMod;
-		wavetableMod.setMinMax(ChangeType.SET, Wave.SINE, Wave.SINE, audioContext.currentTime);
+		wavetableMod.setMinMax(ChangeType.SET, Wave.TRIANGLE, Wave.TRIANGLE, audioContext.currentTime);
 		triangleGain.gain.value = 0.7;
 		sawGain.gain.value = 0.3;
 
