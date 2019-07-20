@@ -152,7 +152,7 @@ const Parameter = enumFromArray([
 	'SUSTAIN',		// percentage
 	'RELEASE',		// in milliseconds
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
-	'DURATION',		// in milliseconds (0 = auto)
+	'DURATION',		// as a fraction of the line time (0 = auto)
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
 	'MIN_WAVEFORM',	// minimum wavetable position
@@ -1790,7 +1790,6 @@ class Channel {
 		this.velocity = 1;
 		this.sustain = expCurve(70, 1); // combined sustain and velocity
 		this.release = 0.3;
-		this.duration = 0.2;
 		this.calcEnvelope();
 		this.macroValues = new Map();
 
@@ -2074,7 +2073,7 @@ class Channel {
 		this.lfo3.trigger(when);
 	}
 
-	gate(state, note, volume, sustainLevel, start, gain) {
+	gate(state, note, volume, sustainLevel, lineTime, start, gain) {
 		const parameters = this.parameters;
 		const noise = this.noiseLevel;
 		let scaleAHD, duration, usingSamples;
@@ -2083,7 +2082,7 @@ class Channel {
 		if (gain === undefined) {
 			gain = this.envelope.gain;
 			scaleAHD = parameters[Parameter.SCALE_AHD];
-			duration = this.duration;
+			duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
 			usingSamples = parameters[Parameter.INSTRUMENT] >= 0
 			if (usingSamples) {
 				if (this.usingOscillator) {
@@ -2190,7 +2189,7 @@ class Channel {
 				break;
 			}
 			if (noise > 0) {
-				this.gate(state, note, volume * noise, sustainLevel * noise, start, this.noiseGain.gain);
+				this.gate(state, note, volume * noise, sustainLevel * noise, undefined, start, this.noiseGain.gain);
 			}
 			return;
 		}
@@ -2426,10 +2425,6 @@ class Channel {
 
 			case Parameter.RELEASE:
 				this.release = value / 1000;
-				break;
-
-			case Parameter.DURATION:
-				this.duration = value / 1000;
 				break;
 
 			case Parameter.VELOCITY:
@@ -2939,7 +2934,7 @@ class Channel {
 		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
 
 		if (gate !== undefined) {
-			this.gate(gate, notes[0], this.velocity, this.sustain, time);
+			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time);
 			glissandoAmount = 0;
 			prevGlissandoAmount = 0;
 			noteIndex = 0;
@@ -2957,7 +2952,7 @@ class Channel {
 			chordDir = this.chordDir;
 			noteRepeated = this.noteRepeated;
 			if (endRetrigger) {
-				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, time);
+				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, lineTime, time);
 			}
 		}
 
@@ -3077,7 +3072,7 @@ class Channel {
 					if (tick % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
-						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, timeOfTick);
+						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, lineTime, timeOfTick);
 						scheduledUntil = timeOfTick;
 					}
 					prevGlissandoAmount = glissandoAmount;

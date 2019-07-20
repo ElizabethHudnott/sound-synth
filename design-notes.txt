@@ -13,7 +13,7 @@ Loop from
 
 Synth
 -----
-Make duration proportional to line time
+Sample and Hold oscillators?
 Choice of New Note Action (release, cut)
 Sample finetune
 Add sample slicing
