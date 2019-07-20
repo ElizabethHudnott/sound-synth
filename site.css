@@ -68,5 +68,5 @@ legend {
     margin-top: 2px;
     margin-bottom: 2px;
     text-align: center;
-    width: 2em;
+    min-width: 2em;
 }

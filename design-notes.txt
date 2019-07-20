@@ -20,7 +20,6 @@ Add sample slicing
 Probability
 Instruments
 Automations
-Signal follower machine
 Changes for 1 line vs changes over a pattern vs ongoing results?
 
 Glide
@@ -28,6 +27,7 @@ Glide
 Glide amount (a time or a rate)
 Glide mode (time or rate)
 Glide on/off setting (implied by change type on notes)
+handle broken chords and glissando
 MIDI option to glide only when reviving notes ("legato")
 
 MIDI

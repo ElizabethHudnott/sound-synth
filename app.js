@@ -121,6 +121,7 @@ function initialize() {
 	Midi.open().then(initMIDI, initMIDI);
 
 	const parameterMap = new Map();
+	parameterMap.set(Synth.Param.GLIDE, new Synth.Change(Synth.ChangeType.SET, 0));
 	parameterMap.set(Synth.Param.FILTER_MIX, new Synth.Change(Synth.ChangeType.SET, 0));
 	parameterMap.set(Synth.Param.UNFILTERED_MIX, new Synth.Change(Synth.ChangeType.SET, 100));
 	parameterMap.set(Synth.Param.ATTACK_CURVE, new Synth.Change(Synth.ChangeType.SET, 3));
@@ -203,8 +204,14 @@ function playNote(gate) {
 			notes.push(noteNumber + interval);
 		}
 	}
+	let changeType;
+	if (channels[0].parameters[Synth.Param.GLIDE] === 0) {
+		changeType = Synth.ChangeType.SET;
+	} else {
+		changeType = Synth.ChangeType.LINEAR;
+	}
 	const parameterMap = new Map();
-	parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes));
+	parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes));
 	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
 		gate = gate & (Synth.Gate.REOPEN);
 	}

@@ -153,6 +153,7 @@ const Parameter = enumFromArray([
 	'RELEASE',		// in milliseconds
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	'DURATION',		// as a fraction of the line time (0 = auto)
+	'GLIDE',		// as a fraction of the line time
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
 	'MIN_WAVEFORM',	// minimum wavetable position
@@ -556,9 +557,11 @@ class Modulator {
 		range.gain.value = 0;
 		if (carrier === undefined) {
 			this.carriers = [];
+			this.centre = undefined;
 		} else {
 			this.carriers = [carrier];
 			range.connect(carrier);
+			this.centre = carrier.value;
 		}
 		this.setController(controller);
 	}
@@ -571,9 +574,10 @@ class Modulator {
 		for (let carrier of this.carriers) {
 			carrier[changeType](centre, time);
 		}
+		this.centre = centre;
 	}
 
-	setRange(changeType, range, time) {
+	setDepth(changeType, range, time) {
 		this.range.gain[changeType](range / 2, time);
 	}
 
@@ -581,14 +585,17 @@ class Modulator {
 		for (let carrier of this.carriers) {
 			carrier[changeType](centre, time);
 		}
+		this.centre = centre;
 	}
 
 	connect(carrier) {
 		this.range.connect(carrier);
 		const carriers = this.carriers;
 		if (!carriers.includes(carrier)) {
-			if (carriers.length > 0) {
-				carrier.value = carriers[0].value;
+			if (carriers.length == 0) {
+				this.centre = carrier.value;
+			} else {
+				carrier.value = this.centre;
 			}
 			this.carriers.push(carrier);
 		}
@@ -1698,6 +1705,7 @@ class Channel {
 			300,	// release
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
+			0.5,	// glide time in lines
 			Gate.CLOSED, // gate
 			Wave.TRIANGLE,	// waveform
 			Wave.TRIANGLE,	// minimum wavetable position
@@ -2895,7 +2903,13 @@ class Channel {
 		if (dirtyNotes) {
 			const firstNote = notes[0];
 			const frequency = this.noteFrequencies[firstNote];
-			this.setFrequency(dirtyNotes, frequency, time);
+			if (dirtyNotes !== ChangeType.SET) {
+				const glideTime = parameters[Parameter.GLIDE] * lineTime * TIME_STEP;
+				this.setFrequency(ChangeType.SET, this.vibrato.centre, time);
+				this.setFrequency(dirtyNotes, frequency, time + glideTime);
+			} else {
+				this.setFrequency(dirtyNotes, frequency, time);
+			}
 			frequencies[0] = frequency;
 			parameters[Parameter.FREQUENCY] = frequency;
 			frequencySet = true;
