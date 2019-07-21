@@ -27,7 +27,7 @@ Glide
 Glide amount (a time or a rate)
 Glide mode (time or rate)
 Glide on/off setting (implied by change type on notes)
-handle broken chords and glissando
+handle broken chords (and glissando?)
 MIDI option to glide only when reviving notes ("legato")
 
 MIDI
