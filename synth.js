@@ -177,8 +177,6 @@ const Parameter = enumFromArray([
 	'LFO1_RETRIGGER', // 0 or 1
 	'LFO2_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO2_RATE',	// in hertz
-	'LFO2_MIN_RATE', // in hertz
-	'LFO2_MAX_RATE', // in hertz
 	'LFO2_PHASE',	// 0 to 360
 	'LFO2_GAIN',	// -100 to 100
 	'LFO2_DELAY',	// in milliseconds
@@ -186,15 +184,6 @@ const Parameter = enumFromArray([
 	'LFO2_RATE_MOD', // scaling factor for frequency at beginning of attack period
 	'LFO2_FADE', // one of the Direction enums
 	'LFO2_RETRIGGER', // 0 or 1
-	'LFO3_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
-	'LFO3_RATE',	// in hertz
-	'LFO3_PHASE',	// 0 to 360
-	'LFO3_GAIN',	// -100 to 100
-	'LFO3_DELAY',	// in milliseconds
-	'LFO3_ATTACK',	// in milliseconds
-	'LFO3_RATE_MOD', // scaling factor for frequency at beginning of attack period
-	'LFO3_FADE', // one of the Direction enums
-	'LFO3_RETRIGGER', // 0 or 1
 	'VIBRATO_LFO',	// which LFO to use
 	'VIBRATO_EXTENT', // in cents
 	'SIREN_EXTENT',	// in semitones
@@ -213,10 +202,12 @@ const Parameter = enumFromArray([
 	'FILTER_FREQUENCY', // in hertz
 	'MIN_FILTER_FREQUENCY', // in hertz
 	'MAX_FILTER_FREQUENCY', // in hertz
+	'FILTER_FREQUENCY_LFO',	// which LFO to use
 	'Q',			// 0.0001 to 1000
 	'MIN_Q',		// 0.0001 to 1000
 	'MAX_Q',		// 0.0001 to 1000
-	'FILTER_LFO',	// which LFO to use
+	'Q_LFO',		// which LFO to use
+	'FILTER_LFO',	// Controls FILTER_FREQUENCY_LFO and Q_LFO together
 	'FILTER_GAIN',	// -40dB to 40dB
 	'FILTER_MIX',	// percentage (may be more than 100)
 	'UNFILTERED_MIX', // percentage
@@ -1729,8 +1720,6 @@ class Channel {
 			0,		// LFO 1 doesn't retrigger
 			'sine',	// LFO 2 shape
 			5,		// LFO 2 rate
-			5,		// LFO 2 min rate
-			5,		// LFO 2 max rate
 			0,		// LFO 2 phase
 			100,	// LFO 2 gain
 			0,		// LFO 2 delay
@@ -1738,15 +1727,6 @@ class Channel {
 			1,		// LFO 2 at a constant frequency
 			Direction.UP, // LFO 2 fades up (when an attack is set)
 			0,		// LFO 2 doesn't retrigger
-			'sine',	// LFO 3 shape
-			5,		// LFO 3 rate
-			0,		// LFO 3 phase
-			100,	// LFO 3 gain
-			0,		// LFO 3 delay
-			0,		// LFO 3 attack
-			1,		// LFO 3 at a constant frequency
-			Direction.UP, // LFO 3 fades up (when an attack is set)
-			0,		// LFO 3 doesn't retrigger
 			1,		// vibrato uses LFO 1
 			0,		// vibrato extent
 			0,		// siren extent
@@ -1765,10 +1745,12 @@ class Channel {
 			4400,	// filter frequency
 			4400,	// minimum filter frequency
 			4400,	// maximum filter frequency
+			1,		// filter frequency uses LFO 1
 			1,		// filter Q
 			1,		// min filter Q
 			1,		// max filter Q
-			1,		// filter uses LFO 1
+			1,		// Q uses LFO 1
+			1,		// Cutoff frequency and Q both use LFO 1
 			0,		// filter gain
 			100,	// filter fully enabled
 			0,		// filter fully enabled
@@ -1817,10 +1799,7 @@ class Channel {
 		this.lfo1 = lfo1;
 		const lfo2 = new LFO(audioContext);
 		this.lfo2 = lfo2;
-		const lfo3 = new LFO(audioContext);
-		this.lfo3 = lfo3;
-		this.lfo2Mod = new Modulator(audioContext, lfo3, lfo2.oscillator.frequency);
-		this.lfos = [lfo1, lfo2, lfo3];
+		this.lfos = [lfo1, lfo2];
 
 		// Oscillator and oscillator/sample switch
 		const sine = audioContext.createOscillator();
@@ -1911,7 +1890,7 @@ class Channel {
 		vibrato.connect(samplePlaybackRate.offset);
 
 		// Siren
-		const siren = new Modulator(audioContext, lfo3);
+		const siren = new Modulator(audioContext, lfo2);
 		this.siren = siren;
 		siren.connect(sine.frequency);
 		siren.connect(triangle.frequency);
@@ -2024,7 +2003,6 @@ class Channel {
 			this.saw.start(when);
 			this.lfo1.start(when);
 			this.lfo2.start(when);
-			this.lfo3.start(when);
 			this.started = true;
 		}
 	}
@@ -2078,7 +2056,6 @@ class Channel {
 	triggerLFOs(when) {
 		this.lfo1.trigger(when);
 		this.lfo2.trigger(when);
-		this.lfo3.trigger(when);
 	}
 
 	gate(state, note, volume, sustainLevel, lineTime, start, gain) {
@@ -2388,7 +2365,7 @@ class Channel {
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyWavetable, dirtyPWM, dirtyNotes, dirtyFilterFrequency, dirtyFilterQ;
-		let dirtyMix, dirtyDelay, dirtyPan, dirtyLFO2Rate;
+		let dirtyMix, dirtyDelay, dirtyPan;
 
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
@@ -2478,12 +2455,6 @@ class Channel {
 				});
 				break;
 
-			case Parameter.LFO3_WAVEFORM:
-				callbacks.push(function () {
-					me.lfo3.oscillator.type = value;
-				});
-				break;
-
 			case Parameter.WAVEFORM_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.WAVEFORM_LFO] = value;
@@ -2523,10 +2494,30 @@ class Channel {
 			case Parameter.FILTER_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.FILTER_LFO] = value;
+				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
+				parameters[Parameter.Q_LFO] = value;
 				callbacks.push(function () {
 					me.filterFrequencyMod.disconnect();
 					me.filterQMod.disconnect()
 					me.filterFrequencyMod.setController(me.lfos[value - 1]);
+					me.filterQMod.setController(me.lfos[value - 1]);
+				});
+				break;
+
+			case Parameter.FILTER_FREQUENCY_LFO:
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
+				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
+				callbacks.push(function () {
+					me.filterFrequencyMod.disconnect();
+					me.filterFrequencyMod.setController(me.lfos[value - 1]);
+				});
+				break;
+
+			case Parameter.Q_LFO:
+				value = ((value + numLFOs - 1) % numLFOs) + 1;
+				parameters[Parameter.Q_LFO] = value;
+				callbacks.push(function () {
+					me.filterQMod.disconnect()
 					me.filterQMod.setController(me.lfos[value - 1]);
 				});
 				break;
@@ -2606,30 +2597,8 @@ class Channel {
 
 			case Parameter.LFO2_RATE:
 				value = clamp(value);
+				this.lfo2.setFrequency(changeType, value, time);
 				parameters[Parameter.LFO2_RATE] = value;
-				parameters[Parameter.LFO2_MIN_RATE] = value;
-				parameters[Parameter.LFO2_MAX_RATE] = value;
-				dirtyLFO2Rate = changeType;
-				break;
-
-			case Parameter.LFO2_MIN_RATE:
-				parameters[Parameter.LFO2_MIN_RATE] = clamp(value);
-				dirtyLFO2Rate = changeType;
-				this.lfo2.setRetrigger(0, time);
-				parameters[Parameter.LFO2_RETRIGGER] = 0;
-				break;
-
-			case Parameter.LFO2_MAX_RATE:
-				parameters[Parameter.LFO2_MAX_RATE] = clamp(value);
-				dirtyLFO2Rate = changeType;
-				this.lfo2.setRetrigger(0, time);
-				parameters[Parameter.LFO2_RETRIGGER] = 0;
-				break;
-
-			case Parameter.LFO3_RATE:
-				value = clamp(value);
-				this.lfo3.setFrequency(changeType, value, time);
-				parameters[Parameter.LFO3_RATE] = value;
 				break;
 
 			case Parameter.LFO1_PHASE:
@@ -2640,20 +2609,12 @@ class Channel {
 				this.lfo2.phase = value / 360;
 				break;
 
-			case Parameter.LFO3_PHASE:
-				this.lfo3.phase = value / 360;
-				break;
-
 			case Parameter.LFO1_GAIN:
 				this.lfo1.gain = value / 100;
 				break;
 
 			case Parameter.LFO2_GAIN:
 				this.lfo2.gain = value / 100;
-				break;
-
-			case Parameter.LFO3_GAIN:
-				this.lfo3.gain = value / 100;
 				break;
 
 			case Parameter.LFO1_DELAY:
@@ -2664,19 +2625,13 @@ class Channel {
 				this.lfo2.delay = value / 1000;
 				break;
 
-			case Parameter.LFO3_DELAY:
-				this.lfo3.delay = value / 1000;
-				break;
-
 			case Parameter.LFO1_ATTACK:
 				this.lfo1.attack = value / 1000;
 				break;
 
 			case Parameter.LFO2_ATTACK:
 				this.lfo2.attack = value / 1000;
-
-			case Parameter.LFO3_ATTACK:
-				this.lfo3.attack = value / 1000;
+				break;
 
 			case Parameter.LFO1_RATE_MOD:
 				this.lfo1.rateMod = value;
@@ -2686,20 +2641,12 @@ class Channel {
 				this.lfo2.rateMod = value;
 				break;
 
-			case Parameter.LFO3_RATE_MOD:
-				this.lfo3.rateMod = value;
-				break;
-
 			case Parameter.LFO1_FADE:
 				this.lfo1.fadeDirection = value;
 				break;
 
 			case Parameter.LFO2_FADE:
 				this.lfo2.fadeDirection = value;
-				break;
-
-			case Parameter.LFO3_FADE:
-				this.lfo3.fadeDirection = value;
 				break;
 
 			case Parameter.LFO1_RETRIGGER:
@@ -2713,24 +2660,10 @@ class Channel {
 
 			case Parameter.LFO2_RETRIGGER:
 				value = Math.trunc(Math.abs(value)) % 2;
-				if (value === 1) {
-					parameters[Parameter.LFO2_RATE_MOD] = 1;
-					const frequency = parameters[Parameter.LFO2_MIN_RATE];
-					this.lfo2.setFrequency(ChangeType.SET, frequency, time);
-					parameters[Parameter.LFO2_RATE] = frequency;
-					parameters[Parameter.LFO2_MAX_RATE] = frequency;
-					dirtyLFO2Rate = dirtyLFO2Rate || ChangeType.SET;
-				}
 				this.lfo2.setRetrigger(value, time);
 				parameters[Parameter.LFO2_RETRIGGER] = value;
-				break;
-
-			case Parameter.LFO3_RETRIGGER:
-				value = Math.trunc(Math.abs(value)) % 2;
-				this.lfo3.setRetrigger(value, time);
-				parameters[Parameter.LFO3_RETRIGGER] = value;
 				if (value === 1) {
-					parameters[Parameter.LFO3_RATE_MOD] = 1;
+					parameters[Parameter.LFO2_RATE_MOD] = 1;
 				}
 				break;
 
@@ -2874,9 +2807,6 @@ class Channel {
 		const notes = parameters[Parameter.NOTES];
 		const frequencies = this.frequencies;
 
-		if (dirtyLFO2Rate) {
-			this.lfo2Mod.setMinMax(dirtyLFO2Rate, parameters[Parameter.LFO2_MIN_RATE], parameters[Parameter.LFO2_MAX_RATE], time);
-		}
 		if (dirtyWavetable) {
 			const min = parameters[Parameter.MIN_WAVEFORM];
 			let max = parameters[Parameter.MAX_WAVEFORM];

@@ -84,7 +84,6 @@
 						<hr>
 						<input type="radio" name="waveform-lfo" oninput="set(Synth.Param.WAVEFORM_LFO, 1)" checked>LFO 1
 						<input type="radio" name="waveform-lfo" oninput="set(Synth.Param.WAVEFORM_LFO, 2)">LFO 2
-						<input type="radio" name="waveform-lfo" oninput="set(Synth.Param.WAVEFORM_LFO, 3)">LFO 3
 					</fieldset>
 					<fieldset>
 						<legend>Detune</legend>
@@ -145,14 +144,11 @@
 					<input type="radio" name="lfo2-waveform" oninput="set(Synth.Param.LFO2_WAVEFORM, 'triangle')">Triangle
 					<input type="checkbox" oninput="set(Synth.Param.LFO2_GAIN, this.checked ? -100 : 100)">Inverted
 					<br>
-					<input type="range" oninput="{ let singleRate = document.getElementById('single-lfo2-rate').checked; set(singleRate ? Synth.Param.LFO2_RATE : Synth.Param.LFO2_MIN_RATE, parseFloat(this.value)); if (!singleRate) { document.getElementById('lfo2-retrigger').checked = false; document.getElementById('lfo2-rate-mod').parentElement.classList.toggle('hidden', false); document.getElementById('lfo2-phase').parentElement.classList.toggle('hidden', true);} }" min="0.1" max="20" value="5" step="0.1">Min Rate
-					<input id="single-lfo2-rate" type="checkbox" oninput="{ let maxControl = document.getElementById('max-lfo2-rate'); maxControl.parentElement.classList.toggle('hidden'); document.getElementById('lfo2-phase').parentElement.classList.toggle('hidden'); set(Synth.Param.LFO2_MAX_RATE, this.checked ? channels[0].parameters[Synth.Param.LFO2_MIN_RATE] : parseFloat(maxControl.value)) }" checked>Max = Min<br>
-					<div class="hidden">
-						<input id="max-lfo2-rate" type="range" oninput="set(Synth.Param.LFO2_MAX_RATE, parseFloat(this.value)); document.getElementById('lfo2-retrigger').checked = false; document.getElementById('lfo2-rate-mod').parentElement.classList.toggle('hidden', false); document.getElementById('lfo2-phase').parentElement.classList.toggle('hidden', true);" min="0.1" max="20" value="5" step="0.1">Max Rate
-					</div>
+					<input type="range" oninput="set(Synth.Param.LFO2_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
 					<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.UP)" checked>Fade In
 					<input type="radio" name="lfo2-fade" oninput="set(Synth.Param.LFO2_FADE, Synth.Direction.DOWN)">Fade Out
-					<input id="lfo2-retrigger" type="checkbox" oninput="{ set(Synth.Param.LFO2_RETRIGGER, this.checked); let control = document.getElementById('lfo2-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1; document.getElementById('lfo2-phase').parentElement.classList.toggle('hidden'); }">Retrigger<br>
+					<input type="checkbox" oninput="{ set(Synth.Param.LFO2_RETRIGGER, this.checked); let control = document.getElementById('lfo2-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1; document.getElementById('lfo2-phase').parentElement.classList.toggle('hidden'); }">Retrigger
+					<br>
 					<input type="range" oninput="set(Synth.Param.LFO2_DELAY, parseFloat(this.value))" min="0" max="1000" value="0">Delay / Hold<br>
 					<input type="range" oninput="set(Synth.Param.LFO2_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0">Attack / Decay<br>
 					<div>
@@ -160,28 +156,6 @@
 					</div>
 					<div class="hidden">
 						<input id="lfo2-phase" type="range" oninput="set(Synth.Param.LFO2_PHASE, parseFloat(this.value))" min="0" max="360" step="45" value="0">Phase
-					</div>
-				</fieldset>
-				<fieldset>
-					<legend>LFO 3</legend>
-					<input type="radio" name="lfo3-waveform" oninput="set(Synth.Param.LFO3_WAVEFORM, 'sine')" checked>Sine
-					<input type="radio" name="lfo3-waveform" oninput="set(Synth.Param.LFO3_WAVEFORM, 'square')">Square
-					<input type="radio" name="lfo3-waveform" oninput="set(Synth.Param.LFO3_WAVEFORM, 'sawtooth')">Sawtooth
-					<input type="radio" name="lfo3-waveform" oninput="set(Synth.Param.LFO3_WAVEFORM, 'triangle')">Triangle
-					<input type="checkbox" oninput="set(Synth.Param.LFO3_GAIN, this.checked ? -100 : 100)">Inverted
-					<br>
-					<input type="range" oninput="set(Synth.Param.LFO3_RATE, parseFloat(this.value))" min="0.1" max="20" value="5" step="0.1">Rate<br>
-					<input type="radio" name="lfo3-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.UP)" checked>Fade In
-					<input type="radio" name="lfo3-fade" oninput="set(Synth.Param.LFO3_FADE, Synth.Direction.DOWN)">Fade Out
-					<input type="checkbox" oninput="{ set(Synth.Param.LFO3_RETRIGGER, this.checked); let control = document.getElementById('lfo3-rate-mod'); control.parentElement.classList.toggle('hidden'); if (this.checked) control.value = 1; document.getElementById('lfo3-phase').parentElement.classList.toggle('hidden'); }">Retrigger
-					<br>
-					<input type="range" oninput="set(Synth.Param.LFO3_DELAY, parseFloat(this.value))" min="0" max="1000" value="0">Delay / Hold<br>
-					<input type="range" oninput="set(Synth.Param.LFO3_ATTACK, parseFloat(this.value))" min="0" max="1000" value="0">Attack / Decay<br>
-					<div>
-						<input id="lfo3-rate-mod" type="range" oninput="set(Synth.Param.LFO3_RATE_MOD, parseFloat(this.value))" min="0.05" max="1" value="1" step="0.01" class="flip-x">Rate Modulation
-					</div>
-					<div class="hidden">
-						<input id="lfo3-phase" type="range" oninput="set(Synth.Param.LFO3_PHASE, parseFloat(this.value))" min="0" max="360" step="45" value="0">Phase
 					</div>
 				</fieldset>
 				<fieldset>
@@ -197,7 +171,6 @@
 					Oscillator:
 					<input type="radio" name="vibrato-lfo" oninput="set(Synth.Param.VIBRATO_LFO, 1)" checked>LFO 1
 					<input type="radio" name="vibrato-lfo" oninput="set(Synth.Param.VIBRATO_LFO, 2)">LFO 2
-					<input type="radio" name="vibrato-lfo" oninput="set(Synth.Param.VIBRATO_LFO, 3)">LFO 3
 					<br>
 					<input type="range" oninput="set(Synth.Param.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0">Extent<br>
 				</fieldset>
@@ -210,7 +183,6 @@
 					Oscillator:
 					<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 1)" checked>LFO 1
 					<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 2)">LFO 2
-					<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 3)">LFO 3
 					<br>
 					<input type="range" oninput="set(Synth.Param.MIN_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50">Min Pulse Width<br>
 					<input type="range" oninput="set(Synth.Param.MAX_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50">Max Pulse Width<br>
@@ -240,15 +212,31 @@
 						<input id="max-Q" type="range" oninput="openGateTemporarily(); set(Synth.Param.MAX_Q, 10 ** parseFloat(this.value))" onmouseup="closeGateOpenedTemporarily()" min="-2" max="2" value="0" step="0.01">Max Resonance / Width
 					</div>
 					<input type="range" oninput="set(Synth.Param.FILTER_GAIN, parseFloat(this.value))" min="-40" max="40" value="0">Gain<br>
-					Oscillator:
-					<input type="radio" name="filter-lfo" oninput="set(Synth.Param.FILTER_LFO, 1)" checked>LFO 1
-					<input type="radio" name="filter-lfo" oninput="set(Synth.Param.FILTER_LFO, 2)">LFO 2
-					<input type="radio" name="filter-lfo" oninput="set(Synth.Param.FILTER_LFO, 3)">LFO 3
+					<table>
+						<tr>
+							<td>Frequency:</td>
+							<td>
+								<input type="radio" name="filter-freq-lfo" oninput="set(Synth.Param.FILTER_FREQUENCY_LFO, 1)" checked>LFO 1
+							</td>
+							<td>
+								<input type="radio" name="filter-freq-lfo" oninput="set(Synth.Param.FILTER_FREQUENCY_LFO, 2)">LFO 2
+							</td>
+						</tr>
+						<tr>
+							<td>Resonance:</td>
+							<td>
+								<input type="radio" name="filter-q-lfo" oninput="set(Synth.Param.Q_LFO, 1)" checked>LFO 1
+							</td>
+							<td>
+								<input type="radio" name="filter-q-lfo" oninput="set(Synth.Param.Q_LFO, 2)">LFO 2
+							</td>
+						</tr>
+					</table>
 				</fieldset>
 				<fieldset>
 					<legend>Amplitude Envelope</legend>
 					<input type="range" oninput="set(Synth.Param.ATTACK, parseFloat(this.value))" min="1" max="500" value="2">Attack
-					<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="5" value="0.5" step="0.25">Curve
+					<input type="range" oninput="set(Synth.Param.ATTACK_CURVE, parseFloat(this.value))" min="0.25" max="5" value="3" step="0.25">Curve
 					<br>
 					<input type="range" oninput="set(Synth.Param.HOLD, parseFloat(this.value))" min="0" max="1500" value="0">Hold<br>
 					<input type="range" oninput="set(Synth.Param.DECAY, parseFloat(this.value))" min="1" max="1000" value="50">Decay
@@ -269,7 +257,6 @@
 					Oscillator:
 					<input type="radio" name="tremolo-lfo" oninput="set(Synth.Param.TREMOLO_LFO, 1)" checked>LFO 1
 					<input type="radio" name="tremolo-lfo" oninput="set(Synth.Param.TREMOLO_LFO, 2)">LFO 2
-					<input type="radio" name="tremolo-lfo" oninput="set(Synth.Param.TREMOLO_LFO, 3)">LFO 3
 					<br>
 					<input type="range" oninput="set(Synth.Param.TREMOLO_DEPTH, parseFloat(this.value))" min="0" max="100" value="0">Depth<br>
 				</fieldset>
@@ -278,7 +265,6 @@
 					Oscillator:
 					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 1)" checked>LFO 1
 					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 2)">LFO 2
-					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 3)">LFO 3
 					<br>
 					<input type="range" oninput="set(document.getElementById('single-delay').checked ? Synth.Param.DELAY : Synth.Param.MIN_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Min Delay
 					<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
@@ -330,7 +316,6 @@
 					Oscillator:
 					<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 1)" checked>LFO 1
 					<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 2)">LFO 2
-					<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 3)">LFO 3
 					<br>
 					<input type="range" oninput="set(Synth.Param.LEFTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0">Leftmost Point<br>
 					<input type="range" oninput="set(Synth.Param.RIGHTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0">Rightmost Point<br>
