@@ -2326,11 +2326,9 @@ class Channel {
 		if (lineTimeChange !== undefined) {
 			lineTime = calculateParameterValue(lineTimeChange, lineTime, false)[1];
 			parameters[Parameter.LINE_TIME] = lineTime;
-			if (grooveChange === undefined) {
-				const multiplier = lineTime / Math.max(...groove);
-				for (let i = 0; i < groove.length; i++) {
-					groove[i] = groove[i] * multiplier;
-				}
+			const multiplier = lineTime / Math.max(...groove);
+			for (let i = 0; i < groove.length; i++) {
+				groove[i] = groove[i] * multiplier;
 			}
 		}
 

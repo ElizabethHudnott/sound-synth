@@ -247,7 +247,7 @@
 					<br>
 					<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value)); document.getElementById('duration-readout').innerHTML = this.value" min="0" max="16" step="0.25" value="0">
 					<span id="duration-readout" class="readout">0</span>
-					Duration <small>(0 = auto)</small>
+					Duration <small>(0 = staccato)</small>
 				</fieldset>
 				<fieldset>
 					<legend>Tremolo</legend>
@@ -302,11 +302,10 @@
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.RETRIGGER, value); document.getElementById('retrigger-readout').innerHTML = value;}" min="0" max="16" value="0">
 					<span id="retrigger-readout" class="readout">0</span>
 					Retrigger Time
+					<input type="checkbox" oninput="set(Synth.Param.LEGATO_CHORD, this.checked)">Legato
 					<br>
 					<input type="range" oninput="set(Synth.Param.RETRIGGER_VOLUME, parseFloat(this.value), 0, Synth.ChangeType.EXPONENTIAL)" min="1" max="100" value="100">
 					Retrigger Volume
-					<br>
-					<input type="checkbox" oninput="set(Synth.Param.LEGATO_CHORD, this.checked)">Use Multi-Trigger
 				</fieldset>
 				<fieldset>
 					<legend>Pan</legend>
