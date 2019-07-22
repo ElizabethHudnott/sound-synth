@@ -98,14 +98,10 @@ function expCurve(value, power) {
 }
 
 function fillNoise(buffer) {
-	const numberOfChannels = buffer.numberOfChannels;
 	const length = buffer.length;
-	const leftChannel = buffer.getChannelData(0);
+	const data = buffer.getChannelData(0);
 	for (let i = 0; i < length; i++) {
-		leftChannel[i] = Math.random() * 2 - 1;
-	}
-	for (let channelNumber = 1; channelNumber < numberOfChannels; channelNumber++) {
-		buffer.copyToChannel(leftChannel, channelNumber);
+		data[i] = Math.random() * 2 - 1;
 	}
 }
 
@@ -163,9 +159,7 @@ const Parameter = enumFromArray([
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// overall channel detune in cents
 	'TUNING_STRETCH', // in cents
-	'SAMPLE_AND_HOLD', // number of samples per second
-	'NOISE',		// percentage
-	'NOISE_COLOR',	// in hertz
+	'NOISE_TRACKING',
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
 	'LFO1_PHASE',	// 0 to 360
@@ -342,6 +336,7 @@ const Wave = Object.freeze({
 	SAWTOOTH: 2,
 	CUSTOM: 3,
 	PULSE: 4,
+	NOISE: 10,
 });
 
 const Chord = Object.freeze({
@@ -1360,21 +1355,14 @@ class SynthSystem {
 		this.ondatarecorded = undefined;
 		this.setRecordingFormat(undefined, undefined);
 
-		const noiseLength = 3;
-		const stereoNoiseBuffer = audioContext.createBuffer(2, noiseLength * sampleRate, sampleRate);
-		fillNoise(stereoNoiseBuffer);
-		const stereoNoise = audioContext.createBufferSource();
-		this.stereoNoise = stereoNoise;
-		stereoNoise.buffer = stereoNoiseBuffer;
-		stereoNoise.loop = true;
-		stereoNoise.loopEnd = noiseLength;
-		const monoNoiseBuffer = audioContext.createBuffer(1, noiseLength * sampleRate, sampleRate);
-		fillNoise(monoNoiseBuffer);
-		const monoNoise = audioContext.createBufferSource();
-		this.monoNoise = monoNoise;
-		monoNoise.buffer = monoNoiseBuffer;
-		monoNoise.loop = true;
-		monoNoise.loopEnd = noiseLength;
+		const noiseLength = 3; // in seconds
+		const noiseBuffer = audioContext.createBuffer(1, noiseLength * sampleRate, sampleRate);
+		fillNoise(noiseBuffer);
+		const noise = audioContext.createBufferSource();
+		this.noise = noise;
+		noise.buffer = noiseBuffer;
+		noise.loop = true;
+		noise.loopEnd = noiseLength;
 
 		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
@@ -1458,8 +1446,7 @@ class SynthSystem {
 		for (let channel of this.channels) {
 			channel.start(when);
 		}
-		this.stereoNoise.start();
-		this.monoNoise.start();
+		this.noise.start();
 		this.startTime = when;
 	}
 
@@ -1665,13 +1652,13 @@ class ReciprocalNode extends AudioWorkletNode {
 class SampleAndHoldNode extends AudioWorkletNode {
 	constructor(context) {
 		super(context, 'sample-and-hold', {
-			channelCount: 2,
-			channelCountMode: 'clamped-max',
+			channelCount: 1,
+			channelCountMode: 'explicit',
 		});
 	}
 
-	get frequency() {
-		return this.parameters.get('frequency');
+	get sampleRate() {
+		return this.parameters.get('sampleRate');
 	}
 }
 
@@ -1706,9 +1693,7 @@ class Channel {
 			440,	// frequency
 			0,		// detune
 			0,		// no stretched tuning
-			audioContext.sampleRate, // sample and hold frequency
-			0,		// no noise
-			audioContext.sampleRate / 2, // don't filter the noise
+			4,		// four times as many noise samples per second as the oscillator pitch
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
 			0,		// LFO 1 phase
@@ -1776,7 +1761,6 @@ class Channel {
 		this.usingOscillator = true;
 		this.samplePlayer = undefined;
 		this.sampleLooping = false;
-		this.noiseLevel = 0;
 		this.velocity = 1;
 		this.sustain = expCurve(70, 1); // combined sustain and velocity
 		this.release = 0.3;
@@ -1856,30 +1840,31 @@ class Channel {
 		this.sampleBufferNode = undefined;
 		const sampleGain = audioContext.createGain();
 		this.sampleGain = sampleGain;
-		const samplePan = audioContext.createStereoPanner();
-		sampleGain.connect(samplePan);
 		const playRateMultiplier = audioContext.createGain();
 		playRateMultiplier.gain.value = 1 / 440;
 		this.playRateMultiplier = playRateMultiplier;
-		const samplePlaybackRate = audioContext.createConstantSource();
-		samplePlaybackRate.connect(playRateMultiplier);
-		samplePlaybackRate.connect(pwmDetune);
-		samplePlaybackRate.start();
+		const frequencyNode = audioContext.createConstantSource();
+		/* The vibrato feeds a varying frequency into this, which divides by the central
+		 * frequency to compute the playback speed.
+		 */
+		frequencyNode.connect(playRateMultiplier);
+		// Also use the frequency to compute pulse the pulse width.
+		frequencyNode.connect(pwmDetune);
+		frequencyNode.start();
 
 		// Noise
-		const noiseFilter = audioContext.createBiquadFilter();
-		this.noiseFilter = noiseFilter;
-		noiseFilter.frequency.value = audioContext.sampleRate / 2;
-		system.stereoNoise.connect(noiseFilter);
+		const sampleAndHold = new SampleAndHoldNode(audioContext);
+		this.sampleAndHold = sampleAndHold;
+		system.noise.connect(sampleAndHold);
 		const noiseGain = audioContext.createGain();
 		this.noiseGain = noiseGain;
 		noiseGain.gain.value = 0;
-		noiseFilter.connect(noiseGain);
-
-		// Sample and Hold
-		const sampleAndHold = new SampleAndHoldNode(audioContext);
-		this.sampleAndHold = sampleAndHold;
-		samplePan.connect(sampleAndHold);
+		sampleAndHold.connect(noiseGain);
+		const sampleAndHoldRateMultiplier = audioContext.createGain();
+		this.sampleAndHoldRateMultiplier = sampleAndHoldRateMultiplier;
+		sampleAndHoldRateMultiplier.gain.value = 0;
+		frequencyNode.connect(sampleAndHoldRateMultiplier);
+		sampleAndHoldRateMultiplier.connect(sampleAndHold.sampleRate);
 
 		// Vibrato
 		const vibrato = new Modulator(audioContext, lfo1);
@@ -1887,7 +1872,7 @@ class Channel {
 		vibrato.connect(sine.frequency);
 		vibrato.connect(triangle.frequency);
 		vibrato.connect(saw.frequency);
-		vibrato.connect(samplePlaybackRate.offset);
+		vibrato.connect(frequencyNode.offset);
 
 		// Siren
 		const siren = new Modulator(audioContext, lfo2);
@@ -1895,14 +1880,15 @@ class Channel {
 		siren.connect(sine.frequency);
 		siren.connect(triangle.frequency);
 		siren.connect(saw.frequency);
-		siren.connect(samplePlaybackRate.offset);
+		siren.connect(frequencyNode.offset);
 
 		// Filter
 		const filter = audioContext.createBiquadFilter();
 		this.filter = filter;
 		filter.frequency.value = 4400;
 		oscillatorGain.connect(filter);
-		sampleAndHold.connect(filter);
+		noiseGain.connect(filter);
+		sampleGain.connect(filter);
 
 		// Filter modulation
 		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
@@ -1920,7 +1906,8 @@ class Channel {
 		this.unfilteredPath = unfilteredPath;
 		unfilteredPath.gain.value = 0;
 		oscillatorGain.connect(unfilteredPath);
-		sampleAndHold.connect(unfilteredPath);
+		noiseGain.connect(unfilteredPath);
+		sampleGain.connect(unfilteredPath);
 
 		// Ring modulation
 		const ringMod = audioContext.createGain();
@@ -1931,7 +1918,6 @@ class Channel {
 		this.ringInput = ringInput;
 		filteredPath.connect(ringMod);
 		unfilteredPath.connect(ringMod);
-		noiseGain.connect(ringMod);
 
 		// Envelope
 		const envelope = audioContext.createGain();
@@ -2045,9 +2031,7 @@ class Channel {
 		this.playRateMultiplier.connect(sampleBufferNode.playbackRate);
 		sampleBufferNode.connect(this.sampleGain);
 
-		const volume = samplePlayer.gain;
-		this.sampleGain.gain.setValueAtTime(volume * (1 - this.noiseLevel), time);
-
+		this.sampleGain.gain.setValueAtTime(samplePlayer.gain, time);
 		sampleBufferNode.start(time, parameters[Parameter.OFFSET]);
 		this.sampleBufferNode = sampleBufferNode;
 		this.samplePlayer = samplePlayer;
@@ -2058,45 +2042,57 @@ class Channel {
 		this.lfo2.trigger(when);
 	}
 
-	gate(state, note, volume, sustainLevel, lineTime, start, gain) {
+	noiseOn(time) {
+		const noiseTracking = this.parameters[Parameter.NOISE_TRACKING];
+		if (noiseTracking > 0) {
+			this.sampleAndHold.sampleRate.setValueAtTime(0, time);
+			this.sampleAndHoldRateMultiplier.gain.setValueAtTime(noiseTracking, time);
+		}
+		this.noiseGain.gain.setValueAtTime(1, time);
+	}
+
+	noiseOff(changeType, time) {
+		this.noiseGain.gain[changeType](0, time);
+		const sampleRate = this.system.audioContext.sampleRate;
+		this.sampleAndHoldRateMultiplier.gain.setValueAtTime(0, time);
+		this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
+	}
+
+	gate(state, note, volume, sustainLevel, lineTime, start) {
 		const parameters = this.parameters;
-		const noise = this.noiseLevel;
 		let scaleAHD, duration, usingSamples;
 		const releaseTime = this.release;
 
-		if (gain === undefined) {
-			gain = this.envelope.gain;
-			scaleAHD = parameters[Parameter.SCALE_AHD];
-			duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
-			usingSamples = parameters[Parameter.INSTRUMENT] >= 0
-			if (usingSamples) {
-				if (this.usingOscillator) {
-					if ((state & Gate.OPEN) === 0) {
-						usingSamples = false;
-					} else {
-						// First time the gate's been opened since switching into sample mode.
-						this.oscillatorGain.gain.setValueAtTime(0, start);
-						this.usingOscillator = false;
-					}
-				}
-			} else if (!this.usingOscillator) {
+		const gain = this.envelope.gain;
+		scaleAHD = parameters[Parameter.SCALE_AHD];
+		duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
+		usingSamples = parameters[Parameter.INSTRUMENT] >= 0
+		if (usingSamples) {
+			if (this.usingOscillator) {
 				if ((state & Gate.OPEN) === 0) {
-					usingSamples = true;
+					usingSamples = false;
 				} else {
-					// First time the gate's been opened since switching into oscillator mode.
-					if ((state & Gate.LEGATO) === 0) {
-						this.sampleGain.gain.setValueAtTime(0, start);
-					}
-					this.oscillatorGain.gain.setValueAtTime(1 - noise, start);
-					this.noiseGain.gain.setValueAtTime(noise, start);
-					this.usingOscillator = true;
+					// First time the gate's been opened since switching into sample mode.
+					this.oscillatorGain.gain.setValueAtTime(0, start);
+					this.noiseOff(ChangeType.SET, start);
+					this.usingOscillator = false;
 				}
 			}
-		} else {
-			usingSamples = false;
-			const playbackRate = this.noteFrequencies[note] * this.samplePlayer.samplePeriod;
-			scaleAHD = 1 / playbackRate;
-			duration = this.sampleBufferNode.buffer.duration / playbackRate - releaseTime;
+		} else if (!this.usingOscillator) {
+			if ((state & Gate.OPEN) === 0) {
+				usingSamples = true;
+			} else {
+				// First time the gate's been opened since switching into oscillator mode.
+				if ((state & Gate.LEGATO) === 0) {
+					this.sampleGain.gain.setValueAtTime(0, start);
+				}
+				if (parameters[Parameter.WAVEFORM] === Wave.NOISE) {
+					this.noiseOn(start);
+				} else {
+					this.oscillatorGain.gain.setValueAtTime(1, start);
+				}
+				this.usingOscillator = true;
+			}
 		}
 
 		const endAttack = start + scaleAHD * this.endAttack;
@@ -2172,9 +2168,6 @@ class Channel {
 					this.sampleLooping = false;
 				}
 				break;
-			}
-			if (noise > 0) {
-				this.gate(state, note, volume * noise, sustainLevel * noise, undefined, start, this.noiseGain.gain);
 			}
 			return;
 		}
@@ -2422,14 +2415,35 @@ class Channel {
 				break;
 
 			case Parameter.WAVEFORM:
-				this.wavetableMod.setMinMax(changeType, value, value, time);
-				parameters[Parameter.MIN_WAVEFORM] = value;
-				parameters[Parameter.MAX_WAVEFORM] = value;
+				if (value === Wave.NOISE) {
+					this.oscillatorGain.gain[changeType](0, time);
+					if (this.usingOscillator) {
+						this.noiseOn(time);
+					}
+				} else {
+					this.wavetableMod.setMinMax(changeType, value, value, time);
+					this.noiseOff(changeType, time)
+					if (this.usingOscillator) {
+						this.oscillatorGain.gain[changeType](1, time);
+					}
+					parameters[Parameter.MIN_WAVEFORM] = value;
+					parameters[Parameter.MAX_WAVEFORM] = value;
+				}
 				break;
 
 			case Parameter.MIN_WAVEFORM:
 			case Parameter.MAX_WAVEFORM:
 				dirtyWavetable = changeType;
+				break;
+
+			case Parameter.NOISE_TRACKING:
+				this.sampleAndHoldRateMultiplier.gain[changeType](value, time);
+				if (value === 0) {
+					const sampleRate = this.system.audioContext.sampleRate;
+					this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
+				} else {
+					this.sampleAndHold.sampleRate.setValueAtTime(0, time);
+				}
 				break;
 
 			case Parameter.WAVE_X:
@@ -2566,19 +2580,6 @@ class Channel {
 			case Parameter.VIBRATO_EXTENT:
 			case Parameter.SIREN_EXTENT:
 				this.setFrequency(changeType, this.frequencies[this.noteIndex], time);
-				break;
-
-			case Parameter.NOISE:
-				this.noiseLevel = expCurve(value, 1);
-				break;
-
-			case Parameter.NOISE_COLOR:
-				this.noiseFilter.frequency[changeType](value, time);
-				this.noiseGain.gain[changeType](expCurve(parameters[Parameter.NOISE], 1) * aWeighting(value), time);
-				break;
-
-			case Parameter.SAMPLE_AND_HOLD:
-				this.sampleAndHold.frequency[changeType](value, time);
 				break;
 
 			case Parameter.VOLUME:
@@ -2810,10 +2811,12 @@ class Channel {
 		if (dirtyWavetable) {
 			const min = parameters[Parameter.MIN_WAVEFORM];
 			let max = parameters[Parameter.MAX_WAVEFORM];
-			if (min > max) {
-				max = max + 5;
-			}
+			parameters[Parameter.WAVEFORM] = min;
 			this.wavetableMod.setMinMax(dirtyWavetable, min, max, time);
+			if (this.usingOscillator) {
+				this.oscillatorGain.gain[dirtyWavetable](1, time);
+				this.noiseOff(dirtyWavetable, time);
+			}
 		}
 		if (dirtyPWM) {
 			this.pwm.setMinMax(dirtyPWM, parameters[Parameter.MIN_PULSE_WIDTH] / 100, parameters[Parameter.MAX_PULSE_WIDTH] / 100, time);

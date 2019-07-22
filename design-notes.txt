@@ -13,7 +13,7 @@ Loop from
 
 Synth
 -----
-Sample and Hold oscillators?
+UI Waveform +5 option
 Choice of New Note Action (release, cut)
 Sample finetune
 Add sample slicing
@@ -34,10 +34,17 @@ MIDI
 ----
 handle MIDI channels sharing synth channels
 
+
+Noise
+-----
+Noise filtered as a modulation source
+
+Noise Buffer -> Sample & Hold
+
 ------
 LFO rate modulated by an envelope
+LFO rate modulated by an LFO
 LFO amount modulated by an LFO
-LFO attack time
 Pulse width modulated by an envelope
 --------
 

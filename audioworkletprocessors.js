@@ -63,7 +63,7 @@ registerProcessor('reciprocal', ReciprocalProcessor);
 class SampleAndHoldProcessor extends AudioWorkletProcessor {
  	static get parameterDescriptors() {
  		return [{
- 			name: 'frequency',
+ 			name: 'sampleRate',
  			automationRate: 'k-rate',
  			defaultValue: sampleRate,
  			minValue: 0,
@@ -73,46 +73,35 @@ class SampleAndHoldProcessor extends AudioWorkletProcessor {
 
  	constructor() {
  		super();
- 		this.sample = new Float32Array(2);
+ 		this.sample = 0;
  		this.timeHeld = 0;
  	}
 
  	process(inputs, outputs, parameters) {
- 		const input = inputs[0];
- 		const numChannels = input.length;
- 		const output = outputs[0];
- 		const frequency = parameters.frequency[0];
- 		const sample = this.sample;
- 		let inputChannel, outputChannel, value, timeHeld;
+ 		const input = inputs[0][0];
+ 		const output = outputs[0][0];
+ 		const frequency = parameters.sampleRate[0];
 
  		if (frequency === sampleRate) {
- 			for (let j = 0; j < numChannels; j++) {
- 				inputChannel = input[j];
- 				output[j].set(inputChannel);
- 				sample[j] = inputChannel[127];
- 			}
+			output.set(input);
+ 			this.sample = input[127];
  			this.timeHeld = 0;
  			return true;
  		}
 
  		const holdTime = sampleRate / frequency;
+ 		let value = this.sample;
+ 		let timeHeld = this.timeHeld;
 
- 		for (let j = 0; j < numChannels; j++) {
- 			inputChannel = input[j];
- 			outputChannel = output[j];
- 			value = sample[j];
-	 		timeHeld = this.timeHeld;
-	 		for (let i = 0; i < 128; i++) {
-	 			timeHeld++;
-	 			if (timeHeld >= holdTime) {
-					value = inputChannel[i];
-	 				timeHeld -= holdTime;
-	 			}
-				outputChannel[i] = value;
-	 		}
-	 		sample[j] = value;
-	 	}
-
+ 		for (let i = 0; i < 128; i++) {
+ 			timeHeld++;
+ 			if (timeHeld >= holdTime) {
+				value = input[i];
+ 				timeHeld -= holdTime;
+ 			}
+			output[i] = value;
+ 		}
+ 		this.sample = value;
  		this.timeHeld = timeHeld;
  		return true;
  	}
