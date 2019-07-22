@@ -108,7 +108,7 @@ function initialize() {
 		if (value !== "") {
 			midiPort = Midi.port(value);
 		} else if (debug.midi) {
-			midiPort = new Midi.Midi('Debugger');
+			midiPort = new Midi.MidiPort('Debugger');
 			Midi.addPort('debugger', midiPort);
 		}
 		if (midiPort !== undefined) {

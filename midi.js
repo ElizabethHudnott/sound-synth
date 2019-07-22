@@ -415,7 +415,7 @@ function port(id) {
 }
 
 global.Midi = {
-	Midi: Midi,
+	MidiPort: Midi,
 	SynthInputEvent: SynthInputEvent,
 	open: open,
 	close: close,
