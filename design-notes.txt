@@ -14,6 +14,7 @@ Loop from
 Synth
 -----
 UI Waveform +5 option
+UI Make frequency slider logarithmic
 Choice of New Note Action (release, cut)
 Sample finetune
 Add sample slicing

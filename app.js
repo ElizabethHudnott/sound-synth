@@ -200,16 +200,8 @@ function playNote(gate) {
 			notes.push(noteNumber + interval);
 		}
 	}
-	let changeType;
-	for (let radioButton of document.querySelectorAll('input[name=glide-change-type]')) {
-		if (radioButton.checked) {
-			changeType = radioButton.value;
-			break;
-		}
-	}
-
 	const parameterMap = new Map();
-	parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes));
+	parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.EXPONENTIAL, notes));
 	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
 		gate = gate & (Synth.Gate.REOPEN);
 	}

@@ -10,6 +10,12 @@ class SynthInputEvent extends Event {
 	}
 }
 
+const Glide = Synth.enumFromArray([
+	'OFF',
+	'MONO',
+	'LEGATO',
+]);
+
 class Midi extends EventTarget {
 
 	constructor(name, port) {
@@ -50,6 +56,14 @@ class Midi extends EventTarget {
 		// For each MIDI channel, whether or not to retrigger revived notes.
 		this.retrigger = new Array(16);
 		this.retrigger.fill(false);
+
+		/* For each MIDI channel, whether there is no glide, glide only when overlapped
+		 * notes are revived, or glide on note on messages and revived notes.
+		 */
+		 this.glide = new Array(16);
+		 this.glide.fill(Glide.OFF);
+
+		 this.channelQueue = [];
 	}
 
 	enableArpeggio(channel, enabled) {
@@ -93,6 +107,9 @@ class Midi extends EventTarget {
 					const note = bytes[1];
 					const notes = this.notes[midiChannel];
 					const numNotes = notes.length;
+					const glide = this.glide[midiChannel];
+					const changeType = glide === Glide.MONO ? Synth.ChangeType.EXPONENTIAL : Synth.ChangeType.SET;
+
 					if (this.arpeggio[midiChannel]) {
 						synthChannel = fromChannel;
 						let noteIndex = numNotes;
@@ -102,7 +119,7 @@ class Midi extends EventTarget {
 						if (noteIndex === 0 || note !== notes[noteIndex - 1]) {
 							notes.splice(noteIndex, 0, note);
 							this.notesToChannels[midiChannel].splice(noteIndex, 0, synthChannel);
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes.slice()));
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes.slice()));
 						}
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
@@ -118,11 +135,20 @@ class Midi extends EventTarget {
 						if (synthChannel === undefined) {
 							if (numNotes < numChannels) {
 								// Find a free channel.
+								let minQueuePosition;
 								for (let i = fromChannel; i <= toChannel; i++) {
-									if (!synthChannels.includes(i)) {
-										synthChannel = i;
-										break;
+									if (!synthChannels.includes(i))  {
+										const queuePosition = this.channelQueue.indexOf(i);
+										if (queuePosition === -1) {
+											synthChannel = i;
+											break;
+										} else if (minQueuePosition === undefined || queuePosition < minQueuePosition) {
+											minQueuePosition = queuePosition;
+										}
 									}
+								}
+								if (synthChannel === undefined) {
+									synthChannel = this.channelQueue[minQueuePosition];
 								}
 							} else {
 								// Mute an existing note.
@@ -135,7 +161,7 @@ class Midi extends EventTarget {
 									}
 								}
 							}
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [note]));
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, [note]));
 						}
 						notes.push(note);
 						synthChannels.push(synthChannel);
@@ -158,6 +184,8 @@ class Midi extends EventTarget {
 					const numNotes = notes.length;
 					notes.splice(noteIndex, 1);
 					synthChannels.splice(noteIndex, 1);
+					const glide = this.glide[midiChannel];
+					const changeType = glide === Glide.OFF ? Synth.ChangeType.SET : Synth.ChangeType.EXPONENTIAL;
 
 					if (this.arpeggio[midiChannel]) {
 						if (numNotes === 1) {
@@ -168,7 +196,7 @@ class Midi extends EventTarget {
 						} else if (synthChannel !== fromChannel) {
 							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 						} else {
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, notes.slice()));
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes.slice()));
 						}
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
@@ -178,13 +206,21 @@ class Midi extends EventTarget {
 								revivedIndex--;
 							}
 							const revivedNote = notes[revivedIndex];
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [revivedNote]));
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, [revivedNote]));
 							synthChannels[revivedIndex] = synthChannel;
 							if (this.retrigger[midiChannel]) {
 								const gate = this.gate[midiChannel];
 								parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 							}
 						} else {
+							const channelQueue = this.channelQueue;
+							const queuePosition = channelQueue.indexOf(synthChannel);
+							if (queuePosition === -1) {
+								channelQueue.push(synthChannel);
+							} else {
+								channelQueue.copyWithin(queuePosition, queuePosition + 1);
+								channelQueue[channelQueue.length - 1] = synthChannel;
+							}
 							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 						}
 					}
@@ -415,6 +451,7 @@ function port(id) {
 }
 
 global.Midi = {
+	Glide: Glide,
 	MidiPort: Midi,
 	SynthInputEvent: SynthInputEvent,
 	open: open,
