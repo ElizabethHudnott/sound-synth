@@ -3,6 +3,7 @@
 
 const SEMITONE = 2 ** (1 / 12);
 const CENT = 2 ** (1 / 1200);
+const SMALLEST_VALUE = 2 ** -16;
 const TWO_PI = 2 * Math.PI;
 
 const LFO_MAX = 20;
@@ -538,6 +539,7 @@ class LFO {
 
 class Modulator {
 	constructor(audioContext, controller, carrier) {
+		this.shortestTime = 1 / audioContext.sampleRate;
 		const range = audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
@@ -553,9 +555,17 @@ class Modulator {
 	}
 
 	setMinMax(changeType, min, max, time) {
-		const multiplier = (max - min) / 2;
+		const rangeGain = this.range.gain;
+		let multiplier = (max - min) / 2;
+		if (multiplier === 0 && changeType === ChangeType.EXPONENTIAL) {
+			rangeGain.exponentialRampToValueAtTime(SMALLEST_VALUE, time - this.shortestTime);
+			rangeGain.setValueAtTime(0, time);
+		} else {
+			rangeGain[changeType](multiplier, time);
+		}
+
+
 		const centre = min + multiplier;
-		this.range.gain[changeType](multiplier, time);
 
 		for (let carrier of this.carriers) {
 			carrier[changeType](centre, time);
@@ -564,7 +574,13 @@ class Modulator {
 	}
 
 	setDepth(changeType, range, time) {
-		this.range.gain[changeType](range / 2, time);
+		const rangeGain = this.range.gain;
+		if (range === 0 && changeType === ChangeType.EXPONENTIAL) {
+			rangeGain.exponentialRampToValueAtTime(SMALLEST_VALUE, time - this.shortestTime);
+			rangeGain.setValueAtTime(0, time);
+		} else {
+			rangeGain[changeType](range / 2, time);
+		}
 	}
 
 	setCentre(changeType, centre, time) {
@@ -1335,8 +1351,9 @@ class SampledInstrument {
 class SynthSystem {
 	constructor(audioContext, callback) {
 		const me = this;
-		const sampleRate = audioContext.sampleRate;
 		this.audioContext = audioContext;
+		const sampleRate = audioContext.sampleRate;
+		this.sampleRate = sampleRate;
 		this.channels = [];
 		this.startTime = audioContext.currentTime;	// dummy value overridden by start()
 		this.nextLine = 0;
@@ -2053,7 +2070,7 @@ class Channel {
 
 	noiseOff(changeType, time) {
 		this.noiseGain.gain[changeType](0, time);
-		const sampleRate = this.system.audioContext.sampleRate;
+		const sampleRate = this.system.sampleRate;
 		this.sampleAndHoldRateMultiplier.gain.setValueAtTime(0, time);
 		this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
 	}
@@ -2437,7 +2454,7 @@ class Channel {
 			case Parameter.NOISE_TRACKING:
 				this.sampleAndHoldRateMultiplier.gain[changeType](value, time);
 				if (value === 0) {
-					const sampleRate = this.system.audioContext.sampleRate;
+					const sampleRate = this.system.sampleRate;
 					this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
 				} else {
 					this.sampleAndHold.sampleRate.setValueAtTime(0, time);

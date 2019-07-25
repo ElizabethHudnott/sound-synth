@@ -201,11 +201,13 @@ function playNote(gate) {
 		}
 	}
 	let changeType;
-	if (channels[0].parameters[Synth.Param.GLIDE] === 0) {
-		changeType = Synth.ChangeType.SET;
-	} else {
-		changeType = Synth.ChangeType.LINEAR;
+	for (let radioButton of document.querySelectorAll('input[name=glide-change-type]')) {
+		if (radioButton.checked) {
+			changeType = radioButton.value;
+			break;
+		}
 	}
+
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes));
 	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {

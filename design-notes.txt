@@ -17,6 +17,7 @@ UI Waveform +5 option
 Choice of New Note Action (release, cut)
 Sample finetune
 Add sample slicing
+Time stretching
 Probability
 Instruments
 Automations
@@ -37,9 +38,8 @@ handle MIDI channels sharing synth channels
 
 Noise
 -----
-Noise filtered as a modulation source
+Noise through S&H as a modulation source
 
-Noise Buffer -> Sample & Hold
 
 ------
 LFO rate modulated by an envelope
