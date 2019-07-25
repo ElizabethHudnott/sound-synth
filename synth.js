@@ -1793,6 +1793,7 @@ class Channel {
 		this.noteIndex = 0;
 		this.chordDir = 1;
 		this.noteRepeated = false;
+		this.noteChangeType = ChangeType.SET;
 		this.scheduledUntil = 0;
 
 		// LFOs
@@ -2372,13 +2373,13 @@ class Channel {
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 
 		// Each of these holds a change type (or undefined for no change)
-		let dirtyWavetable, dirtyPWM, dirtyNotes, dirtyFilterFrequency, dirtyFilterQ;
+		let dirtyWavetable, dirtyPWM, dirtyFilterFrequency, dirtyFilterQ;
 		let dirtyMix, dirtyDelay, dirtyPan;
 
+		let dirtyNotes = false;
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
 		let dirtyCustomWave = false;
-		let frequencySet = false;
 		let endRetrigger = false;
 		const callbacks = [];
 
@@ -2573,19 +2574,17 @@ class Channel {
 				this.setFrequency(changeType, value, time);
 				this.frequencies = [value];
 				this.noteIndex = 0;
-				frequencySet = true;
 				break;
 
 			case Parameter.TUNING_STRETCH:
 				this.noteFrequencies = this.system.getNotes(value);
-				if (dirtyNotes === undefined) {
-					dirtyNotes = changeType;
-				}
+				dirtyNotes = true;
 				break;
 
 			case Parameter.NOTES:
 				this.frequencies.splice(value.length);
-				dirtyNotes = changeType;
+				this.noteChangeType = changeType;
+				dirtyNotes = true;
 				break;
 
 			case Parameter.DETUNE:
@@ -2821,8 +2820,36 @@ class Channel {
 		} // end loop over each parameter
 
 		const notes = parameters[Parameter.NOTES];
+		const noteChangeType = this.noteChangeType;
 		const frequencies = this.frequencies;
+		const numNotes = frequencies.length;
+		const chordTicks = parameters[Parameter.CHORD_SPEED];
+		let arpGlideTime = parameters[Parameter.GLIDE] * chordTicks * tickTime;
+		let noteIndex;
 
+		if (dirtyNotes || gate !== undefined) {
+			const firstNote = notes[0];
+			const frequency = this.noteFrequencies[firstNote];
+			if (noteChangeType === ChangeType.SET) {
+				this.setFrequency(ChangeType.SET, frequency, time);
+			} else {
+				let glideTime;
+				if (numNotes === 1) {
+					glideTime = parameters[Parameter.GLIDE] * lineTime * TIME_STEP;
+				} else {
+					glideTime = arpGlideTime;
+				}
+				this.setFrequency(ChangeType.SET, this.vibrato.centre, time);
+				this.setFrequency(noteChangeType, frequency, time + glideTime);
+			}
+			frequencies[0] = frequency;
+			parameters[Parameter.FREQUENCY] = frequency;
+			for (let i = 1; i < notes.length; i++) {
+				frequencies[i] = this.noteFrequencies[notes[i]];
+			}
+			this.noteIndex = 0;
+			noteIndex = 0;
+		}
 		if (dirtyWavetable) {
 			const min = parameters[Parameter.MIN_WAVEFORM];
 			let max = parameters[Parameter.MAX_WAVEFORM];
@@ -2847,24 +2874,6 @@ class Channel {
 			callbacks.push(function () {
 				me.shaper.curve = shape;
 			});
-		}
-		if (dirtyNotes) {
-			const firstNote = notes[0];
-			const frequency = this.noteFrequencies[firstNote];
-			if (dirtyNotes !== ChangeType.SET) {
-				const glideTime = parameters[Parameter.GLIDE] * lineTime * TIME_STEP;
-				this.setFrequency(ChangeType.SET, this.vibrato.centre, time);
-				this.setFrequency(dirtyNotes, frequency, time + glideTime);
-			} else {
-				this.setFrequency(dirtyNotes, frequency, time);
-			}
-			frequencies[0] = frequency;
-			parameters[Parameter.FREQUENCY] = frequency;
-			frequencySet = true;
-			for (let i = 1; i < notes.length; i++) {
-				frequencies[i] = this.noteFrequencies[notes[i]];
-			}
-			this.noteIndex = 0;
 		}
 		if (dirtyFilterFrequency) {
 			this.filterFrequencyMod.setMinMax(dirtyFilterFrequency, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time);
@@ -2893,7 +2902,7 @@ class Channel {
 		const gateOpen = (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN;
 		let glissandoSteps = parameters[Parameter.GLISSANDO];
 		const retriggerTicks = parameters[Parameter.RETRIGGER];
-		let glissandoAmount, prevGlissandoAmount, noteIndex, chordDir, noteRepeated;
+		let glissandoAmount, prevGlissandoAmount, chordDir, noteRepeated;
 
 		if (gate !== undefined) {
 			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time);
@@ -2902,9 +2911,6 @@ class Channel {
 			noteIndex = 0;
 			chordDir = 1;
 			noteRepeated = false;
-			if (!frequencySet) {
-				this.setFrequency(ChangeType.SET, frequencies[0], time);
-			}
 		} else if (gateOpen) {
 			// Don't repeat glissando but keep the chords smooth.
 			glissandoAmount = glissandoSteps;
@@ -2922,10 +2928,8 @@ class Channel {
 			// The gate's just been triggered or it's open.
 			//TODO handle gate triggered in a previous step but not yet closed.
 			this.system.nextLine = step + lineTime;
-			const numNotes = frequencies.length;
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
-				const chordTicks = parameters[Parameter.CHORD_SPEED];
 				numTicks = Math.trunc(numTicks - (delay % numTicks));
 
 				let glissandoPerTick;
@@ -3027,7 +3031,15 @@ class Channel {
 
 					if (newFrequency) {
 						const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
-						this.setFrequency(ChangeType.SET, frequency, timeOfTick);
+						if (noteChangeType === ChangeType.SET ||
+							numNotes === 1 ||
+							tick % chordTicks !== 0
+						) {
+							this.setFrequency(ChangeType.SET, frequency, timeOfTick);
+						} else {
+							this.setFrequency(ChangeType.SET, this.vibrato.centre, timeOfTick);
+							this.setFrequency(noteChangeType, frequency, timeOfTick + arpGlideTime);
+						}
 						scheduledUntil = timeOfTick;
 					}
 
