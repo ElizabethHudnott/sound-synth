@@ -73,6 +73,14 @@ function setMachine(machine, parameterNumber, value, delay, changeType, channelN
 	system.setMachine(machine, parameterNumber, value, delay, changeType, channelNumber);
 }
 
+function setTempoAutomation(parameterNumber, power, channelNumber) {
+	system.setTempoAutomation(parameterNumber, power, channelNumber);
+}
+
+function removeTempoAutomation(parameterNumber, channelNumber) {
+	system.removeTempoAutomation(parameterNumber, channelNumber);
+}
+
 function processMIDI(event) {
 	if (debug.midi) {
 		console.log('MIDI message received.');

@@ -137,6 +137,7 @@ const Parameter = enumFromArray([
 	'LINE_TIME',	// in steps
 	'GROOVE',		// an array of line times
 	'MACRO',
+	'TEMPO_AUTOMATION',
 	// Parameters above this line are calculated before the main loop
 	'NOTES',		// array of MIDI note numbers
 	'WAVE_X',		// coordinates for piecewise linear waveform
@@ -420,6 +421,26 @@ class Macro {
 		return changes;
 	}
 }
+
+class TempoAutomation {
+	constructor(power, initialParamValue, initialLineTime) {
+		this.power = power;
+		this.initialValue = initialParamValue * initialLineTime ** -power;
+		this.relativeValue = 1;
+	}
+
+	getValue(paramChange, lineTime) {
+		let changeType, value;
+		if (paramChange === undefined) {
+			changeType = ChangeType.SET;
+		} else {
+			[changeType, this.relativeValue] = calculateParameterValue(paramChange, this.relativeValue, false);
+		}
+		value = this.initialValue * this.relativeValue * lineTime ** this.power;
+		return new Change(changeType, value);
+	}
+}
+
 
 class LFO {
 	constructor(audioContext) {
@@ -1525,6 +1546,30 @@ class SynthSystem {
 
 	}
 
+	setTempoAutomation(parameterNumber, power, channelNumber) {
+		if (power === undefined) {
+			power = 1;
+		}
+		if (channelNumber === undefined) {
+			channelNumber = 0;
+		}
+		const automationMap = new Map();
+		automationMap.set(parameterNumber, power);
+		const parameterMap = new Map();
+		parameterMap.set(Parameter.TEMPO_AUTOMATION, automationMap);
+		if (channelNumber === -1) {
+			for (let channel of this.channels) {
+				channel.setParameters(parameterMap);
+			}
+		} else {
+			this.channels[channelNumber].setParameters(parameterMap);
+		}
+	}
+
+	removeTempoAutomation(parameterNumber, channelNumber) {
+		this.setTempoAutomation(parameterNumber, 0, channelNumber);
+	}
+
 	setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
 		let time;
 		if (delay !== undefined) {
@@ -1689,6 +1734,7 @@ class Channel {
 			system.lineTime, // line time (125bpm, allegro)
 			[],		// groove
 			undefined, // actual macro values are held in macroValues property
+			undefined, // actual automations are held in the tempoAutomations property
 			[69],	// MIDI note numbers
 			[0, 15, 17, 32],		// custom waveform
 			[-1, 0.125, -0.125, 1],
@@ -1791,6 +1837,7 @@ class Channel {
 		this.detune = 1; // i.e. no detuning, actual frequency = notional frequency
 		this.noteFrequencies = system.getNotes(0);
 		this.grooveIndex = 0;
+		this.prevLineTime = this.parameters[Parameter.LINE_TIME];
 		this.retriggerVolumeChangeType = ChangeType.SET;
 		this.noteIndex = 0;
 		this.chordDir = 1;
@@ -1799,6 +1846,9 @@ class Channel {
 		this.tickCounter = 0;
 		this.tickModulus = 1;
 		this.scheduledUntil = 0;
+
+		// Automations
+		this.tempoAutomations = new Map();
 
 		// LFOs
 		const lfo1 = new LFO(audioContext);
@@ -2299,13 +2349,13 @@ class Channel {
 
 	setParameters(parameterMap, step, newLine) {
 		const me = this;
+		parameterMap = new Map(parameterMap);
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
 
 		const macroChanges = parameterMap.get(Parameter.MACRO);
 		if (macroChanges !== undefined) {
 			for (let macroChange of macroChanges) {
-				parameterMap = new Map(parameterMap);
 				const macro = macroChange.macro;
 				let oldMacroValue = this.macroValues.get(macro);
 				if (oldMacroValue === undefined) {
@@ -2319,6 +2369,18 @@ class Channel {
 					if (explicitChange === undefined || explicitChange.type === ChangeType.MARK) {
 						parameterMap.set(paramNumber, change);
 					}
+				}
+			}
+		}
+
+		const tempoAutomationChanges = parameterMap.get(Parameter.TEMPO_AUTOMATION);
+		if (tempoAutomationChanges !== undefined) {
+			for (let [paramNumber, power] of tempoAutomationChanges) {
+				if (power === 0) {
+					this.tempoAutomations.delete(paramNumber);
+				} else {
+					const automation = new TempoAutomation(power, parameters[paramNumber], this.prevLineTime);
+					this.tempoAutomations.set(paramNumber, automation);
 				}
 			}
 		}
@@ -2363,6 +2425,15 @@ class Channel {
 			}
 		}
 
+		const newLineTime = lineTime !== this.prevLineTime;
+		for (let [paramNumber, automation] of this.tempoAutomations) {
+			const change = parameterMap.get(paramNumber);
+			if (newLineTime || change !== undefined) {
+				const scaledChange = automation.getValue(change, lineTime);
+				parameterMap.set(paramNumber, scaledChange);
+			}
+		}
+
 		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
 		if (numTicks < 1) {
 			numTicks = 1;
@@ -2389,7 +2460,7 @@ class Channel {
 		const callbacks = [];
 
 		for (let [paramNumber, change] of parameterMap) {
-			if (paramNumber <= Parameter.MACRO) {
+			if (paramNumber <= Parameter.TEMPO_AUTOMATION) {
 				continue;
 			} else if (paramNumber === Parameter.MACHINE) {
 				const machineChanges = [];
@@ -3093,6 +3164,7 @@ class Channel {
 				}, timeDifference);
 			}
 		}
+		this.prevLineTime = lineTime;
 		return lineTime;
 	}
 
