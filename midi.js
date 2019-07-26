@@ -10,12 +10,6 @@ class SynthInputEvent extends Event {
 	}
 }
 
-const Glide = Synth.enumFromArray([
-	'OFF',
-	'MONO',
-	'LEGATO',
-]);
-
 class Midi extends EventTarget {
 
 	constructor(name, port) {
@@ -57,12 +51,22 @@ class Midi extends EventTarget {
 		this.retrigger = new Array(16);
 		this.retrigger.fill(false);
 
-		/* For each MIDI channel, whether there is no glide, glide only when overlapped
-		 * notes are revived, or glide on note on messages and revived notes.
+		/* For each MIDI channel, whether there is glide only when overlapped notes are
+		 * revived (true), or glide both when receiving Note On messages and when reviving
+		 * notes (false, i.e. mono mode).
 		 */
-		 this.glide = new Array(16);
-		 this.glide.fill(Glide.OFF);
+		 this.legato = new Array(16);
+		 this.legato.fill(true);
 
+		 /* The change type used to implement glide. SET disables glide. EXPONENTIAL is
+		  * a normal glide. LINEAR is alternative glide.
+		  */
+		 this.glide = new Array(16);
+		 this.glide.fill(Synth.ChangeType.EXPONENTIAL);
+
+		 /* A list of the order in which *synth* channels last had their notes released.
+		  * The most recently released channel number is at the end of the list.
+		  */
 		 this.channelQueue = [];
 	}
 
@@ -107,8 +111,13 @@ class Midi extends EventTarget {
 					const note = bytes[1];
 					const notes = this.notes[midiChannel];
 					const numNotes = notes.length;
-					const glide = this.glide[midiChannel];
-					const changeType = glide === Glide.MONO ? Synth.ChangeType.EXPONENTIAL : Synth.ChangeType.SET;
+
+					let changeType;
+					if (this.legato[midiChannel]) {
+						changeType = Synth.ChangeType.SET;
+					} else {
+						changeType = this.glide[midiChannel];
+					}
 
 					if (this.arpeggio[midiChannel]) {
 						synthChannel = fromChannel;
@@ -184,8 +193,7 @@ class Midi extends EventTarget {
 					const numNotes = notes.length;
 					notes.splice(noteIndex, 1);
 					synthChannels.splice(noteIndex, 1);
-					const glide = this.glide[midiChannel];
-					const changeType = glide === Glide.OFF ? Synth.ChangeType.SET : Synth.ChangeType.EXPONENTIAL;
+					const changeType = this.glide[midiChannel];
 
 					if (this.arpeggio[midiChannel]) {
 						if (numNotes === 1) {
@@ -451,7 +459,6 @@ function port(id) {
 }
 
 global.Midi = {
-	Glide: Glide,
 	MidiPort: Midi,
 	SynthInputEvent: SynthInputEvent,
 	open: open,
