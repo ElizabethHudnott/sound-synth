@@ -107,14 +107,16 @@ function fillNoise(buffer) {
 }
 
 function gcd(a, b) {
-	while (a !== b) {
-		if (a > b) {
-			a = a - b;
-		} else {
-			b = b - a;
-		}
+	while (b !== 0) {
+		const temp = b;
+		b = a % b;
+		a = temp;
 	}
 	return a;
+}
+
+function lcm(a, b) {
+	return a / gcd(a, b) * b;
 }
 
 class Resource {
@@ -1794,6 +1796,8 @@ class Channel {
 		this.chordDir = 1;
 		this.noteRepeated = false;
 		this.noteChangeType = ChangeType.SET;
+		this.tickCounter = 0;
+		this.tickModulus = 1;
 		this.scheduledUntil = 0;
 
 		// LFOs
@@ -2380,6 +2384,7 @@ class Channel {
 		let dirtyEnvelope = false;
 		let dirtySustain = false;
 		let dirtyCustomWave = false;
+		let dirtyTickEvents = false;
 		let endRetrigger = false;
 		const callbacks = [];
 
@@ -2775,6 +2780,10 @@ class Channel {
 				parameters[Parameter.DELAY_TICKS] = delay;
 				break;
 
+			case Parameter.CHORD_SPEED:
+				dirtyTickEvents = true;
+				break;
+
 			case Parameter.CHORD_PATTERN:
 				if (value === Chord.CYCLE) {
 					this.chordDir = 1;
@@ -2785,6 +2794,7 @@ class Channel {
 				if (value === 0) {
 					endRetrigger = true;
 				}
+				dirtyTickEvents = true;
 				break;
 
 			case Parameter.LEGATO_CHORD:
@@ -2849,6 +2859,7 @@ class Channel {
 			}
 			this.noteIndex = 0;
 			noteIndex = 0;
+			this.tickCounter = 0;
 		}
 		if (dirtyWavetable) {
 			const min = parameters[Parameter.MIN_WAVEFORM];
@@ -2904,6 +2915,14 @@ class Channel {
 		const retriggerTicks = parameters[Parameter.RETRIGGER];
 		let glissandoAmount, prevGlissandoAmount, chordDir, noteRepeated;
 
+		if (dirtyTickEvents) {
+			if (retriggerTicks === 0) {
+				this.tickModulus = chordTicks;
+			} else {
+				this.tickModulus = lcm(retriggerTicks, chordTicks);
+			}
+		}
+
 		if (gate !== undefined) {
 			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time);
 			glissandoAmount = 0;
@@ -2926,7 +2945,7 @@ class Channel {
 
 		if ((gate & Gate.OPEN) > 0 || (gateOpen && newLine)) {
 			// The gate's just been triggered or it's open.
-			//TODO handle gate triggered in a previous step but not yet closed.
+			// TODO handle gate triggered in a previous step but not yet closed.
 			this.system.nextLine = step + lineTime;
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
@@ -2942,6 +2961,7 @@ class Channel {
 				}
 
 				let tick = gate === undefined ? 0 : 1;
+				const tickOffset = this.tickCounter;
 				let volume = this.velocity;
 				let endVolume = expCurve(volume * parameters[Parameter.RETRIGGER_VOLUME], 1);
 				if (endVolume > 1) {
@@ -2973,7 +2993,7 @@ class Channel {
 						glissandoAmount = Math.trunc(tick * glissandoPerTick);
 					}
 					let newFrequency = glissandoAmount !== prevGlissandoAmount;
-					if (numNotes > 1 && tick % chordTicks === 0) {
+					if (numNotes > 1 && (tick + tickOffset) % chordTicks === 0) {
 						noteIndex = noteIndex + chordDir;
 						switch (pattern) {
 						case Chord.CYCLE:
@@ -3033,7 +3053,7 @@ class Channel {
 						const frequency = frequencies[noteIndex] * SEMITONE ** glissandoAmount;
 						if (noteChangeType === ChangeType.SET ||
 							numNotes === 1 ||
-							tick % chordTicks !== 0
+							(tick + tickOffset) % chordTicks !== 0
 						) {
 							this.setFrequency(ChangeType.SET, frequency, timeOfTick);
 						} else {
@@ -3043,7 +3063,7 @@ class Channel {
 						scheduledUntil = timeOfTick;
 					}
 
-					if (tick % retriggerTicks === 0) {
+					if ((tick + tickOffset) % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
 						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, lineTime, timeOfTick);
@@ -3056,6 +3076,7 @@ class Channel {
 				this.chordDir = chordDir;
 				this.noteRepeated = noteRepeated;
 				this.scheduledUntil = scheduledUntil;
+				this.tickCounter = (tickOffset + numTicks) % this.tickModulus;
 			}
 		}
 
@@ -3241,6 +3262,7 @@ global.Synth = {
 	expCurve: expCurve,
 	fillNoise: fillNoise,
 	gcd: gcd,
+	lcm: lcm,
 };
 
 })(window);

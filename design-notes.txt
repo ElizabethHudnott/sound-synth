@@ -24,10 +24,11 @@ Instruments
 Automations
 Changes for 1 line vs changes over a pattern vs ongoing results?
 
-Glide
+Glide / Arpeggio
 -----
 Glide amount (a time or a rate)
 Glide mode (time or rate)
+Handle gate triggered previously but not yet closed
 
 Noise
 -----
