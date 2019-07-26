@@ -177,7 +177,8 @@ function sendNewLine() {
 
 function playNote(gate) {
 	const noteNumber = parseInt(document.getElementById('note').value);
-	document.getElementById('frequency').value = channels[0].noteFrequencies[noteNumber];
+	const frequency = channels[0].noteFrequencies[noteNumber];
+	document.getElementById('frequency').value = Synth.invExpCurve(frequency / 8000, 2);
 	const notes = [noteNumber];
 	const chord = document.getElementById('chord').value;
 	const strLen = chord.length;

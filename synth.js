@@ -98,6 +98,10 @@ function expCurve(value, power) {
 	}
 }
 
+function invExpCurve(value, power) {
+	return 100 - 99 * Math.log10(value) / -power;
+}
+
 function fillNoise(buffer) {
 	const length = buffer.length;
 	const data = buffer.getChannelData(0);
@@ -1712,7 +1716,7 @@ class Channel {
 			440,	// frequency
 			0,		// detune
 			0,		// no stretched tuning
-			10,		// ten times as many noise samples per second as the oscillator pitch
+			9.5,	// 9.5 times as many noise samples per second as the oscillator pitch
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
 			0,		// LFO 1 phase
@@ -3260,6 +3264,7 @@ global.Synth = {
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
 	expCurve: expCurve,
+	invExpCurve: invExpCurve,
 	fillNoise: fillNoise,
 	gcd: gcd,
 	lcm: lcm,
