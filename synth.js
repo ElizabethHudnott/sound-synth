@@ -1712,7 +1712,7 @@ class Channel {
 			440,	// frequency
 			0,		// detune
 			0,		// no stretched tuning
-			10,		// ten times as many noise samples per second as the oscillator pitch
+			8,		// 8 times as many noise samples per second as the oscillator pitch
 			'sine',	// LFO 1 shape
 			5,		// LFO 1 rate
 			0,		// LFO 1 phase
