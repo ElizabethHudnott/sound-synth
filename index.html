@@ -75,11 +75,13 @@
 								<td>
 									<input id="wavetable-max-fraction" type="range" min="0" max="0.999" step="0.001" value="0" oninput="set(Synth.Param.MAX_WAVEFORM, Math.trunc(channels[0].parameters[Synth.Param.MAX_WAVEFORM]) + parseFloat(this.value))">
 									<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Sine + Triangle<br>
-									<input type="radio" name="max-waveform" checked oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Triangle + Sawtooth<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-max-fraction').value))">Sawtooth + Custom<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-max-fraction').value))">Custom + Pulse<br>
-									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-max-fraction').value))">Pulse + Sine
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SINE + parseFloat(document.getElementById('wavetable-max-fraction').value) + (document.getElementById('waveform-loop').checked ? 5 : 0))">Sine + Triangle<br>
+									<input type="radio" name="max-waveform" checked oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.TRIANGLE + parseFloat(document.getElementById('wavetable-max-fraction').value) + (document.getElementById('waveform-loop').checked ? 5 : 0))">Triangle + Sawtooth<br>
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.SAWTOOTH + parseFloat(document.getElementById('wavetable-max-fraction').value) + (document.getElementById('waveform-loop').checked ? 5 : 0))">Sawtooth + Custom<br>
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.CUSTOM + parseFloat(document.getElementById('wavetable-max-fraction').value) + (document.getElementById('waveform-loop').checked ? 5 : 0))">Custom + Pulse<br>
+									<input type="radio" name="max-waveform" oninput="set(Synth.Param.MAX_WAVEFORM, Synth.Wave.PULSE + parseFloat(document.getElementById('wavetable-max-fraction').value) + (document.getElementById('waveform-loop').checked ? 5 : 0))">Pulse + Sine<br>
+									<input type="checkbox" id="waveform-loop" oninput="set(Synth.Param.MAX_WAVEFORM, channels[0].parameters[Synth.Param.MAX_WAVEFORM] + (this.checked ? 5 : -5))">
+									<img src="img/loop.png" width="16">
 								</td>
 							</tr>
 						</table>
@@ -107,7 +109,7 @@
 						</select>
 						<input id="sample-upload" type="file" accept="audio/*,.8svx,.iff,.raw" multiple oninput="uploadSamples()">
 						<div id="input-device">
-							<button id="sampler-btn"><img src="img/record.png" style="width: 12px; height: 12px"></button>
+							<button id="sampler-btn"><img src="img/record.png" height="12"></button>
 						</div>
 					</fieldset>
 				</fieldset>
@@ -323,9 +325,9 @@
 				</fieldset>
 				<fieldset>
 					<legend>Recording</legend>
-					<button onclick="system.startRecording()"><img src="img/record.png"></button>
-					<button onclick="pauseRecording()"><img src="img/pause.png"></button>
-					<button onclick="system.stopRecording()"><img src="img/stop.png"></button>
+					<button onclick="system.startRecording()"><img src="img/record.png" class="icon"></button>
+					<button onclick="pauseRecording()"><img src="img/pause.png" class="icon"></button>
+					<button onclick="system.stopRecording()"><img src="img/stop.png" class="icon"></button>
 					<input type="checkbox" oninput="system.appendRecording = this.checked">Append
 					<br>
 					<audio id="recording" controls></audio>

@@ -58,6 +58,11 @@ td {
 	transform: scaleX(-1);
 }
 
+.icon {
+	width: 16px;
+	height: 16px;
+}
+
 .hidden {
 	display: none;
 }

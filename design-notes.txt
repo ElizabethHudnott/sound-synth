@@ -13,7 +13,7 @@ Loop from
 
 Synth
 -----
-UI Waveform +5 option
+UI Rewrite
 UI Make frequency slider logarithmic
 Choice of New Note Action (release, cut)
 Sample finetune
@@ -23,6 +23,8 @@ Probability
 Instruments
 Automations
 Changes for 1 line vs changes over a pattern vs ongoing results?
+Default keyboard octave for an instrument (automatic?)
+Allow choosing sampled notes by time as well as by pitch
 
 Glide / Arpeggio
 -----
