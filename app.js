@@ -146,18 +146,12 @@ function initialize() {
 	system.instruments[1] = guitar;
 	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav')
 	.then(resourceLoaded)
-	.then(function (resource) {
-		guitar.setSampledNote(0, 55);
-	})
 	.catch(resourceError);
 
 	const violin = new Synth.SampledInstrument();
 	system.instruments[2] = violin;
 	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav')
 	.then(resourceLoaded)
-	.then(function (resource) {
-		violin.setSampledNote(0, 46);
-	})
 	.catch(resourceError);
 }
 

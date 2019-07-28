@@ -359,6 +359,11 @@ for (let i = 0; i <= 127; i++) {
 	noteFrequencies[i] = 2 ** ((i - 69) / 12) * 440;
 }
 
+function noteFromFrequency(frequency, a4Pitch) {
+	var noteNumber = 12 * Math.log2(frequency / a4Pitch);
+	return Math.round(noteNumber) + 69;
+}
+
 class MacroFunction {
 	static ID = new MacroFunction(0, 1, 1, 1);
 
@@ -705,6 +710,26 @@ class Sample {
 		return newSample;
 	}
 
+	autotune(a4Pitch, from, to) {
+		if (a4Pitch === undefined) {
+			a4Pitch = 440;
+		}
+		const numberOfChannels = this.buffer.numberOfChannels;
+		let total = 0;
+		let numChannelsMatched = 0;
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const [frequency, correlation] = this.frequency(channelNumber);
+			if (correlation >= 0.9) {
+				total += frequency;
+				numChannelsMatched++;
+			}
+		}
+		if (numChannelsMatched > 0) {
+			const meanFrequency = total / numChannelsMatched;
+			this.sampledNote = noteFromFrequency(meanFrequency, a4Pitch);
+		}
+	}
+
 	reverse(from, to) {
 		const buffer = this.buffer;
 		if (to === undefined) {
@@ -748,7 +773,7 @@ class Sample {
 		return newSample;
 	}
 
-	amplitude(from, to) {
+	peakAmplitude(from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;
 		if (to === undefined) {
@@ -772,6 +797,90 @@ class Sample {
 		return max * this.gain;
 	}
 
+	rms(from, to) {
+		const numberOfChannels = this.buffer.numberOfChannels;
+		const length = this.buffer.length;
+		let sumOfSquares = 0;
+		let value;
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const data = this.buffer.getChannelData(channelNumber);
+			for (let i = from; i <= to; i++) {
+				value = data[i];
+				sumOfSquares += value * value;
+			}
+		}
+		return Math.sqrt(sumOfSquares / (numberOfChannels * length));
+	}
+
+	/**Finds the sample's frequency using autocorrelation. Returns two values. The first
+	 * is the frequency identified and the second is a measure of the strength of the
+	 * correlation between 0 and 1. A correlation of at least 0.9 is recommended as the
+	 * cut-off for a reliable match.
+	 */
+	frequency(channelNumber, from, to) {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+
+		const rms = this.rms(from, to);
+
+		if (rms < 0.01) {
+			// Not enough signal
+			return [undefined, 0];
+		}
+
+		const minSamples = 1;
+		const goodEnoughCorrelation = 0.9;
+		const data = buffer.getChannelData(channelNumber);
+		const maxSamples = Math.trunc((to - from + 1) / 2);
+		const correlations = new Array(maxSamples);
+		let bestOffset;
+		let bestCorrelation = 0;
+		let lastCorrelation = 1;
+		let foundGoodCorrelation = false;
+
+		for (let offset = minSamples; offset < maxSamples; offset++) {
+			const maxSample = from + maxSamples;
+			let correlation = 0;
+			for (let i = from; i < maxSample; i++) {
+				correlation += Math.abs(data[i] - data[i + offset]);
+			}
+
+			correlation = 1 - correlation / maxSamples;
+			correlations[offset] = correlation;
+
+			if (correlation >= goodEnoughCorrelation && correlation > lastCorrelation) {
+				foundGoodCorrelation = true;
+				if (correlation > bestCorrelation) {
+					bestCorrelation = correlation;
+					bestOffset = offset;
+				}
+			} else if (foundGoodCorrelation) {
+				/*
+				 * Short-circuit - we found a good correlation, then a bad one, so we'd just
+				 * be seeing copies from here. Now we need to tweak the offset by
+				 * interpolating between the values to the left and right of the best offset
+				 * and shifting it a bit.  This is complex and HACKY in this code. We need to
+				 * do a curve fit on correlations[] around bestOffset in order to better
+				 * determine precise (anti-aliased) offset.
+
+				 * We know bestOffset >=1 because foundGoodCorrelation cannot go to true
+				 * until the second pass (offset=1) and we can't drop into this clause until
+				 * the following pass because it's an else if.
+				 */
+				const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
+				return [buffer.sampleRate / (bestOffset + 8 * shift), bestCorrelation];
+			}
+			lastCorrelation = correlation;
+		}
+		return [buffer.sampleRate / bestOffset, bestCorrelation];
+	}
+
 	removeOffset() {
 		const buffer = this.buffer;
 		const length = buffer.length;
@@ -788,7 +897,7 @@ class Sample {
 	}
 
 	normalize(from, to) {
-		const amplitude = this.amplitude(from, to);
+		const amplitude = this.peakAmplitude(from, to);
 		const gain = 1 / amplitude;
 		this.amplify(gain, gain, from, to);
 	}
@@ -1314,10 +1423,10 @@ class SampledInstrument extends Instrument {
 		}
 	}
 
-	amplitude() {
+	peakAmplitude() {
 		let max = 0;
 		for (let sample of this.samples) {
-			const amplitude = sample.amplitude();
+			const amplitude = sample.peakAmplitude();
 			if (amplitude > max) {
 				max = amplitude;
 			}
@@ -1334,7 +1443,7 @@ class SampledInstrument extends Instrument {
 	normalize() {
 		let max = 0;
 		for (let sample of this.samples) {
-			const amplitude = sample.amplitude();
+			const amplitude = sample.peakAmplitude();
 			if (amplitude > max) {
 				max = amplitude;
 			}
@@ -1369,7 +1478,7 @@ class SampledInstrument extends Instrument {
 
 		return Promise.all(promises).then(function () {
 			newInstrument.removeOffset();
-			const amplitude = newInstrument.amplitude();
+			const amplitude = newInstrument.peakAmplitude();
 			if (amplitude > 1) {
 				newInstrument.amplify(1 / amplitude);
 			}
@@ -1405,11 +1514,13 @@ class SampledInstrument extends Instrument {
 			  		audioContext.decodeAudioData(arr)
 			  		.then(function(buffer) {
 						const sample = new Sample(buffer);
+						sample.autotune();
 						me.addSample(startingNote, sample, true);
 			  			resolve(new Resource(url, sample));
 
 			  		}).catch(function (error) {
 						const sample = new Sample(decodeSampleData(arrCopy));
+						sample.autotune();
 						me.addSample(startingNote, sample, true);
 			  			resolve(new Resource(url, sample));
 			  		});
@@ -1440,11 +1551,13 @@ class SampledInstrument extends Instrument {
 		  		audioContext.decodeAudioData(arr)
 		  		.then(function(buffer) {
 					const sample = new Sample(buffer);
+					sample.autotune();
 					me.addSample(startingNote, sample, true);
 		  			resolve(new Resource(file, sample));
 
 		  		}).catch(function (error) {
 					const sample = new Sample(decodeSampleData(arrCopy));
+					sample.autotune();
 					me.addSample(startingNote, sample, true);
 		  			resolve(new Resource(file, sample));
 		  		});
@@ -3387,6 +3500,7 @@ global.Synth = {
 	fillNoise: fillNoise,
 	gcd: gcd,
 	lcm: lcm,
+	noteFromFrequency: noteFromFrequency,
 };
 
 })(window);
