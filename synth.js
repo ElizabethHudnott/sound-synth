@@ -137,7 +137,7 @@ const Parameter = enumFromArray([
 	'LINE_TIME',	// in steps
 	'GROOVE',		// an array of line times
 	'MACRO',
-	'TEMPO_AUTOMATION',
+	'INSTRUMENT',	// array index of the instrument to play.
 	// Parameters above this line are calculated before the main loop
 	'NOTES',		// array of MIDI note numbers
 	'WAVE_X',		// coordinates for piecewise linear waveform
@@ -224,7 +224,6 @@ const Parameter = enumFromArray([
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO', // number of steps
-	'INSTRUMENT',	// array index of the instrument to play.
 	'OFFSET', 		// instrument offset in seconds
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'MACHINE',
@@ -423,21 +422,47 @@ class Macro {
 }
 
 class TempoAutomation {
-	constructor(power, initialParamValue, initialLineTime) {
-		this.power = power;
-		this.initialValue = initialParamValue * initialLineTime ** -power;
+	constructor(time1, value1, time2, value2) {
+		this.value1 = value1;
+		this.time1 = time1;
+		this.value2 = value2;
+		this.time2 = time2;
+		const gradient = (value2 - value1) / (time2 - time1);
+		this.gradient = gradient;
+		this.intersect = value1 - time1 * gradient;
+		this.power = gradient * time1 / value1;
+		this.multiplier = Math.exp((value1 * Math.log(value1) - gradient * time1 * Math.log(time1)) / value1);
+		this.rate = -gradient / value2;
+		this.relativeValue = 1;
+	}
+
+	initialize() {
 		this.relativeValue = 1;
 	}
 
 	getValue(paramChange, lineTime) {
-		let changeType, value;
+		let changeType, scaled, finalValue;
+
 		if (paramChange === undefined) {
 			changeType = ChangeType.SET;
 		} else {
 			[changeType, this.relativeValue] = calculateParameterValue(paramChange, this.relativeValue, false);
 		}
-		value = this.initialValue * this.relativeValue * lineTime ** this.power;
-		return new Change(changeType, value);
+
+		if (lineTime < this.time1 && this.intersect < 0 && this.value1 >= 0) {
+			if (this.value1 === 0) {
+				scaled = 0;
+			} else {
+				scaled = this.multiplier * lineTime ** this.power;
+			}
+		} else if (lineTime > this.time2 && this.gradient < 0 && this.value2 >= 0) {
+			scaled = this.value2 * Math.exp(this.rate * (this.time2 - lineTime));
+		} else {
+			scaled = this.gradient * lineTime + this.intersect;
+		}
+
+		finalValue = this.relativeValue * scaled;
+		return new Change(changeType, finalValue);
 	}
 }
 
@@ -1174,11 +1199,26 @@ class SamplePlayer {
 	}
 }
 
-class SampledInstrument {
+class Instrument {
+	constructor() {
+		this.tempoAutomations = new Map();
+	}
+
+	get sampled() {
+		return false;
+	}
+}
+
+class SampledInstrument extends Instrument {
 
 	constructor() {
+		super();
 		this.samples = [];
 		this.startingNotes = [];
+	}
+
+	get sampled() {
+		return true;
 	}
 
 	addSample(startingNote, sample, preserveDetails) {
@@ -1210,6 +1250,7 @@ class SampledInstrument {
 		if (i === 0) {
 			return new SamplePlayer(audioContext, Sample.EMPTY_SAMPLE);
 		}
+		i--;
 		for (; i > 0; i--) {
 			if (this.startingNotes[i] <= note) {
 				break;
@@ -1546,30 +1587,6 @@ class SynthSystem {
 
 	}
 
-	setTempoAutomation(parameterNumber, power, channelNumber) {
-		if (power === undefined) {
-			power = 1;
-		}
-		if (channelNumber === undefined) {
-			channelNumber = 0;
-		}
-		const automationMap = new Map();
-		automationMap.set(parameterNumber, power);
-		const parameterMap = new Map();
-		parameterMap.set(Parameter.TEMPO_AUTOMATION, automationMap);
-		if (channelNumber === -1) {
-			for (let channel of this.channels) {
-				channel.setParameters(parameterMap);
-			}
-		} else {
-			this.channels[channelNumber].setParameters(parameterMap);
-		}
-	}
-
-	removeTempoAutomation(parameterNumber, channelNumber) {
-		this.setTempoAutomation(parameterNumber, 0, channelNumber);
-	}
-
 	setMachine(machine, parameterNumber, value, delay, changeType, channelNumber) {
 		let time;
 		if (delay !== undefined) {
@@ -1585,15 +1602,6 @@ class SynthSystem {
 		const parameterMap = new Map();
 		parameterMap.set(Parameter.MACHINE, machineChanges);
 		this.channels[channelNumber].setParameters(parameterMap, time, false);
-	}
-
-	getSamplePlayer(instrumentNumber, note) {
-		const instrument = this.instruments[instrumentNumber];
-		if (instrument === undefined) {
-			return new SamplePlayer(this.audioContext, Sample.EMPTY_SAMPLE);
-		} else {
-			return instrument.getSamplePlayer(this.audioContext, note);
-		}
 	}
 
 	setRecordingFormat(mimeType, bitRate) {
@@ -1734,7 +1742,7 @@ class Channel {
 			system.lineTime, // line time (125bpm, allegro)
 			[],		// groove
 			undefined, // actual macro values are held in macroValues property
-			undefined, // actual automations are held in the tempoAutomations property
+			0,		// no instrument set
 			[69],	// MIDI note numbers
 			[0, 15, 17, 32],		// custom waveform
 			[-1, 0.125, -0.125, 1],
@@ -1819,11 +1827,11 @@ class Channel {
 			1,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
-			-1,		// use oscillator
 			0,		// no sample offset
 			1,		// envelope scaling for AHD portion of the envelope
 		];
 		this.usingOscillator = true;
+		this.instrument = undefined;
 		this.samplePlayer = undefined;
 		this.sampleLooping = false;
 		this.velocity = 1;
@@ -1846,9 +1854,6 @@ class Channel {
 		this.tickCounter = 0;
 		this.tickModulus = 1;
 		this.scheduledUntil = 0;
-
-		// Automations
-		this.tempoAutomations = new Map();
 
 		// LFOs
 		const lfo1 = new LFO(audioContext);
@@ -2096,8 +2101,7 @@ class Channel {
 			this.sampleBufferNode.stop(time);
 		}
 		const parameters = this.parameters;
-		const instrumentNumber = parameters[Parameter.INSTRUMENT];
-		const samplePlayer = this.system.getSamplePlayer(instrumentNumber, note);
+		const samplePlayer = this.instrument.getSamplePlayer(this.system.audioContext, note);
 		this.playRateMultiplier.gain.setValueAtTime(samplePlayer.samplePeriod, time);
 		const sampleBufferNode = samplePlayer.bufferNode;
 		this.playRateMultiplier.connect(sampleBufferNode.playbackRate);
@@ -2138,7 +2142,7 @@ class Channel {
 		const gain = this.envelope.gain;
 		scaleAHD = parameters[Parameter.SCALE_AHD];
 		duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
-		usingSamples = parameters[Parameter.INSTRUMENT] >= 0
+		usingSamples = this.instrument && this.instrument.sampled;
 		if (usingSamples) {
 			if (this.usingOscillator) {
 				if ((state & Gate.OPEN) === 0) {
@@ -2373,18 +2377,6 @@ class Channel {
 			}
 		}
 
-		const tempoAutomationChanges = parameterMap.get(Parameter.TEMPO_AUTOMATION);
-		if (tempoAutomationChanges !== undefined) {
-			for (let [paramNumber, power] of tempoAutomationChanges) {
-				if (power === 0) {
-					this.tempoAutomations.delete(paramNumber);
-				} else {
-					const automation = new TempoAutomation(power, parameters[paramNumber], this.prevLineTime);
-					this.tempoAutomations.set(paramNumber, automation);
-				}
-			}
-		}
-
 		let gate = parameterMap.get(Parameter.GATE);
 		if (gate !== undefined) {
 			gate = gate.value;
@@ -2425,12 +2417,44 @@ class Channel {
 			}
 		}
 
-		const newLineTime = lineTime !== this.prevLineTime;
-		for (let [paramNumber, automation] of this.tempoAutomations) {
-			const change = parameterMap.get(paramNumber);
-			if (newLineTime || change !== undefined) {
-				const scaledChange = automation.getValue(change, lineTime);
-				parameterMap.set(paramNumber, scaledChange);
+		let instrument;
+		const instrumentChange = parameterMap.get(Parameter.INSTRUMENT);
+		if (instrumentChange !== undefined) {
+			const instrumentNumber = calculateParameterValue(instrumentChange, parameters[Parameter.INSTRUMENT], false)[1];
+			parameters[Parameter.INSTRUMENT] = instrumentNumber;
+			instrument = this.system.instruments[instrumentNumber - 1];
+			this.instrument = instrument;
+			if (!instrument || !instrument.sampled) {
+				// Switch to oscillator
+				if (this.sampleLooping) {
+					// Stop sample from looping
+					callbacks.push(function () {
+						me.sampleBufferNode.loop = false;
+					});
+					this.sampleLooping = false;
+				}
+			}
+			const currentGate = parameters[Parameter.GATE];
+			if (gate === undefined && (currentGate & Gate.TRIGGER) === Gate.OPEN) {
+				gate = currentGate;
+			}
+			if (instrument) {
+				for (let automation of instrument.tempoAutomations.values()) {
+					automation.initialize();
+				}
+			}
+		} else {
+			instrument = this.instrument;
+		}
+
+		if (instrument) {
+			const newLineTime = lineTime !== this.prevLineTime || instrumentChange;
+			for (let [paramNumber, automation] of instrument.tempoAutomations) {
+				const change = parameterMap.get(paramNumber);
+				if (newLineTime || change !== undefined) {
+					const scaledChange = automation.getValue(change, lineTime);
+					parameterMap.set(paramNumber, scaledChange);
+				}
 			}
 		}
 
@@ -2460,7 +2484,7 @@ class Channel {
 		const callbacks = [];
 
 		for (let [paramNumber, change] of parameterMap) {
-			if (paramNumber <= Parameter.TEMPO_AUTOMATION) {
+			if (paramNumber <= Parameter.INSTRUMENT) {
 				continue;
 			} else if (paramNumber === Parameter.MACHINE) {
 				const machineChanges = [];
@@ -2875,23 +2899,6 @@ class Channel {
 
 			case Parameter.RETRIGGER_VOLUME:
 				this.retriggerVolumeChangeType = changeType;
-				break;
-
-			case Parameter.INSTRUMENT:
-				if (value < 0) {
-					// Switch to oscillator
-					if (this.sampleLooping) {
-						// Stop sample from looping
-						callbacks.push(function () {
-							me.sampleBufferNode.loop = false;
-						});
-						this.sampleLooping = false;
-					}
-				}
-				const currentGate = parameters[Parameter.GATE];
-				if (gate === undefined && (currentGate & Gate.TRIGGER) === Gate.OPEN) {
-					gate = currentGate;
-				}
 				break;
 
 			case undefined:
@@ -3309,6 +3316,8 @@ global.Synth = {
 	ChangeType: ChangeType,
 	Direction: Direction,
 	Gate: Gate,
+	Instrument: Instrument,
+	SampledInstrument: SampledInstrument,
 	MachineChange: MachineChange,
 	Macro: Macro,
 	MacroFunction: MacroFunction,
@@ -3318,7 +3327,7 @@ global.Synth = {
 	Resource: Resource,
 	ResourceLoadError: ResourceLoadError,
 	Sample: Sample,
-	SampledInstrument: SampledInstrument,
+	TempoAutomation: TempoAutomation,
 	Wave: Wave,
 	keymap: keymap,
 

@@ -339,7 +339,7 @@ function uploadSamples() {
 	const offset = dropDown.children.length - 1;
 	for (let i = 0; i < files.length; i++) {
 		const option = document.createElement('option');
-		option.value = offset + i;
+		option.value = offset + i + 1;
 		option.innerText = files[i].name;
 		dropDown.appendChild(option);
 	}
@@ -368,7 +368,7 @@ Sampler.ondatarecorded = function (buffer) {
 	instrument.addSample(0, sample);
 	system.instruments.push(instrument);
 	const option = document.createElement('option');
-	option.value = instrumentNumber;
+	option.value = instrumentNumber + 1;
 	option.innerText = 'Recording ' + instrumentNumber;
 	dropDown.appendChild(option);
 }
