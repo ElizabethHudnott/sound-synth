@@ -101,7 +101,7 @@
 					</fieldset>
 					<fieldset>
 						<legend>Sample</legend>
-						<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value))">
+						<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value)); if (channels[0].instrument) octaveOffset = channels[0].instrument.defaultOctave - 4">
 							<option value="0">None</option>
 							<option value="1">Piano</option>
 							<option value="2">Guitar</option>

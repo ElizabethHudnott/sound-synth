@@ -14,8 +14,8 @@ Loop from
 Synth
 -----
 UI Rewrite
-UI Make frequency slider logarithmic
 Choice of New Note Action (release, cut)
+Choice of sample release action? (fade or not)
 Sample finetune
 Add sample slicing
 Time stretching
@@ -23,7 +23,7 @@ Probability
 Instruments
 Velocity & Pitch Automations
 Changes for 1 line vs changes over a pattern vs ongoing results?
-Default keyboard octave for an instrument (automatic?)
+Autotune samples?
 Allow choosing sampled notes by time as well as by pitch
 
 Glide / Arpeggio

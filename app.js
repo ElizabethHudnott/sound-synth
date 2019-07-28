@@ -147,7 +147,7 @@ function initialize() {
 	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav')
 	.then(resourceLoaded)
 	.then(function (resource) {
-		resource.data.sampledNote = 55;
+		guitar.setSampledNote(0, 55);
 	})
 	.catch(resourceError);
 
@@ -156,7 +156,7 @@ function initialize() {
 	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav')
 	.then(resourceLoaded)
 	.then(function (resource) {
-		resource.data.sampledNote = 46;
+		violin.setSampledNote(0, 46);
 	})
 	.catch(resourceError);
 }

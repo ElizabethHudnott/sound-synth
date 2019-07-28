@@ -1206,6 +1206,7 @@ class SamplePlayer {
 class Instrument {
 	constructor() {
 		this.tempoAutomations = new Map();
+		this.defaultOctave = 4;	// The octave that should be mapped to the keys qwerty...
 	}
 
 	get sampled() {
@@ -1226,8 +1227,9 @@ class SampledInstrument extends Instrument {
 	}
 
 	addSample(startingNote, sample, preserveDetails) {
-		let i = 0;
-		for (i = 0; i < this.startingNotes.length; i++) {
+		const numExistingSamples = this.startingNotes.length;
+		let i;
+		for (i = 0; i < numExistingSamples; i++) {
 			const currentNote = this.startingNotes[i];
 			if (currentNote === startingNote) {
 				if (preserveDetails) {
@@ -1235,18 +1237,55 @@ class SampledInstrument extends Instrument {
 				} else {
 					this.samples[i] = sample;
 				}
-				return;
+				return;	// EARLY RETURN
 			} else if (currentNote > startingNote) {
 				break;
 			}
 		}
 		this.samples.splice(i, 0, sample);
 		this.startingNotes.splice(i, 0, startingNote);
+		this.guessOctaveOffset();
 	}
 
 	removeSample(index) {
 		this.samples.splice(index, 1);
 		this.startingNotes.splice(index, 1);
+		this.guessOctaveOffset();
+	}
+
+	setSampledNote(sampleNumber, noteNumber) {
+		this.samples[sampleNumber].sampledNote = noteNumber;
+		this.guessOctaveOffset();
+	}
+
+	setStartingNote(sampleNumber, startingNote) {
+		this.samples.splice(index, 1);
+		const sample = this.startingNotes.splice(index, 1)[0];
+		this.addSample(startingNote, sample, false);
+	}
+
+	guessOctaveOffset() {
+		const numSamples = this.samples.length;
+		if (numSamples === 1) {
+			this.defaultOctave = Math.round(Math.max(this.samples[0].sampledNote, this.startingNotes[0]) / 12) - 2;
+		} else if (numSamples > 0) {
+			// Try to find two samples one octave apart and near Octave 4.
+			let octaveSet = false;
+			let prevOctave = Math.round(Math.max(this.samples[0].sampledNote, this.startingNotes[0]) / 12) - 2;
+			let distanceFromMiddle;
+			for (let i = 1; i < numSamples; i++) {
+				const octave = Math.round(Math.max(this.samples[i].sampledNote, this.startingNotes[i]) / 12) - 2;
+				if (octave === prevOctave + 1 || octave === prevOctave) {
+					const newDistanceFromMiddle = Math.abs(octave - 4);
+					if (octaveSet && newDistanceFromMiddle > distanceFromMiddle) {
+						break;
+					}
+					this.defaultOctave = octave;
+					octaveSet = true;
+					distanceFromMiddle = newDistanceFromMiddle;
+				}
+			}
+		}
 	}
 
 	getSamplePlayer(audioContext, note) {
