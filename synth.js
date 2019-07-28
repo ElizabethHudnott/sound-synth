@@ -456,7 +456,11 @@ class TempoAutomation {
 				scaled = this.multiplier * lineTime ** this.power;
 			}
 		} else if (lineTime > this.time2 && this.gradient < 0 && this.value2 >= 0) {
-			scaled = this.value2 * Math.exp(this.rate * (this.time2 - lineTime));
+			if (this.value2 === 0) {
+				scaled = 0;
+			} else {
+				scaled = this.value2 * Math.exp(this.rate * (this.time2 - lineTime));
+			}
 		} else {
 			scaled = this.gradient * lineTime + this.intersect;
 		}

@@ -21,7 +21,7 @@ Add sample slicing
 Time stretching
 Probability
 Instruments
-Automations
+Velocity & Pitch Automations
 Changes for 1 line vs changes over a pattern vs ongoing results?
 Default keyboard octave for an instrument (automatic?)
 Allow choosing sampled notes by time as well as by pitch
