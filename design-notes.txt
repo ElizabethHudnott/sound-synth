@@ -1,30 +1,38 @@
 Sequencer
 ---------
-Ability to transpose a column?
-Allow each column to loop independently
-Phrase loop on/off, loop start point
+Find/replace parameter values
+Quantize to every x lines (also reduce delays)
+Phrase.transpose needs to transpose phrases not currently transposed
+
+* Allow each column to loop independently (remove pattern length property)
+Second kind of loop: column loop
+	* Columns that exhaust their rows before another column completes start looping
+	- Can designate one column to loop x times before moving onto the next pattern (otherwise the pattern ends when the longest column completes once (including normal loop parameters))
+	- If the same phrase is on the same channel in two consecutive patterns then have the option to continue playing without restarting ("free running", offset ignored) as a phrase property
+Phrase:
+	* loop on/off (when not used as a column)
+	* loop start point
+	- "free running" on/off
 Hold and decay samples?
-Add pattern starting offset to song data
 Loop start and end position incrementing (how to counter messing up fades?)
-Phrase/pattern forwards/backwards (step 1, -1,...) (other values may mess up fades)
+Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
 Song playback shouldn't all be scheduled at once
 Initial song parameters for Channel 1,... Channel N
-Loop from
+Song Loop From
 
 Synth
 -----
 UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)
-Sample finetune
+Sample finetune?
 Add sample slicing
 Time stretching
 Probability
 Instruments
 Velocity & Pitch Automations
 Changes for 1 line vs changes over a pattern vs ongoing results?
-Autotune samples?
-Allow choosing sampled notes by time as well as by pitch
+Allow choosing sampled notes by time as well as by pitch (for percussion)?
 
 Glide / Arpeggio
 -----

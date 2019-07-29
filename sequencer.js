@@ -76,6 +76,26 @@ function equalChanges(a, b) {
 	return true;
 }
 
+function equalValues(a, b) {
+	if (Array.isArray(a)) {
+		if (!Array.isArray(b)) {
+			return false;
+		}
+		const length = a.length;
+		if (length !== b.length) {
+			return false;
+		}
+		for (let i = 0; i < length; i++) {
+			if (a[i] !== b[i]) {
+				return false;
+			}
+		}
+		return true;
+	} else {
+		return a === b;
+	}
+}
+
 class Song {
 
 	constructor() {
@@ -773,29 +793,157 @@ class Phrase {
 		const modified = new Set();
 		for (let i = from; i < to; i++) {
 			const changes = this.rows[i];
-			if (changes !== undefined) {
-				const noteChange = changes.get(Synth.Param.NOTES);
-				if (noteChange !== undefined) {
-					const changeType = noteChange.type;
-					const prefix = changeType[0];
-					if (
-						changeType !== Synth.ChangeType.NONE &&
-						prefix !== Synth.ChangeType.DELTA &&
-						prefix !== Synth.ChangeType.MULTIPLY &&
-						prefix !== Synth.ChangeType.MARK &&
-						!modified.has(changes)
-					) {
-						const notes = noteChange.value;
-						for (let j = 0; j < notes.length; j++) {
-							notes[j] += amount;
-						}
-						modified.add(changes);
-					}
-				}
-				const phraseTransposeChange = changes.get(Synth.Param.PHRASE_TRANSPOSE);
-				if (phraseTransposeChange !== undefined) {
-					phraseTransposeChange.value += amount;
+			if (changes === undefined || modified.has(changes)) {
+				continue;
+			}
+
+			const noteChange = changes.get(Synth.Param.NOTES);
+			if (noteChange !== undefined) {
+				const changeType = noteChange.type;
+				const prefix = changeType[0];
+				if (prefix === Synth.ChangeType.DELTA) {
+					noteChange.value += amount;
 					modified.add(changes);
+				} else if (
+					changeType !== Synth.ChangeType.NONE &&
+					prefix !== Synth.ChangeType.MULTIPLY &&
+					prefix !== Synth.ChangeType.MARK
+				) {
+					const notes = noteChange.value;
+					for (let j = 0; j < notes.length; j++) {
+						notes[j] += amount;
+					}
+					modified.add(changes);
+				}
+			}
+
+			const phraseTransposeChange = changes.get(Synth.Param.PHRASE_TRANSPOSE);
+			if (phraseTransposeChange !== undefined) {
+				phraseTransposeChange.value += amount;
+				modified.add(changes);
+			}
+		}
+	}
+
+	find(param, minValue, maxValue, changeTypes, from, to) {
+
+	}
+
+	mirrorValues(param, minValue, maxValue, changeType, from, to) {
+
+	}
+
+	multiplyValues(param, minValue, maxValue, changeType, multiplier, from, to) {
+
+	}
+
+	quantizeValues(param, minValue, maxValue, changeType, multiple, from, to) {
+
+	}
+
+	randomizeValues(param, minValue, maxValue, changeType, amount, allowNegative, from, to) {
+
+	}
+
+	replaceValues(param, minValue, maxValue, changeType, replacement, from, to) {
+
+	}
+
+	transposeValues(param, minValue, maxValue, changeType, amount, from, to) {
+
+	}
+
+	swapValues(param, value1, value2, changeType, from, to) {
+		const numArgs = arguments.length;
+		if (numArgs < 5) {
+			from = 0;
+			to = this.rows.length - 1;
+			if (numArgs === 3) {
+				changeType = Synth.ChangeType.SET;
+			}
+		}
+		const modified = new Set();
+		for (let i = from; i <= to; i++) {
+			const changes = this.rows[i];
+			if (changes === undefined || modified.has(changes)) {
+				continue;
+			}
+
+			const change = changes.get(param);
+			if (change === undefined) {
+				continue;
+			}
+
+			const prefix = change.type[0]
+			if (changeType !== Synth.ChangeType.SET && prefix !== changeType) {
+				continue;
+			} else if (prefix === Synth.ChangeType.DELTA || prefix === Synth.ChangeType.MULTIPLY) {
+				continue;
+			}
+
+			const currentValue = change.value;
+			if (equalValues(currentValue, value1)) {
+				change.value = value2;
+				modified.add(changes);
+			} else if (equalValues(currentValue, value2)) {
+				change.value = value1;
+				modified.add(changes);
+			}
+		}
+	}
+
+	changeParameter(oldParam, newParam, from, to) {
+		if (arguments.length === 2) {
+			from = 0;
+			to = this.rows.length - 1;
+		}
+		for (let i = from; i <= to; i++) {
+			const changes = this.rows[i];
+			if (changes !== undefined) {
+				const change = changes.get(oldParam);
+				if (change !== undefined) {
+					changes.delete(oldParam);
+					changes.set(newParam, change);
+				}
+			}
+		}
+	}
+
+	copyParameter(param1, param2, from, to) {
+		if (arguments.length === 2) {
+			from = 0;
+			to = this.rows.length - 1;
+		}
+		for (let i = from; i <= to; i++) {
+			const changes = this.rows[i];
+			if (changes !== undefined) {
+				const change = changes.get(param1);
+				if (change !== undefined) {
+					changes.set(param2, change);
+				}
+			}
+		}
+	}
+
+	swapParameters(param1, param2, from, to) {
+		if (arguments.length === 2) {
+			from = 0;
+			to = this.rows.length - 1;
+		}
+		for (let i = from; i <= to; i++) {
+			const changes = this.rows[i];
+			if (changes !== undefined) {
+				const change1 = changes.get(param1);
+				const change2 = changes.get(param2);
+				if (change1 !== undefined) {
+					changes.delete(param1);
+					changes.set(param2, change1);
+				}
+				if (change2 !== undefined) {
+					if (change1 === undefined) {
+						changes.delete(param2);
+					}
+					changes.set(param1, change2);
 				}
 			}
 		}
