@@ -587,6 +587,13 @@ class Phrase {
 		return newPhrase;
 	}
 
+	detangle() {
+		const length = this.rows.length;
+		for (let i = 0; i < length; i++ ) {
+			this.rows[i] = cloneChanges(this.rows[i]);
+		}
+	}
+
 	fill(param, change, from, step, to, copy) {
 		if (to === undefined) {
 			to = this.length - 1;
@@ -790,10 +797,9 @@ class Phrase {
 			from = 0;
 			to = this.length - 1;
 		}
-		const modified = new Set();
 		for (let i = from; i < to; i++) {
 			const changes = this.rows[i];
-			if (changes === undefined || modified.has(changes)) {
+			if (changes === undefined) {
 				continue;
 			}
 
@@ -802,58 +808,123 @@ class Phrase {
 				const changeType = noteChange.type;
 				const prefix = changeType[0];
 				if (prefix === Synth.ChangeType.DELTA) {
-					noteChange.value += amount;
-					modified.add(changes);
+					const newChange = noteChange.clone();
+					changes.set(Synth.Param.NOTES, newChange);
+					newChange.value += amount;
 				} else if (
 					changeType !== Synth.ChangeType.NONE &&
 					prefix !== Synth.ChangeType.MULTIPLY &&
 					prefix !== Synth.ChangeType.MARK
 				) {
-					const notes = noteChange.value;
+					const newChange = noteChange.clone();
+					changes.set(Synth.Param.NOTES, newChange);
+					const notes = newChange.value;
 					for (let j = 0; j < notes.length; j++) {
 						notes[j] += amount;
 					}
-					modified.add(changes);
 				}
 			}
 
 			const phraseTransposeChange = changes.get(Synth.Param.PHRASE_TRANSPOSE);
 			if (phraseTransposeChange !== undefined) {
-				phraseTransposeChange.value += amount;
-				modified.add(changes);
+				const newChange = phraseTransposeChange.clone();
+				changes.set(Synth.Param.PHRASE_TRANSPOSE, newChange);
+				newChange.value += amount;
 			}
 		}
 	}
 
-	find(param, minValue, maxValue, changeTypes, from, to) {
+	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
+		const length = this.length;
+		if (to === undefined) {
+			to = from + length - 1;
+		} else if (to < from) {
+			to += length;
+		}
+		let increment, numRows;
+		if (reverse) {
+			from += length;
+			to += length;
+			increment = -1;
+			numRows = from - to + 1
+		} else {
+			increment = 1;
+			numRows = to - from + 1;
+		}
+		if (numRows <= 0) {
+			numRows += length;
+		}
+
+		const equalMinMax = minValue !== undefined && equalValues(minValue, maxValue);
+
+		for (let i = 0; i < numRows; i++) {
+			const rowNumber = (from + increment * i) % length;
+			const changes = this.rows[rowNumber];
+			if (changes === undefined) {
+				continue;
+			}
+
+			const change = changes.get(param);
+			if (change === undefined) {
+				continue;
+			} else if (!changeTypes.has(change.type)) {
+				continue;
+			}
+
+			const value = change.value;
+			if (equalMinMax && !equalValues(value, minValue)) {
+				// Handle arrays
+				continue;
+			} else if (minValue !== undefined && value < minValue) {
+				continue;
+			} else if (maxValue !== undefined && value > maxValue) {
+				continue;
+			}
+			yield [rowNumber, change];
+		}
+	}
+
+	mirrorValues(param, minValue, maxValue, changeTypes, from, to) {
 
 	}
 
-	mirrorValues(param, minValue, maxValue, changeType, from, to) {
+	multiplyValues(param, minValue, maxValue, changeTypes, multiplier, from, to) {
 
 	}
 
-	multiplyValues(param, minValue, maxValue, changeType, multiplier, from, to) {
+	quantizeValues(param, minValue, maxValue, changeTypes, multiple, from, to) {
 
 	}
 
-	quantizeValues(param, minValue, maxValue, changeType, multiple, from, to) {
+	randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, from, to) {
 
 	}
 
-	randomizeValues(param, minValue, maxValue, changeType, amount, allowNegative, from, to) {
-
+	replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to) {
+		for (let [rowNumber, change] of this.find(param, minValue, maxValue, changeTypes, from, to)) {
+			const newChange = change.clone();
+			this.rows[rowNumber].set(param, newChange);
+			newChange.value = replacement;
+		}
 	}
 
-	replaceValues(param, minValue, maxValue, changeType, replacement, from, to) {
+	transposeValues(param, minValue, maxValue, changeTypes, amount, from, to) {
+		for (let [rowNumber, change] of this.find(param, minValue, maxValue, changeTypes, from, to)) {
+			const newChange = change.clone();
+			this.rows[rowNumber].set(param, newChange);
 
+			const value = newChange.value;
+			if (Array.isArray(value)) {
+				for (let i = 0; i < value.length; i++) {
+					value[i] += amount;
+				}
+			} else {
+				newChange.value += amount;
+			}
+		}
 	}
 
-	transposeValues(param, minValue, maxValue, changeType, amount, from, to) {
-
-	}
-
-	swapValues(param, value1, value2, changeType, from, to) {
+	swapValues(param, value1, value2, changeTypes, from, to) {
 		const numArgs = arguments.length;
 		if (numArgs < 5) {
 			from = 0;
@@ -862,32 +933,28 @@ class Phrase {
 				changeType = Synth.ChangeType.SET;
 			}
 		}
-		const modified = new Set();
 		for (let i = from; i <= to; i++) {
 			const changes = this.rows[i];
-			if (changes === undefined || modified.has(changes)) {
+			if (changes === undefined) {
 				continue;
 			}
 
 			const change = changes.get(param);
 			if (change === undefined) {
 				continue;
-			}
-
-			const prefix = change.type[0]
-			if (changeType !== Synth.ChangeType.SET && prefix !== changeType) {
-				continue;
-			} else if (prefix === Synth.ChangeType.DELTA || prefix === Synth.ChangeType.MULTIPLY) {
+			} else if (!changeTypes.has(change.type)) {
 				continue;
 			}
 
 			const currentValue = change.value;
 			if (equalValues(currentValue, value1)) {
-				change.value = value2;
-				modified.add(changes);
+				const newChange = change.clone();
+				changes.set(param, newChange);
+				newChange.value = value2;
 			} else if (equalValues(currentValue, value2)) {
-				change.value = value1;
-				modified.add(changes);
+				const newChange = change.clone();
+				changes.set(param, newChange);
+				newChange.value = value1;
 			}
 		}
 	}
@@ -919,7 +986,7 @@ class Phrase {
 			if (changes !== undefined) {
 				const change = changes.get(param1);
 				if (change !== undefined) {
-					changes.set(param2, change);
+					changes.set(param2, cloneChange(change));
 				}
 			}
 		}

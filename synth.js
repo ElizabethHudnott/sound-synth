@@ -245,6 +245,36 @@ const ChangeType = Object.freeze({
 	NONE: 'none',
 });
 
+const ChangeTypes = (function() {
+	const set = new Set();
+	set.add(ChangeType.SET);
+
+	const absolute = new Set();
+	absolute.add(ChangeType.SET);
+	absolute.add(ChangeType.MARK);
+	absolute.add(ChangeType.LINEAR);
+	absolute.add(ChangeType.EXPONENTIAL);
+
+	const delta = new Set();
+	delta.add(ChangeType.DELTA);
+	delta.add(ChangeType.MARK);
+	delta.add(ChangeType.DELTA + ChangeType.LINEAR);
+	delta.add(ChangeType.DELTA + ChangeType.EXPONENTIAL);
+
+	const multiply = new Set();
+	multiply.add(ChangeType.MULTIPLY);
+	multiply.add(ChangeType.MARK);
+	multiply.add(ChangeType.MULTIPLY + ChangeType.LINEAR);
+	multiply.add(ChangeType.MULTIPLY + ChangeType.EXPONENTIAL);
+
+	return Object.freeze({
+		SET: Object.freeze(set),
+		ABSOLUTE: Object.freeze(absolute),
+		DELTA: Object.freeze(delta),
+		MULTIPLY: Object.freeze(multiply),
+	});
+})();
+
 class Change {
 	static MARK = new Change(ChangeType.MARK);
 	static NONE = new Change(ChangeType.NONE);
@@ -3471,6 +3501,7 @@ global.Synth = {
 	Channel:  Channel,
 	System: SynthSystem,
 	ChangeType: ChangeType,
+	ChangeTypes: ChangeTypes,
 	Direction: Direction,
 	Gate: Gate,
 	Instrument: Instrument,
