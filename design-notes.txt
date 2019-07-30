@@ -5,6 +5,8 @@ Quantize to every x lines (also reduce delays)
 Phrase.transpose needs to transpose phrases not currently transposed
 
 * Allow each column to loop independently (remove pattern length property)
+	* Allow columns to move at different tempos
+	* Master column to move at the speed of the slowest column
 Second kind of loop: column loop
 	* Columns that exhaust their rows before another column completes start looping
 	- Can designate one column to loop x times before moving onto the next pattern (otherwise the pattern ends when the longest column completes once (including normal loop parameters))

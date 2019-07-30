@@ -1313,7 +1313,8 @@ class SamplePlayer {
 }
 
 class Instrument {
-	constructor() {
+	constructor(name) {
+		this.name = name;
 		this.tempoAutomations = new Map();
 		this.defaultOctave = 4;	// The octave that should be mapped to the keys qwerty...
 	}
@@ -1325,8 +1326,8 @@ class Instrument {
 
 class SampledInstrument extends Instrument {
 
-	constructor() {
-		super();
+	constructor(name) {
+		super(name);
 		this.samples = [];
 		this.startingNotes = [];
 	}
@@ -1461,7 +1462,7 @@ class SampledInstrument extends Instrument {
 
 	chord(intervals, instrumentNoteFreqs) {
 		const me = this;
-		const newInstrument = new SampledInstrument();
+		const newInstrument = new SampledInstrument(this.name + ' chord');
 		newInstrument.startingNotes = this.startingNotes.slice();
 
 		function makeChord(sampleIndex) {

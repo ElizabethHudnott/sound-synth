@@ -6,6 +6,7 @@ let gateTemporarilyOpen = false;
 let octaveOffset = 0;
 let channels;
 let midiPort, midiChannel = 0;
+let numRecordings = 0;
 
 document.getElementById('input-device').prepend(Sampler.devices);
 {
@@ -139,20 +140,16 @@ function initialize() {
 	sendNewLine();
 	setInterval(sendNewLine, BUFFER_LENGTH * 20);
 
-	const piano = new Synth.SampledInstrument();
+	const piano = new Synth.SampledInstrument('Acoustic Grand Piano');
 	system.instruments[0] = piano;
-	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').then(resourceLoaded).catch(resourceError);
-	const guitar = new Synth.SampledInstrument();
+	piano.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav').catch(resourceError);
+	const guitar = new Synth.SampledInstrument('Guitar Strum');
 	system.instruments[1] = guitar;
-	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav')
-	.then(resourceLoaded)
-	.catch(resourceError);
+	guitar.loadSampleFromURL(audioContext, 0, 'samples/guitar-strum.wav').catch(resourceError);
 
-	const violin = new Synth.SampledInstrument();
+	const violin = new Synth.SampledInstrument('Violin');
 	system.instruments[2] = violin;
-	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav')
-	.then(resourceLoaded)
-	.catch(resourceError);
+	violin.loadSampleFromURL(audioContext, 0, 'samples/violin.wav').catch(resourceError);
 }
 
 function begin() {
@@ -312,36 +309,29 @@ window.addEventListener('blur', function (event) {
 	}
 });
 
-function resourceLoaded(resource) {
-	let name;
-	if (resource.source instanceof File) {
-		name = resource.source.name;
-	} else {
-		name = resource.source;
-	}
-	console.log('Loaded ' + name);
-	return resource;
-}
-
 function resourceError(error) {
 	console.error(error.source + ': ' + error.message);
 }
 
+function addInstrumentToList(instrument) {
+	return function (resource) {
+		const instrumentNumber = system.instruments.length;
+		system.instruments[instrumentNumber] = instrument;
+		const dropDown = document.getElementById('sample-list');
+		const option = document.createElement('option');
+		option.value = instrumentNumber + 1;
+		option.innerText = instrument.name;
+		dropDown.appendChild(option);
+	};
+}
+
 function uploadSamples() {
 	const files = document.getElementById('sample-upload').files;
-	const dropDown = document.getElementById('sample-list');
-	const offset = dropDown.children.length - 1;
 	for (let i = 0; i < files.length; i++) {
-		const option = document.createElement('option');
-		option.value = offset + i + 1;
-		option.innerText = files[i].name;
-		dropDown.appendChild(option);
-	}
-
-	for (let i = 0; i < files.length; i++) {
-		const instrument = new Synth.SampledInstrument();
-		system.instruments[offset + i] = instrument;
-		instrument.loadSampleFromFile(audioContext, 0, files[i]).then(resourceLoaded);
+		const name = files[i].name.replace(/\.\w*$/, '')
+		const instrument = new Synth.SampledInstrument(name);
+		instrument.loadSampleFromFile(audioContext, 0, files[i])
+		.then(addInstrumentToList(instrument));
 	}
 }
 
@@ -355,15 +345,17 @@ function pauseRecording() {
 }
 
 Sampler.ondatarecorded = function (buffer) {
-	const dropDown = document.getElementById('sample-list');
-	const instrumentNumber = dropDown.children.length - 1;
+	numRecordings++;
+	const name = 'Recording ' + numRecordings;
+	const instrument = new Synth.SampledInstrument(name);
 	const sample = new Synth.Sample(buffer);
-	const instrument = new Synth.SampledInstrument();
 	instrument.addSample(0, sample);
-	system.instruments.push(instrument);
+	const instrumentNumber = system.instruments.length;
+	system.instruments[instrumentNumber] = instrument;
+	const dropDown = document.getElementById('sample-list');
 	const option = document.createElement('option');
 	option.value = instrumentNumber + 1;
-	option.innerText = 'Recording ' + instrumentNumber;
+	option.innerText = name;
 	dropDown.appendChild(option);
 }
 
