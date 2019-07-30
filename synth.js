@@ -246,32 +246,48 @@ const ChangeType = Object.freeze({
 });
 
 const ChangeTypes = (function() {
+	const all = new Set();
+	all.add(ChangeType.MARK);
+
 	const set = new Set();
 	set.add(ChangeType.SET);
+	all.add(ChangeType.SET);
 
 	const absolute = new Set();
 	absolute.add(ChangeType.SET);
-	absolute.add(ChangeType.MARK);
 	absolute.add(ChangeType.LINEAR);
 	absolute.add(ChangeType.EXPONENTIAL);
+	all.add(ChangeType.SET);
+	all.add(ChangeType.LINEAR);
+	all.add(ChangeType.EXPONENTIAL);
 
 	const delta = new Set();
 	delta.add(ChangeType.DELTA);
-	delta.add(ChangeType.MARK);
 	delta.add(ChangeType.DELTA + ChangeType.LINEAR);
 	delta.add(ChangeType.DELTA + ChangeType.EXPONENTIAL);
+	all.add(ChangeType.DELTA);
+	all.add(ChangeType.DELTA + ChangeType.LINEAR);
+	all.add(ChangeType.DELTA + ChangeType.EXPONENTIAL);
 
 	const multiply = new Set();
 	multiply.add(ChangeType.MULTIPLY);
-	multiply.add(ChangeType.MARK);
 	multiply.add(ChangeType.MULTIPLY + ChangeType.LINEAR);
 	multiply.add(ChangeType.MULTIPLY + ChangeType.EXPONENTIAL);
+	all.add(ChangeType.MULTIPLY);
+	all.add(ChangeType.MULTIPLY + ChangeType.LINEAR);
+	all.add(ChangeType.MULTIPLY + ChangeType.EXPONENTIAL);
+
+	const none = new Set();
+	none.add(ChangeType.NONE);
+	// not part of "all" because it's not actually a change
 
 	return Object.freeze({
 		SET: Object.freeze(set),
 		ABSOLUTE: Object.freeze(absolute),
 		DELTA: Object.freeze(delta),
 		MULTIPLY: Object.freeze(multiply),
+		ALL: Object.freeze(all),
+		NONE: Object.freeze(none),
 	});
 })();
 

@@ -834,31 +834,40 @@ class Phrase {
 		}
 	}
 
-	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
+	stepRange(from, to, reverse) {
 		const length = this.length;
 		if (to === undefined) {
 			to = from + length - 1;
 		} else if (to < from) {
 			to += length;
 		}
-		let increment, numRows;
+		let numRows;
 		if (reverse) {
 			from += length;
 			to += length;
-			increment = -1;
 			numRows = from - to + 1
 		} else {
-			increment = 1;
 			numRows = to - from + 1;
 		}
 		if (numRows <= 0) {
 			numRows += length;
 		}
+		return [from, numRows];
+	}
 
+	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
+		const increment = reverse ? -1 : 1;
 		const equalMinMax = minValue !== undefined && equalValues(minValue, maxValue);
+		let i = -1, revisedFrom, numRows;
 
-		for (let i = 0; i < numRows; i++) {
-			const rowNumber = (from + increment * i) % length;
+		while (true) {
+			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
+			i++;
+			if (i >= numRows) {
+				break;
+			}
+
+			const rowNumber = (revisedFrom + increment * i) % this.length;
 			const changes = this.rows[rowNumber];
 			if (changes === undefined) {
 				continue;
@@ -884,42 +893,65 @@ class Phrase {
 		}
 	}
 
-	mirrorValues(param, minValue, maxValue, changeTypes, from, to) {
-
+	findAll(param, minValue, maxValue, changeTypes) {
+		const results = [];
+		for (let result of this.find(param, minValue, maxValue, changeTypes, 0, this.rows.length - 1, false)) {
+			results.push(result);
+		}
+		return results;
 	}
 
-	multiplyValues(param, minValue, maxValue, changeTypes, multiplier, from, to) {
-
-	}
-
-	quantizeValues(param, minValue, maxValue, changeTypes, multiple, from, to) {
-
-	}
-
-	randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, from, to) {
-
-	}
-
-	replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to) {
-		for (let [rowNumber, change] of this.find(param, minValue, maxValue, changeTypes, from, to)) {
-			const newChange = change.clone();
-			this.rows[rowNumber].set(param, newChange);
-			newChange.value = replacement;
+	static replaceAll(iterator, currentResult) {
+		if (currentResult === undefined) {
+			currentResult = iterator.next();
+		}
+		while (!currentResult.done) {
+			currentResult = iterator.next(true);
 		}
 	}
 
-	transposeValues(param, minValue, maxValue, changeTypes, amount, from, to) {
-		for (let [rowNumber, change] of this.find(param, minValue, maxValue, changeTypes, from, to)) {
-			const newChange = change.clone();
-			this.rows[rowNumber].set(param, newChange);
+	*mirrorValues(param, minValue, maxValue, changeTypes, from, to, reverse) {
 
-			const value = newChange.value;
-			if (Array.isArray(value)) {
-				for (let i = 0; i < value.length; i++) {
-					value[i] += amount;
+	}
+
+	*multiplyValues(param, minValue, maxValue, changeTypes, multiplier, from, to, reverse) {
+
+	}
+
+	*quantizeValues(param, minValue, maxValue, changeTypes, multiple, from, to, reverse) {
+
+	}
+
+	*randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, from, to, reverse) {
+
+	}
+
+	*replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to, reverse) {
+		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+			const doReplace = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[occurrence[0]].set(param, newChange);
+				newChange.value = replacement;
+			}
+		}
+	}
+
+	*transposeValues(param, minValue, maxValue, changeTypes, amount, from, to, reverse) {
+		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+			const doReplace = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[occurrence[0]].set(param, newChange);
+
+				const value = newChange.value;
+				if (Array.isArray(value)) {
+					for (let i = 0; i < value.length; i++) {
+						value[i] += amount;
+					}
+				} else {
+					newChange.value += amount;
 				}
-			} else {
-				newChange.value += amount;
 			}
 		}
 	}
