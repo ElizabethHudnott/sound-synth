@@ -836,6 +836,9 @@ class Phrase {
 
 	stepRange(from, to, reverse) {
 		const length = this.length;
+		if (from === undefined) {
+			from = 0;
+		}
 		if (to === undefined) {
 			to = from + length - 1;
 		} else if (to < from) {
@@ -927,22 +930,37 @@ class Phrase {
 	}
 
 	*replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to, reverse) {
+		const modified = new Set();
 		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[occurrence];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
+
 			const doReplace = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[occurrence[0]].set(param, newChange);
+				this.rows[rowNumber].set(param, newChange);
 				newChange.value = replacement;
+				modified.add(rowChanges);
 			}
 		}
 	}
 
 	*transposeValues(param, minValue, maxValue, changeTypes, amount, from, to, reverse) {
+		const modified = new Set();
 		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[occurrence];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
+
 			const doReplace = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[occurrence[0]].set(param, newChange);
+				this.rows[rowNumber].set(param, newChange);
 
 				const value = newChange.value;
 				if (Array.isArray(value)) {
@@ -952,58 +970,68 @@ class Phrase {
 				} else {
 					newChange.value += amount;
 				}
+				modified.add(rowChanges);
 			}
 		}
 	}
 
-	swapValues(param, value1, value2, changeTypes, from, to) {
-		const numArgs = arguments.length;
-		if (numArgs < 5) {
-			from = 0;
-			to = this.rows.length - 1;
-			if (numArgs === 3) {
-				changeType = Synth.ChangeType.SET;
+	*swapValues(param, value1, value2, changeTypes, from, to, reverse) {
+		const modified = new Set();
+		const increment = reverse ? -1 : 1;
+		let i = -1, revisedFrom, numRows;
+		while (true) {
+			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
+			i++;
+			if (i >= numRows) {
+				break;
 			}
-		}
-		for (let i = from; i <= to; i++) {
-			const changes = this.rows[i];
-			if (changes === undefined) {
+
+			const rowNumber = (revisedFrom + increment * i) % this.length;
+			const changes = this.rows[rowNumber];
+			if (changes === undefined || modified.has(changes)) {
 				continue;
 			}
 
 			const change = changes.get(param);
-			if (change === undefined) {
-				continue;
-			} else if (!changeTypes.has(change.type)) {
+			if (change === undefined ||	!changeTypes.has(change.type)) {
 				continue;
 			}
 
 			const currentValue = change.value;
 			if (equalValues(currentValue, value1)) {
-				const newChange = change.clone();
-				changes.set(param, newChange);
-				newChange.value = value2;
+				const doReplace = yield [rowNumber, change];
+				if (doReplace) {
+					const newChange = change.clone();
+					changes.set(param, newChange);
+					newChange.value = value2;
+					modified.add(changes);
+				}
 			} else if (equalValues(currentValue, value2)) {
-				const newChange = change.clone();
-				changes.set(param, newChange);
-				newChange.value = value1;
+				const doReplace = yield [rowNumber, change];
+				if (doReplace) {
+					const newChange = change.clone();
+					changes.set(param, newChange);
+					newChange.value = value1;
+					modified.add(changes);
+				}
 			}
 		}
 	}
 
-	changeParameter(oldParam, newParam, from, to) {
-		if (arguments.length === 2) {
-			from = 0;
-			to = this.rows.length - 1;
-		}
-		for (let i = from; i <= to; i++) {
-			const changes = this.rows[i];
-			if (changes !== undefined) {
-				const change = changes.get(oldParam);
-				if (change !== undefined) {
-					changes.delete(oldParam);
-					changes.set(newParam, change);
-				}
+	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, from, to, reverse) {
+		const modified = new Set();
+		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[occurrence];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
+
+			const doReplace = yield occurrence;
+			if (doReplace)  {
+				rowChanges.delete(oldParam);
+				rowChanges.set(newParam, occurrence[1]);
+				modified.add(rowChanges);
 			}
 		}
 	}
