@@ -23,9 +23,6 @@
 					<button onclick="set(Synth.Param.GATE, (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN ? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
 					<br>
 					<small>You can also play notes using the computer keyboard or using MIDI.</small><br>
-					<input id="one-shot" type="checkbox" checked>One Shot
-					<input id="retrigger" type="checkbox" checked>Retrigger
-					<br>
 					<div id="midi">
 						MIDI:
 						<select id="midi-channel">
@@ -49,6 +46,20 @@
 						<br>
 						<input type="radio" name="midi-mode" value="poly" id="midi-mode-poly" checked>Two Note Polyphony
 						<input type="radio" name="midi-mode" value="arp" id="midi-mode-arp">Arpeggio
+					</div>
+				</fieldset>
+				<fieldset>
+					<legend>Articulation</legend>
+					<input id="one-shot" type="checkbox" checked oninput="document.getElementById('articulation-controls').classList.toggle('hidden', !this.checked)">Fixed Length Note
+					<input id="legato" type="checkbox">Legato
+					<div id="articulation-controls">
+						<input type="range" id="note-value" oninput="set(Synth.Param.DURATION, parseFloat(this.value) * parseFloat(document.getElementById('articulation').value)); document.getElementById('duration-readout').innerHTML = this.value + '/16'" min="1" max="16" value="4">
+						<span id="duration-readout" class="readout" style="width: 5em">4/16</span>
+						Note Value
+						<br>
+						<span class="control-value">Staccato</span>
+						<input type="range" id="articulation" oninput="set(Synth.Param.DURATION, parseFloat(document.getElementById('note-value').value) * parseFloat(this.value)); if (this.value === '1') document.getElementById('legato').checked = true;" min="0" max="1" step="0.1" value="0">
+						<span class="control-value">Legato</span>
 					</div>
 				</fieldset>
 				<fieldset>
@@ -244,13 +255,9 @@
 					<input type="radio" name="decay-shape" oninput="set(Synth.Param.DECAY_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
 					<br>
 					<input type="range" oninput="set(Synth.Param.SUSTAIN, parseFloat(this.value))" min="0" max="100" value="75">Sustain<br>
-					<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1500" value="300">Release
+					<input type="range" oninput="set(Synth.Param.RELEASE, parseFloat(this.value))" min="0" max="1500" value="150">Release
 					<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.LINEAR)" checked>Linear
 					<input type="radio" name="release-shape" oninput="set(Synth.Param.RELEASE_SHAPE, Synth.ChangeType.EXPONENTIAL)">Exponential
-					<br>
-					<input type="range" oninput="set(Synth.Param.DURATION, parseFloat(this.value)); document.getElementById('duration-readout').innerHTML = this.value" min="0" max="16" step="0.25" value="0">
-					<span id="duration-readout" class="readout">0</span>
-					Duration <small>(0 = staccato)</small>
 				</fieldset>
 				<fieldset>
 					<legend>Tremolo</legend>
@@ -277,10 +284,11 @@
 				<fieldset>
 					<legend>Sequencing</legend>
 					<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GROOVE, [value]); document.getElementById('groove').value = value;}" min="1" max="48" value="6">
-					Line Time
+					Line Time (in ¹⁄₅₀<sup>ths</sup> of a second)
 					<br>
 					Groove:
 					<input id="groove" type="text" oninput="calcGroove(this.value)" value="6" size="15">
+					♩ = 4 lines
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.TICKS, value); document.getElementById('ticks-readout').innerHTML = value;}" min="1" max="16" value="6">
 					<span id="ticks-readout" class="readout">8</span>
@@ -291,7 +299,7 @@
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.CHORD_SPEED, value); document.getElementById('chord-speed-readout').innerHTML = value;}" min="1" max="16" value="1">
 					<span id="chord-speed-readout" class="readout">1</span>
-					Chord rotation time
+					Chord Rotation Time
 					<br>
 					<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.CYCLE)">Cycle
 					<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.TO_AND_FRO)">To and Fro

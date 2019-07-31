@@ -19,6 +19,7 @@ Phrase:
 Hold and decay samples?
 Loop start and end position incrementing (how to counter messing up fades?)
 Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
+Edit function to reverse a sequence of rows
 Song playback shouldn't all be scheduled at once
 Initial song parameters for Channel 1,... Channel N
 Song Loop From

@@ -278,7 +278,7 @@ document.addEventListener('keydown', function (event) {
 			} else {
 				gate = Synth.Gate.OPEN;
 			}
-			if (!document.getElementById('retrigger').checked) {
+			if (document.getElementById('legato').checked) {
 				gate = gate + Synth.Gate.LEGATO;
 			}
 			playNote(gate);

@@ -8,6 +8,7 @@ const TWO_PI = 2 * Math.PI;
 
 const LFO_MAX = 20;
 const TIME_STEP = 0.02; // 50 steps per second
+const TRIGGER_TIME = 0.002;
 
 function aWeighting(frequency) {
 	const twoPiF4 = 12194.217 * TWO_PI;
@@ -1956,7 +1957,7 @@ class Channel {
 			50,		// decay
 			ChangeType.LINEAR,	// decay shape
 			70,		// sustain
-			300,	// release
+			150,	// release
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
 			0.5,	// glide time in lines
@@ -2380,8 +2381,8 @@ class Channel {
 		const releaseConstant = 4;
 
 		if ((state & Gate.LEGATO) === 0) {
-			gain.cancelAndHoldAtTime(start - 0.001);
-			gain.setTargetAtTime(0, start - 0.001, 0.001 / 2);
+			gain.cancelAndHoldAtTime(start - TRIGGER_TIME);
+			gain.setTargetAtTime(0, start - TRIGGER_TIME, TRIGGER_TIME / 3);
 			if ((state & Gate.OPEN) !== 0) {
 				if (usingSamples) {
 					gain.setValueAtTime(volume, start);
@@ -2669,7 +2670,10 @@ class Channel {
 		const tickTime = (lineTime * TIME_STEP) / numTicks;
 
 		if (step === undefined) {
-			step = (Math.max(this.system.audioContext.currentTime + 0.003, this.scheduledUntil) - this.system.startTime) / TIME_STEP;
+			step = (
+				Math.max(this.system.audioContext.currentTime + 0.002 + TRIGGER_TIME, this.scheduledUntil) -
+				this.system.startTime
+			) / TIME_STEP;
 		}
 		const delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;

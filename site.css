@@ -54,6 +54,10 @@ td {
 	width: 100%;
 }
 
+.control-value {
+	font-size: smaller;
+}
+
 .flip-x {
 	transform: scaleX(-1);
 }
