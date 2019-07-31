@@ -219,7 +219,7 @@ const Parameter = enumFromArray([
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
 	'RETRIGGER',	// number of ticks between retriggers
-	'LEGATO_CHORD', // 0 or 1 (for chords)
+	'LEGATO_RETRIGGER', // 0 or 1 (for chords)
 	'RETRIGGER_VOLUME', // percentage of original note volume
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
@@ -3095,9 +3095,9 @@ class Channel {
 				dirtyTickEvents = true;
 				break;
 
-			case Parameter.LEGATO_CHORD:
+			case Parameter.LEGATO_RETRIGGER:
 				value = Math.trunc(Math.abs(value)) % 2;
-				parameters[Parameter.LEGATO_CHORD] = value;
+				parameters[Parameter.LEGATO_RETRIGGER] = value;
 				break;
 
 			case Parameter.RETRIGGER_VOLUME:
@@ -3250,7 +3250,7 @@ class Channel {
 				}
 				const pattern = parameters[Parameter.CHORD_PATTERN];
 
-				const retriggerGate = Gate.TRIGGER + parameters[Parameter.LEGATO_CHORD] * Gate.LEGATO;
+				const retriggerGate = Gate.TRIGGER + parameters[Parameter.LEGATO_RETRIGGER] * Gate.LEGATO;
 				let retriggerVolumeChange;
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
 					retriggerVolumeChange = new Change(ChangeType.SET, endVolume);

@@ -4,10 +4,23 @@
 const DEFAULT_CHANGES = new Map();
 
 const noteParameters = new Set();
-noteParameters.add(Synth.Param.NOTES);
+noteParameters.add(Synth.Param.DURATION);
+noteParameters.add(Synth.Param.FREQUENCY);
 noteParameters.add(Synth.Param.GATE);
 noteParameters.add(Synth.Param.INSTRUMENT);
+noteParameters.add(Synth.Param.NOTES);
+noteParameters.add(Synth.Param.VELOCITY);
+noteParameters.add(Synth.Param.TICKS);
+noteParameters.add(Synth.Param.DELAY_TICKS);
+noteParameters.add(Synth.Param.RETRIGGER);
+noteParameters.add(Synth.Param.LEGATO_RETRIGGER);
+noteParameters.add(Synth.Param.RETRIGGER_VOLUME);
+noteParameters.add(Synth.Param.CHORD_SPEED);
+noteParameters.add(Synth.Param.CHORD_PATTERN);
 noteParameters.add(Synth.Param.PHRASE);
+noteParameters.add(Synth.Param.PHRASE_OFFSET);
+noteParameters.add(Synth.Param.PHRASE_TRANSPOSE);
+noteParameters.add(Synth.Param.LOOP);
 
 function cloneChange(change) {
 	if (Array.isArray(change)) {
@@ -861,7 +874,8 @@ class Phrase {
 	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
 		const increment = reverse ? -1 : 1;
 		const equalMinMax = minValue !== undefined && equalValues(minValue, maxValue);
-		let i = -1, revisedFrom, numRows;
+		let i = -1;
+		let revisedFrom, numRows;
 
 		while (true) {
 			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
@@ -892,25 +906,19 @@ class Phrase {
 			} else if (maxValue !== undefined && value > maxValue) {
 				continue;
 			}
-			yield [rowNumber, change];
+			reverse = yield [rowNumber, change];
 		}
 	}
 
 	findAll(param, minValue, maxValue, changeTypes) {
+		const search = this.find(param, minValue, maxValue, changeTypes, 0, this.rows.length - 1, false);
 		const results = [];
-		for (let result of this.find(param, minValue, maxValue, changeTypes, 0, this.rows.length - 1, false)) {
-			results.push(result);
+		let result = search.next();
+		while (!result.done) {
+			results.push(result.value);
+			result = search.next(false);
 		}
 		return results;
-	}
-
-	static replaceAll(iterator, currentResult) {
-		if (currentResult === undefined) {
-			currentResult = iterator.next();
-		}
-		while (!currentResult.done) {
-			currentResult = iterator.next(true);
-		}
 	}
 
 	*mirrorValues(param, minValue, maxValue, changeTypes, from, to, reverse) {
@@ -930,34 +938,43 @@ class Phrase {
 	}
 
 	*replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
 		const modified = new Set();
-		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
 			const rowNumber = occurrence[0];
-			const rowChanges = this.rows[occurrence];
+			const rowChanges = this.rows[rowNumber];
 			if (modified.has(rowChanges)) {
 				continue;
 			}
 
-			const doReplace = yield occurrence;
+			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
 				this.rows[rowNumber].set(param, newChange);
 				newChange.value = replacement;
 				modified.add(rowChanges);
 			}
+			result = search.next(reverse);
 		}
 	}
 
 	*transposeValues(param, minValue, maxValue, changeTypes, amount, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
 		const modified = new Set();
-		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
 			const rowNumber = occurrence[0];
-			const rowChanges = this.rows[occurrence];
+			const rowChanges = this.rows[rowNumber];
 			if (modified.has(rowChanges)) {
 				continue;
 			}
 
-			const doReplace = yield occurrence;
+			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
 				this.rows[rowNumber].set(param, newChange);
@@ -972,13 +989,15 @@ class Phrase {
 				}
 				modified.add(rowChanges);
 			}
+			result = search.next(reverse);
 		}
 	}
 
 	*swapValues(param, value1, value2, changeTypes, from, to, reverse) {
 		const modified = new Set();
 		const increment = reverse ? -1 : 1;
-		let i = -1, revisedFrom, numRows;
+		let i = -1;
+		let revisedFrom, numRows, doReplace;
 		while (true) {
 			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
 			i++;
@@ -999,7 +1018,7 @@ class Phrase {
 
 			const currentValue = change.value;
 			if (equalValues(currentValue, value1)) {
-				const doReplace = yield [rowNumber, change];
+				[doReplace, reverse] = yield [rowNumber, change];
 				if (doReplace) {
 					const newChange = change.clone();
 					changes.set(param, newChange);
@@ -1007,7 +1026,7 @@ class Phrase {
 					modified.add(changes);
 				}
 			} else if (equalValues(currentValue, value2)) {
-				const doReplace = yield [rowNumber, change];
+				[doReplace, reverse] = yield [rowNumber, change];
 				if (doReplace) {
 					const newChange = change.clone();
 					changes.set(param, newChange);
@@ -1019,20 +1038,25 @@ class Phrase {
 	}
 
 	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
 		const modified = new Set();
-		for (let occurrence of this.find(param, minValue, maxValue, changeTypes, from, to, reverse)) {
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
 			const rowNumber = occurrence[0];
-			const rowChanges = this.rows[occurrence];
+			const rowChanges = this.rows[rowNumber];
 			if (modified.has(rowChanges)) {
 				continue;
 			}
 
-			const doReplace = yield occurrence;
+			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				rowChanges.delete(oldParam);
 				rowChanges.set(newParam, occurrence[1]);
 				modified.add(rowChanges);
 			}
+			result = search.next(reverse);
 		}
 	}
 
@@ -1166,12 +1190,23 @@ class Phrase {
 
 }
 
+function replaceAll(iterator, currentResult) {
+	if (currentResult === undefined) {
+		currentResult = iterator.next([true, false]);
+	}
+	while (!currentResult.done) {
+		currentResult = iterator.next([true, false]);
+	}
+}
+
+
 global.Sequencer = {
 	Pattern: Pattern,
 	Phrase: Phrase,
 	Song: Song,
 	cloneChanges: cloneChanges,
 	noteParameters: noteParameters,
+	replaceAll: replaceAll,
 };
 
 })(window);

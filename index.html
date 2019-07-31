@@ -305,7 +305,7 @@
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.RETRIGGER, value); document.getElementById('retrigger-readout').innerHTML = value;}" min="0" max="16" value="0">
 					<span id="retrigger-readout" class="readout">0</span>
 					Retrigger Time
-					<input type="checkbox" oninput="set(Synth.Param.LEGATO_CHORD, this.checked)">Legato
+					<input type="checkbox" oninput="set(Synth.Param.LEGATO_RETRIGGER, this.checked)">Legato
 					<br>
 					<input type="range" oninput="set(Synth.Param.RETRIGGER_VOLUME, parseFloat(this.value), 0, Synth.ChangeType.EXPONENTIAL)" min="1" max="100" value="100">
 					Retrigger Volume

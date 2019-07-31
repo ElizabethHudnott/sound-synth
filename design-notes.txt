@@ -2,7 +2,7 @@ Sequencer
 ---------
 Find/replace parameter values
 copyParameter and swapParameters should work between two columns (or the same column) of a pattern rather than (limited to) within a phrase (+turn into generators)
-Quantize to every x lines (also reduce delays) (different from quantizing invidiual parameters)
+Method to quantize to every x lines (also reduce delays) (different from quantizing individual parameters)
 Phrase.transpose needs to transpose phrases not currently transposed
 
 * Allow each column to loop independently (remove pattern length property)
