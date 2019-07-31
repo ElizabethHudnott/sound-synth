@@ -2675,7 +2675,15 @@ class Channel {
 				this.system.startTime
 			) / TIME_STEP;
 		}
-		const delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
+		let delay, tickOffset;
+		if (gate === undefined && (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN) {
+			tickOffset = this.tickCounter;
+			delay = tickOffset - Math.trunc(tickOffset);
+			tickOffset = Math.ceil(tickOffset);
+			this.tickCounter = tickOffset;
+		} else {
+			delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
+		}
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
 
 		// Each of these holds a change type (or undefined for no change)
@@ -3234,19 +3242,20 @@ class Channel {
 			this.system.nextLine = step + lineTime;
 
 			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
-				numTicks = Math.trunc(numTicks - (delay % numTicks));
+				numTicks = numTicks - (delay % numTicks);
+				const roundedNumTicks = Math.ceil(numTicks);
 
 				let glissandoPerTick;
 				if (glissandoSteps === 0) {
 					glissandoPerTick = 0;
 				} else if (glissandoSteps > 0) {
-				 	glissandoPerTick = (glissandoSteps + 1) / numTicks;
+				 	glissandoPerTick = (glissandoSteps + 1) / roundedNumTicks;
 				} else {
-					glissandoPerTick = (glissandoSteps - 1) / numTicks;
+					glissandoPerTick = (glissandoSteps - 1) / roundedNumTicks;
 				}
 
 				let tick = gate === undefined ? 0 : 1;
-				const tickOffset = this.tickCounter;
+				tickOffset = this.tickCounter;
 				let volume = this.velocity;
 				let endVolume = expCurve(volume * parameters[Parameter.RETRIGGER_VOLUME], 1);
 				if (endVolume > 1) {
@@ -3259,7 +3268,7 @@ class Channel {
 				if (this.retriggerVolumeChangeType === ChangeType.SET) {
 					retriggerVolumeChange = new Change(ChangeType.SET, endVolume);
 				} else {
-					let numTriggers = Math.trunc((numTicks - 1) / retriggerTicks);
+					let numTriggers = Math.trunc((roundedNumTicks - 1) / retriggerTicks);
 					if (numTriggers === 0) {
 						numTriggers = 1; // When the gate's left open jump straight to the final volume
 					}
@@ -3271,7 +3280,7 @@ class Channel {
 				}
 				let scheduledUntil = this.scheduledUntil;
 
-				while (tick < numTicks) {
+				while (tick < roundedNumTicks) {
 					const timeOfTick = time + tick * tickTime;
 
 					if (glissandoSteps !== 0) {
