@@ -2678,7 +2678,8 @@ class Channel {
 		let delay, tickOffset;
 		if (gate === undefined && (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN) {
 			tickOffset = this.tickCounter;
-			delay = tickOffset - Math.trunc(tickOffset);
+			delay = 1 - (tickOffset - Math.trunc(tickOffset));
+			if (delay === 1) delay = 0;
 			tickOffset = Math.ceil(tickOffset);
 			this.tickCounter = tickOffset;
 		} else {
