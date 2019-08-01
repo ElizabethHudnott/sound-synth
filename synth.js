@@ -154,6 +154,7 @@ const Parameter = enumFromArray([
 	'RELEASE',		// in milliseconds
 	'RELEASE_SHAPE', // ChangeType.LINEAR or ChangeType.EXPONENTIAL
 	'DURATION',		// as a fraction of the line time (0 = auto)
+	'SAMPLE_DECAY',	// 0 = no envelope for samples, 1 = use hold and decay
 	'GLIDE',		// as a fraction of the line time
 	'GATE',			// CLOSED, OPEN, TRIGGER, CUT, REOPEN or RETRIGGER
 	'WAVEFORM',		// Wavetable position
@@ -1339,6 +1340,16 @@ class Sample {
 		newSample.gain = this.gain;
 		return newSample;
 	}
+
+	positionAtTime(time) {
+		const buffer = this.buffer;
+		if (time >= 0) {
+			return buffer.sampleRate * time;
+		} else {
+			return buffer.length + buffer.sampleRate * time;
+		}
+	}
+
 }
 
 class SamplePlayer {
@@ -1960,6 +1971,7 @@ class Channel {
 			150,	// release
 			ChangeType.LINEAR, // release shape
 			0,		// set duration to automatic
+			0,		// samples don't use the envelope
 			0.5,	// glide time in lines
 			Gate.CLOSED, // gate
 			Wave.TRIANGLE,	// waveform
@@ -2377,7 +2389,7 @@ class Channel {
 
 		const endAttack = start + scaleAHD * this.endAttack;
 		const attackConstant = this.attackConstant * scaleAHD;
-		let beginRelease, endTime;
+		let endHold, endDecay, beginRelease, endTime;
 		const releaseConstant = 4;
 
 		if ((state & Gate.LEGATO) === 0) {
@@ -2404,6 +2416,8 @@ class Channel {
 
 		if (usingSamples) {
 			const me = this;
+			endHold = start + scaleAHD * parameters[Parameter.HOLD] / 1000;
+			endDecay = endHold + scaleAHD * parameters[Parameter.DECAY] / 1000;
 			switch (state) {
 			case Gate.OPEN:
 			case Gate.REOPEN:
@@ -2411,6 +2425,10 @@ class Channel {
 				this.playSample(note, start);
 				this.sampleBufferNode.loop = true;
 				this.sampleLooping = true;
+				if (parameters[Parameter.SAMPLE_DECAY]) {
+					gain.setValueAtTime(volume, endHold);
+					gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
+				}
 				break;
 
 			case Gate.CLOSED:
@@ -2425,6 +2443,10 @@ class Channel {
 				this.triggerLFOs(start);
 				this.playSample(note, start);
 				const sampleBufferNode = this.sampleBufferNode;
+				if (parameters[Parameter.SAMPLE_DECAY]) {
+					gain.setValueAtTime(volume, endHold);
+					gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
+				}
 				if (duration > sampleBufferNode.loopStart * sampleBufferNode.playbackRate) {
 					sampleBufferNode.loop = true;
 					this.sampleLooping = true;
@@ -2450,7 +2472,7 @@ class Channel {
 				break;
 			}
 			return;
-		}
+		} // end if using samples
 
 		switch (state) {
 		case Gate.OPEN:
@@ -2473,8 +2495,8 @@ class Channel {
 		case Gate.TRIGGER:
 		case Gate.LEGATO_TRIGGER:
 			this.triggerLFOs(start);
-			let endHold = start + scaleAHD * this.endHold;
-			let endDecay = start + scaleAHD * this.endDecay;
+			endHold = start + scaleAHD * this.endHold;
+			endDecay = start + scaleAHD * this.endDecay;
 			if (duration > 0) {
 				beginRelease = start + duration;
 				if (beginRelease < endDecay) {
@@ -2744,6 +2766,11 @@ class Channel {
 
 			case Parameter.SUSTAIN:
 				dirtySustain = true;
+				break;
+
+			case Parameter.SAMPLE_DECAY:
+				value = Math.trunc(Math.abs(value)) % 2;
+				parameters[Parameter.SAMPLE_DECAY] = value;
 				break;
 
 			case Parameter.WAVEFORM:

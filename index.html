@@ -122,6 +122,7 @@
 						<div id="input-device">
 							<button id="sampler-btn"><img src="img/record.png" height="12"></button>
 						</div>
+						<input type="checkbox" oninput="set(Synth.Param.SAMPLE_DECAY, this.checked ? 1 : 0)">Hold and Decay
 					</fieldset>
 				</fieldset>
 				<fieldset>
@@ -283,7 +284,7 @@
 				</fieldset>
 				<fieldset>
 					<legend>Sequencing</legend>
-					<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GROOVE, [value]); document.getElementById('groove').value = value;}" min="1" max="48" value="6">
+					<input id="line-time" type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GROOVE, [value]); document.getElementById('groove').value = value;}" min="3" max="38" value="6">
 					Line Time (in ¹⁄₅₀<sup>ths</sup> of a second)
 					<br>
 					Groove:
