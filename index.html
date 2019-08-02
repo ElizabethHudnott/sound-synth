@@ -275,12 +275,14 @@
 					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 2)">LFO 2
 					<br>
 					<input type="range" oninput="set(document.getElementById('single-delay').checked ? Synth.Param.DELAY : Synth.Param.MIN_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Min Delay
-					<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : parseFloat(maxControl.value))}" checked>Max = Min<br>
+					<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : 10 ** parseFloat(maxControl.value))}" checked>Max = Min<br>
 					<div class="hidden">
 						<input id="max-delay" type="range" oninput="set(Synth.Param.MAX_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Max Delay
 					</div>
 					<input type="range" oninput="set(Synth.Param.DELAY_MIX, parseFloat(this.value))" min="0" max="100" value="100">Delay Mix<br>
-					<input type="range" oninput="set(Synth.Param.FEEDBACK, parseFloat(this.value))" min="0" max="99" value="0">Feedback<br>
+					<input id="feedback" type="range" oninput="set(Synth.Param.FEEDBACK, parseFloat(this.value))" min="-99" max="99" value="0">
+					Feedback
+					<button onclick="set(Synth.Param.FEEDBACK, 0); document.getElementById('feedback').value = 0">Reset</button>
 				</fieldset>
 				<fieldset>
 					<legend>Sequencing</legend>

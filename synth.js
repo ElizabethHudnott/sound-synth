@@ -216,7 +216,7 @@ const Parameter = enumFromArray([
 	'MAX_DELAY',	// milliseconds
 	'DELAY_LFO',	// which LFO to use
 	'DELAY_MIX',	// percentage (may be more than 100)
-	'FEEDBACK',		// percentage
+	'FEEDBACK',		// -100 to 100
 	'RING_MOD',		// 0 to 100
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
@@ -3091,7 +3091,7 @@ class Channel {
 
 			case Parameter.FEEDBACK:
 				this.feedback.gain[changeType](value / 100, time);
-				this.delayOutput.gain[changeType](1 / (1 - value / 100), time);
+				this.delayOutput.gain[changeType](1 / (1 - Math.abs(value) / 100), time);
 				break;
 
 			case Parameter.PAN:
