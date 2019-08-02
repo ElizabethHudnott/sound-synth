@@ -833,6 +833,20 @@ class Sample {
 		return newSample;
 	}
 
+	polarityFlip(channelNumber, from, to) {
+		const buffer = this.buffer;
+		if (to === undefined) {
+			to = buffer.length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+		const data = buffer.getChannelData(channelNumber);
+		for (let i = from; i <= to; i++) {
+			data[i] = -data[i];
+		}
+	}
+
 	peakAmplitude(from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;

@@ -1,7 +1,8 @@
 Sequencer
 ---------
 copyParameter and swapParameters should work between two columns (or the same column) of a pattern rather than (limited to) within a phrase (+turn into generators)
-Method to quantize to every x lines (also reduce delays) (different from quantizing individual parameters)
+option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
+Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
 Phrase.transpose needs to transpose phrases not currently transposed
 
 * Allow each column to loop independently (remove pattern length property)
@@ -15,7 +16,6 @@ Phrase:
 	* loop on/off (when not used as a column)
 	* loop start point
 	- "free running" on/off
-Hold and decay samples?
 Loop start and end position incrementing (how to counter messing up fades?)
 Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
 Edit function to reverse a sequence of rows
@@ -28,7 +28,7 @@ Synth
 UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)
-Sample finetune?
+Sample resampling, crossfade
 Add sample slicing
 Time stretching
 Probability

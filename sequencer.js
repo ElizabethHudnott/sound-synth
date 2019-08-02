@@ -1313,7 +1313,7 @@ class Phrase {
 
 function replaceAll(iterator, currentResult) {
 	if (currentResult === undefined) {
-		currentResult = iterator.next([true, false]);
+		currentResult = iterator.next();
 	}
 	while (!currentResult.done) {
 		currentResult = iterator.next([true, false]);
