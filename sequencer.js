@@ -922,19 +922,140 @@ class Phrase {
 	}
 
 	*mirrorValues(param, minValue, maxValue, changeTypes, from, to, reverse) {
+		const midPoint = (maxValue + minValue) / 2;
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const modified = new Set();
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[rowNumber];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
 
+			[doReplace, reverse] = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[rowNumber].set(param, newChange);
+
+				const value = newChange.value;
+				if (Array.isArray(value)) {
+					for (let i = 0; i < value.length; i++) {
+						if (value[i] < midPoint) {
+							value[i] = maxValue - (value[i] - minValue);
+						} else {
+							value[i] = minValue + (maxValue - value[i]);
+						}
+					}
+				} else {
+					if (value < midPoint) {
+						newChange.value = maxValue - (value - minValue);
+					} else {
+						newChange.value = minValue + (maxValue - value);
+					}
+				}
+				modified.add(rowChanges);
+			}
+			result = search.next(reverse);
+		}
 	}
 
 	*multiplyValues(param, minValue, maxValue, changeTypes, multiplier, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const modified = new Set();
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[rowNumber];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
 
+			[doReplace, reverse] = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[rowNumber].set(param, newChange);
+
+				const value = newChange.value;
+				if (Array.isArray(value)) {
+					for (let i = 0; i < value.length; i++) {
+						value[i] *= multiplier;
+					}
+				} else {
+					newChange.value = value * multiplier;
+				}
+				modified.add(rowChanges);
+			}
+			result = search.next(reverse);
+		}
 	}
 
 	*quantizeValues(param, minValue, maxValue, changeTypes, multiple, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const modified = new Set();
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[rowNumber];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
 
+			[doReplace, reverse] = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[rowNumber].set(param, newChange);
+
+				const value = newChange.value;
+				if (Array.isArray(value)) {
+					for (let i = 0; i < value.length; i++) {
+						value[i] = Math.round(value[i] * multiple) / multiple;
+					}
+				} else {
+					newChange.value = Math.round(value * multiple) / multiple;
+				}
+				modified.add(rowChanges);
+			}
+			result = search.next(reverse);
+		}
 	}
 
 	*randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const modified = new Set();
+		let result = search.next();
+		let doReplace;
+		while (!result.done) {
+			const occurrence = result.value;
+			const rowNumber = occurrence[0];
+			const rowChanges = this.rows[rowNumber];
+			if (modified.has(rowChanges)) {
+				continue;
+			}
 
+			[doReplace, reverse] = yield occurrence;
+			if (doReplace)  {
+				const newChange = occurrence[1].clone();
+				this.rows[rowNumber].set(param, newChange);
+
+				const value = newChange.value;
+				if (Array.isArray(value)) {
+					for (let i = 0; i < value.length; i++) {
+						value[i] = Synth.randomize(value[i], amount, allowNegative);
+					}
+				} else {
+					newChange.value = Synth.randomize(value, amount, allowNegative);
+				}
+				modified.add(rowChanges);
+			}
+			result = search.next(reverse);
+		}
 	}
 
 	*replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to, reverse) {
@@ -985,7 +1106,7 @@ class Phrase {
 						value[i] += amount;
 					}
 				} else {
-					newChange.value += amount;
+					newChange.value = value + amount;
 				}
 				modified.add(rowChanges);
 			}

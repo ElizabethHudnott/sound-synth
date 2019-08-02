@@ -120,6 +120,18 @@ function lcm(a, b) {
 	return a / gcd(a, b) * b;
 }
 
+function randomize(value, amount, allowNegative) {
+	if (!allowNegative && value < amount) {
+		if (value <= 0) {
+			return value + Math.random() * amount;
+		} else {
+			return Math.random() * (value + amount);
+		}
+	} else {
+		return value + Math.random() * 2 * amount - amount;
+	}
+}
+
 class Resource {
 	constructor(source, data) {
 		this.source = source;
@@ -3590,6 +3602,7 @@ global.Synth = {
 	gcd: gcd,
 	lcm: lcm,
 	noteFromFrequency: noteFromFrequency,
+	randomize: randomize,
 };
 
 })(window);
