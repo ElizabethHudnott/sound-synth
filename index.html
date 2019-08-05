@@ -7,7 +7,7 @@
 		<link rel="stylesheet" href="site.css">
 		<script src="synth.js" defer></script>
 		<script src="sequencer.js" defer></script>
-		<script src="midi.js" defer></script>
+		<script src="input.js" defer></script>
 		<script src="sampler.js" defer></script>
 		<script src="app.js" defer></script>
 	</head>
@@ -19,13 +19,13 @@
 			<div id="main-controls">
 				<fieldset>
 					<legend>Activation</legend>
-					<button onclick="set(Synth.Param.GATE, Synth.Gate.TRIGGER)">Play Once</button>
-					<button onclick="set(Synth.Param.GATE, (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) !== Synth.Gate.OPEN ? Synth.Gate.OPEN : Synth.Gate.CLOSED)">Sound On/Off</button>
+					<button onclick="playNote()">Play Once</button>
+					<button onclick="if (MusicInput.keyboard.lockedOn) keyboard.allSoundOff(); else keyboard.setLockedOn()">Sound On/Off</button>
 					<br>
-					<small>You can also play notes using the computer keyboard or using MIDI.</small><br>
-					<div id="midi">
+					<small>You can also play notes using the computer keyboard or MIDI.</small>
+					<div id="input-config">
 						MIDI:
-						<select id="midi-channel">
+						<select id="input-channel">
 							<option value="0">1</option>
 							<option value="1">2</option>
 							<option value="2">3</option>
@@ -44,14 +44,16 @@
 							<option value="15">16</option>
 						</select>
 						<br>
-						<input type="radio" name="midi-mode" value="poly" id="midi-mode-poly" checked>Two Note Polyphony
-						<input type="radio" name="midi-mode" value="arp" id="midi-mode-arp">Arpeggio
+						<input type="radio" name="input-mode" value="poly" id="input-mode-poly" checked>Two Note Polyphony
+						<input type="radio" name="input-mode" value="arp" id="input-mode-arp">Arpeggio
+						<br>
+						<input type="radio" name="input-mode" value="transpose-chord" id="input-mode-transpose-chord">Transposed Chord
 					</div>
 				</fieldset>
 				<fieldset>
 					<legend>Articulation</legend>
-					<input id="one-shot" type="checkbox" checked oninput="document.getElementById('articulation-controls').classList.toggle('hidden', !this.checked)">Fixed Length Note
-					<input id="legato" type="checkbox">Legato
+					<input id="one-shot" type="checkbox" checked oninput="document.getElementById('articulation-controls').classList.toggle('hidden', !this.checked); applyGateSetting()">Fixed Length Note
+					<input id="legato" type="checkbox" oninput="applyGateSetting()">Legato
 					<div id="articulation-controls">
 						<input type="range" id="note-value" oninput="set(Synth.Param.DURATION, parseFloat(this.value) * parseFloat(document.getElementById('articulation').value)); document.getElementById('duration-readout').innerHTML = this.value + '/16'" min="1" max="16" value="4">
 						<span id="duration-readout" class="readout" style="width: 5em">4/16</span>
@@ -112,14 +114,14 @@
 					</fieldset>
 					<fieldset>
 						<legend>Sample</legend>
-						<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value)); if (channels[0].instrument) octaveOffset = channels[0].instrument.defaultOctave - 4; else octaveOffset = 0">
+						<select id="sample-list" oninput="set(Synth.Param.INSTRUMENT, parseInt(this.value)); if (channels[0].instrument) MusicInput.keyboardOctave = channels[0].instrument.defaultOctave; else MusicInput.keyboardOctave = 4">
 							<option value="0">None</option>
 							<option value="1">Piano</option>
 							<option value="2">Guitar</option>
 							<option value="3">Violin</option>
 						</select>
 						<input id="sample-upload" type="file" accept="audio/*,.8svx,.iff,.raw" multiple oninput="uploadSamples()">
-						<div id="input-device">
+						<div id="recording-device">
 							<button id="sampler-btn"><img src="img/record.png" height="12"></button>
 						</div>
 						<input type="checkbox" oninput="set(Synth.Param.SAMPLE_DECAY, this.checked ? 1 : 0)">Hold and Decay
@@ -172,7 +174,7 @@
 				<fieldset>
 					<legend>Frequency</legend>
 					<input id="frequency" type="range" oninput="set(Synth.Param.FREQUENCY, parseFloat(this.value))" min="60" max="6000" value="440" step="any">Frequency<br>
-					<input id="note" type="range" oninput="playNote(Synth.Gate.LEGATO_TRIGGER)" min="21" max="108" value="69">Note<br>
+					<input id="note" type="range" oninput="playNote()" min="21" max="108" value="69">Note<br>
 					<input type="range" min="0" max="100" value="0" oninput="set(Synth.Param.DETUNE, parseFloat(this.value))">Detune<br>
 					<input type="range" oninput="set(Synth.Param.GLIDE, parseFloat(this.value)); document.getElementById('glide-time-readout').innerHTML = parseFloat(this.value).toFixed(2)" min="0" max="4" step="0.05" value="0">
 					<span id="glide-time-readout" class="readout" style="width: 3em">0.00</span>
@@ -297,7 +299,7 @@
 					<span id="ticks-readout" class="readout">8</span>
 					Ticks /line
 					<br>
-					1<input type="text" id="chord" oninput="playNote(Synth.Gate.TRIGGER)" size="8">
+					1<input type="text" id="chord" size="8">
 					Broken Chord <small>(chromatic scale, e.g. 158)</small>
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.CHORD_SPEED, value); document.getElementById('chord-speed-readout').innerHTML = value;}" min="1" max="16" value="1">

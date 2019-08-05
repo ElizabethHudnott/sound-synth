@@ -1,56 +1,131 @@
 const BUFFER_LENGTH = 5;
 const audioContext = new AudioContext({latencyHint: 0.05});
+let debug = {input: false};
 const system = new Synth.System(audioContext, initialize);
-let debug = {on: true, midi: true};
+const channels = system.channels;
+const keyboard = MusicInput.keyboard;
 let gateTemporarilyOpen = false;
-let octaveOffset = 0;
-let channels;
-let midiPort, midiChannel = 0;
+let inputPort, inputChannel = 0, chord = [0];
 let numRecordings = 0;
 
-document.getElementById('input-device').prepend(Sampler.devices);
+document.getElementById('recording-device').prepend(Sampler.devices);
+
 {
-	const select = Midi.ports;
-	const div = document.getElementById('midi');
+	const select = MusicInput.ports;
+	const div = document.getElementById('input-config');
 	div.insertBefore(select, div.children[0]);
 
 	select.addEventListener('input', function (event) {
-		if (midiPort !== undefined) {
-			midiPort.close();
+		if (inputPort !== undefined) {
+			inputPort.close();
 		}
-		midiPort = Midi.port(this.value);
-		midiPort.open();
-		midiPort.addEventListener('synthinput', processMIDI);
+		inputPort = MusicInput.port(this.value);
+		inputPort.open();
+		inputPort.addEventListener('synthinput', processInput);
+		applyInputMode();
+		applyGateSetting();
 	});
 }
 
-document.getElementById('midi-channel').addEventListener('input', function (event) {
-	const newChannel = parseInt(this.value);
-	if (midiPort !== undefined) {
-		midiPort.fromChannel[midiChannel] = undefined;
-		midiPort.fromChannel[newChannel] = 0;
-		if (document.getElementById('midi-mode-poly').checked) {
-			midiPort.toChannel[newChannel] = 1;
-			midiPort.enableArpeggio(newChannel, false);
+document.getElementById('chord').addEventListener('input', function (event) {
+	chord = [0];
+	const chordText = this.value;
+	const strLen = chordText.length;
+	let charIndex = 0;
+	while (charIndex < strLen) {
+		let char = chordText[charIndex];
+		let interval;
+		if (char === '-') {
+			charIndex++;
+			if (charIndex < strLen) {
+				interval = -parseInt(chordText[charIndex], 36);
+			} else {
+				break;
+			}
 		} else {
-			midiPort.toChannel[newChannel] = undefined;
-			midiPort.enableArpeggio(newChannel, true);
+			interval = parseInt(chordText[charIndex], 36) - 1;
 		}
-		midiChannel = newChannel;
+		charIndex++;
+		if (!Number.isNaN(interval)) {
+			chord.push(interval);
+		}
+	}
+	if (document.getElementById('input-mode-transpose-chord').checked) {
+		keyboard.chord[0] = chord;
+		if (inputPort !== undefined) {
+			inputPort.chord[inputChannel] = chord;
+		}
+	}
+	playNote();
+});
+
+function applyInputMode() {
+	inputPort.toChannel[inputChannel] = channels.length - 1;
+	inputPort.legato[inputChannel] = false;
+
+	if (document.getElementById('input-mode-poly').checked) {
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = [0];
+	} else if (document.getElementById('input-mode-arp').checked) {
+		inputPort.enableArpeggio(inputChannel, true);
+	} else {
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = chord;
+	}
+}
+
+function applyGateSetting() {
+	let gate;
+	if (document.getElementById('one-shot').checked) {
+		gate = Synth.Gate.TRIGGER;
+	} else {
+		gate = Synth.Gate.OPEN;
+	}
+	if (document.getElementById('legato').checked) {
+		gate = gate + Synth.Gate.LEGATO;
+	}
+
+	keyboard.gate[0] = gate;
+	if (inputPort !== undefined) {
+		inputPort.gate[inputChannel] = gate;
+	}
+}
+
+document.getElementById('input-channel').addEventListener('input', function (event) {
+	if (inputPort === undefined) {
+		return;
+	}
+
+	const newChannel = parseInt(this.value);
+	inputPort.fromChannel[inputChannel] = undefined;
+	inputPort.fromChannel[newChannel] = 0;
+	inputChannel = newChannel;
+	applyInputMode();
+	applyGateSetting();
+});
+
+document.getElementById('input-mode-poly').addEventListener('input', function (event) {
+	keyboard.enableArpeggio(0, false);
+	keyboard.chord[0] = [0];
+	if (inputPort !== undefined) {
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = [0];
 	}
 });
 
-document.getElementById('midi-mode-poly').addEventListener('input', function (event) {
-	if (midiPort !== undefined) {
-		midiPort.toChannel[midiChannel] = 1;
-		midiPort.enableArpeggio(midiChannel, false);
+document.getElementById('input-mode-arp').addEventListener('input', function (event) {
+	keyboard.enableArpeggio(0, true);
+	if (inputPort !== undefined) {
+		inputPort.enableArpeggio(inputChannel, true);
 	}
 });
 
-document.getElementById('midi-mode-arp').addEventListener('input', function (event) {
-	if (midiPort !== undefined) {
-		midiPort.toChannel[midiChannel] = undefined;
-		midiPort.enableArpeggio(midiChannel, true);
+document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
+	keyboard.enableArpeggio(0, false);
+	keyboard.chord[0] = chord;
+	if (inputPort !== undefined) {
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = chord;
 	}
 });
 
@@ -63,6 +138,9 @@ system.ondatarecorded = function (blob) {
 }
 
 function set(parameterNumber, value, delay, changeType, channelNumber) {
+	if (channelNumber === undefined) {
+		channelNumber = -1;
+	}
 	system.set(parameterNumber, value, delay, changeType, channelNumber);
 }
 
@@ -82,52 +160,65 @@ function removeTempoAutomation(parameterNumber, channelNumber) {
 	system.removeTempoAutomation(parameterNumber, channelNumber);
 }
 
-function processMIDI(event) {
-	if (debug.midi) {
-		console.log('MIDI message received.');
+function processInput(event) {
+	if (debug.input) {
+		console.log('Input received.');
 		console.log('Synth channels: ' + event.channels);
 		console.log('Parameters:');
 		for (let [key, change] of event.changes) {
 			console.log('\t' + key + ' -> ' + change.value);
 		}
 	}
+	if (this !== inputPort && this !== keyboard) {
+		return;
+	}
+
+	const changes = event.changes;
+	const noteChange = changes.get(Synth.Param.NOTES);
+	const gateChange = changes.get(Synth.Param.GATE);
+	if (noteChange !== undefined &&
+		(gateChange === undefined || (gateChange.value & Synth.Gate.OPEN) !== 0)
+	) {
+		const note = noteChange.value[0];
+		document.getElementById('note').value = note;
+		document.getElementById('frequency').value = channels[0].noteFrequencies[note];
+	}
 	const numChannels = channels.length;
 	for (let channelNumber of event.channels) {
 		if (channelNumber < numChannels) {
-			channels[channelNumber].setParameters(event.changes, undefined, true);
+			channels[channelNumber].setParameters(changes, undefined, true);
 		}
 	}
 }
 
-// Pretends data has arrived from a MIDI device.
-function testMIDI(channel, command, ...data) {
+// Sends a simulated MIDI message.
+function testInput(channel, command, ...data) {
 	const bytes = [command | channel].concat(data);
-	midiPort.parseAndDispatch(bytes);
+	keyboard.parseAndDispatch(bytes);
 }
 
 function initialize() {
-	let channel1 = new Synth.Channel(system);
-	let channel2 = new Synth.Channel(system);
+	const channel1 = new Synth.Channel(system);
+	const channel2 = new Synth.Channel(system);
 	channel2.connect(channel1);
-	channels = [channel1, channel2];
 	system.start();
 
-	function initMIDI() {
-		const value = Midi.ports.value;
-		if (value !== "") {
-			midiPort = Midi.port(value);
-		} else if (debug.midi) {
-			midiPort = new Midi.MidiPort('Debugger');
-			Midi.addPort('debugger', midiPort);
-		}
-		if (midiPort !== undefined) {
-			midiPort.addEventListener('synthinput', processMIDI);
-			midiPort.fromChannel[0] = 0;
-			midiPort.toChannel[0] = 1;
+	function initializeInput() {
+		const inputName = MusicInput.ports.value;
+		if (inputName !== '') {
+			inputPort = MusicInput.port(inputName);
+			inputPort.addEventListener('synthinput', processInput);
+			inputPort.toChannel[0] = channels.length - 1;
+			inputPort.gate[0] = Synth.Gate.TRIGGER;
+			inputPort.legato[0] = false;
 		}
 	}
 
-	Midi.open().then(initMIDI, initMIDI);
+	MusicInput.open().then(initializeInput, initializeInput);
+	keyboard.addEventListener('synthinput', processInput);
+	keyboard.toChannel[0] = channels.length - 1;
+	keyboard.gate[0] = Synth.Gate.TRIGGER;
+	keyboard.legato[0] = false;
 
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.GLIDE, new Synth.Change(Synth.ChangeType.SET, 0));
@@ -136,6 +227,7 @@ function initialize() {
 	parameterMap.set(Synth.Param.ATTACK_CURVE, new Synth.Change(Synth.ChangeType.SET, 3));
 	parameterMap.set(Synth.Param.DELAY, new Synth.Change(Synth.ChangeType.SET, 1));
 	channels[0].setParameters(parameterMap);
+	channels[1].setParameters(parameterMap);
 
 	sendNewLine();
 	setInterval(sendNewLine, BUFFER_LENGTH * 20);
@@ -162,50 +254,34 @@ function begin() {
 
 const emptyMap = new Map();
 function sendNewLine() {
-	const gateOpen = (channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN;
-	if (gateOpen) {
+	const notesOn = (keyboard.notes[0].length > 0 ||
+		(inputPort !== undefined && inputPort.notes[inputChannel].length > 0)
+	);
+	if (notesOn) {
 		const now = system.nextStep();
 		let nextLine = Math.max(now, system.nextLine);
 		const bufferUntil = now + BUFFER_LENGTH;
 		while (nextLine <= bufferUntil) {
 			channels[0].setParameters(emptyMap, nextLine, true);
-			nextLine = system.nextLine;
+			channels[1].setParameters(emptyMap, nextLine, true);
+			const newNextLine = system.nextLine;
+			if (newNextLine > nextLine) {
+				nextLine = newNextLine;
+			} else{
+				break;
+			}
 		}
 	}
 }
 
-function playNote(gate) {
-	const noteNumber = parseInt(document.getElementById('note').value);
-	document.getElementById('frequency').value = channels[0].noteFrequencies[noteNumber];
-	const notes = [noteNumber];
-	const chord = document.getElementById('chord').value;
-	const strLen = chord.length;
-	let charIndex = 0;
-	while (charIndex < strLen) {
-		let char = chord[charIndex];
-		let interval;
-		if (char === '-') {
-			charIndex++;
-			if (charIndex < strLen) {
-				interval = -parseInt(chord[charIndex], 36);
-			} else {
-				break;
-			}
-		} else {
-			interval = parseInt(chord[charIndex], 36) - 1;
-		}
-		charIndex++;
-		if (!Number.isNaN(interval)) {
-			notes.push(noteNumber + interval);
-		}
-	}
-	const parameterMap = new Map();
-	parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.EXPONENTIAL, notes));
-	if ((channels[0].parameters[Synth.Param.GATE] & Synth.Gate.TRIGGER) === Synth.Gate.OPEN) {
-		gate = gate & (Synth.Gate.REOPEN);
-	}
-	parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
-	channels[0].setParameters(parameterMap, undefined, true);
+function playNote() {
+	const note = parseInt(document.getElementById('note').value);
+	const gate = keyboard.gate[0];
+	keyboard.gate[0] = Synth.Gate.LEGATO_TRIGGER;
+	keyboard.noteOn(0, note);
+	sendNewLine();
+	keyboard.noteOff(0, note);
+	keyboard.gate[0] = gate;
 }
 
 function openGateTemporarily() {
@@ -238,76 +314,6 @@ function calcGroove(str) {
 	}
 	set(Synth.Param.GROOVE, groove);
 }
-
-document.addEventListener('keydown', function (event) {
-	if (event.repeat || event.shiftKey || event.altKey || event.ctrlKey) {
-		return;
-	}
-	const elementType = document.activeElement.type;
-	if (elementType === 'text' || elementType === 'number') {
-		return;
-	}
-
-	const code = event.code;
-
-	if (code === 'Quote') {
-		set(Synth.Param.GATE, Synth.Gate.CUT);
-		if (midiPort !== undefined) {
-			midiPort.allSoundOff();
-		}
-		event.preventDefault();
-	} else if (code === 'NumpadDivide') {
-		octaveOffset--;
-		if (octaveOffset < -3) {
-			octaveOffset = -3;
-		}
-		event.preventDefault();
-	} else if (code === 'NumpadMultiply') {
-		octaveOffset++;
-		if (octaveOffset > 4) {
-			octaveOffset = 4;
-		}
-		event.preventDefault();
-	} else {
-		const note = Synth.keymap.get(code);
-		if (note !== undefined) {
-			document.getElementById('note').value = octaveOffset * 12 + note;
-			let gate;
-			if (document.getElementById('one-shot').checked) {
-				gate = Synth.Gate.TRIGGER;
-			} else {
-				gate = Synth.Gate.OPEN;
-			}
-			if (document.getElementById('legato').checked) {
-				gate = gate + Synth.Gate.LEGATO;
-			}
-			playNote(gate);
-			event.preventDefault();
-		}
-	}
-});
-
-document.addEventListener('keyup', function (event) {
-	if (event.shiftKey || event.altKey || event.ctrlKey ||
-		document.activeElement.type === 'text'
-	) {
-		return;
-	}
-
-	const note = Synth.keymap.get(event.code);
-	if (note !== undefined) {
-		if (!document.getElementById('one-shot').checked) {
-			set(Synth.Param.GATE, Synth.Gate.CLOSED);
-			event.preventDefault();
-		}
-	}
-});
-
-window.addEventListener('blur', function (event) {
-	if (!debug.on) {
-		set(Synth.Param.GATE, Synth.Gate.CLOSED);
-	}
-});
 
 function resourceError(error) {
 	console.error(error.source + ': ' + error.message);
@@ -380,6 +386,7 @@ function updateGraphedSound() {
 		parameterMap.set(Synth.Param.WAVE_X, new Synth.Change(Synth.ChangeType.SET, graphPointsX));
 		parameterMap.set(Synth.Param.WAVE_Y, new Synth.Change(Synth.ChangeType.SET, graphPointsY));
 		channels[0].setParameters(parameterMap);
+		channels[1].setParameters(parameterMap);
 	}
 }
 

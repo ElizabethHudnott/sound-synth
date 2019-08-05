@@ -10,64 +10,87 @@ class SynthInputEvent extends Event {
 	}
 }
 
-class Midi extends EventTarget {
+class Input extends EventTarget {
 
-	constructor(name, port) {
+	constructor(name, midiPortOrChCount) {
 		super();
 		this.name = name;
-		this.port = port;
+		let numberOfChannels;
+		if (midiPortOrChCount <= 16) {
+			numberOfChannels = midiPortOrChCount;
+			this.midiPort = undefined;
+		} else {
+			numberOfChannels = 16;
+			this.midiPort = midiPortOrChCount;
+		}
 
-		/* Map each MIDI channel to one or more synth channels.
+		/* Map each input channel to one or more synth channels.
 		 * If fromChannel[i] === undefined then the channel doesn't raise events.
 		 */
-		const fromChannel = new Array(16);
-		const toChannel = new Array(16);
+		const fromChannel = new Array(numberOfChannels);
+		const toChannel = new Array(numberOfChannels);
 		this.fromChannel = fromChannel;
 		this.toChannel = toChannel;
 		fromChannel[0] = 0;
 
-		/* The notes being recorded on each MIDI channel in ascending pitch order if an
+		/* The notes being recorded on each input channel in ascending pitch order if an
 		 * arpeggio is being played, or from first down to last down if not...
 		 */
-		this.notes = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
+		this.notes = new Array(numberOfChannels);
+		for (let i = 0; i < numberOfChannels; i++) {
+			this.notes[i] = [];
+		}
 
-		/* ... and the synth channels that each of those MIDI notes is being played on,
+		/* ... and the synth channels that each of those notes is being played on,
 		 * or undefined if the note's not currently being played because of lack of an
 		 * available channel.
 		 */
-		this.notesToChannels = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
+		this.notesToChannels = new Array(numberOfChannels);
+		for (let i = 0; i < numberOfChannels; i++) {
+			this.notesToChannels[i] = [];
+		}
 
-		/* For each MIDI channel, whether holding down multiple notes creates an arpeggio
+		/* For each input channel, whether holding down multiple notes creates an arpeggio
 		 * or if a last down priority is used.
 		 */
-		this.arpeggio = new Array(16);
+		this.arpeggio = new Array(numberOfChannels);
 		this.arpeggio.fill(false);
 
-		// The gating option used to trigger new notes sent by each MIDI channel.
-		this.gate = new Array(16);
-		this.gate.fill(Synth.Gate.OPEN);
+		this.chord = new Array(numberOfChannels);
+		for (let i = 0; i < numberOfChannels; i++) {
+			this.chord[i] = [0];
+		}
 
-		// For each MIDI channel, whether or not to retrigger revived notes.
-		this.retrigger = new Array(16);
+		// The gating option used to trigger new notes sent by each input channel.
+		this.gate = new Array(numberOfChannels);
+		this.gate.fill(Synth.Gate.OPEN);
+		this.lockedOn = false;
+
+		// For each input channel, whether or not to retrigger revived notes.
+		this.retrigger = new Array(numberOfChannels);
 		this.retrigger.fill(false);
 
-		/* For each MIDI channel, whether there is glide only when overlapped notes are
+		/* For each input channel, whether there is glide only when overlapped notes are
 		 * revived (true), or glide both when receiving Note On messages and when reviving
 		 * notes (false, i.e. mono mode).
 		 */
-		 this.legato = new Array(16);
+		 this.legato = new Array(numberOfChannels);
 		 this.legato.fill(true);
 
 		 /* The change type used to implement glide. SET disables glide. EXPONENTIAL is
 		  * a normal glide. LINEAR is alternative glide.
 		  */
-		 this.glide = new Array(16);
+		 this.glide = new Array(numberOfChannels);
 		 this.glide.fill(Synth.ChangeType.EXPONENTIAL);
 
 		 /* A list of the order in which *synth* channels last had their notes released.
 		  * The most recently released channel number is at the end of the list.
 		  */
 		 this.channelQueue = [];
+	}
+
+	get numberOfChannels() {
+		return this.fromChannel.length;
 	}
 
 	enableArpeggio(channel, enabled) {
@@ -86,12 +109,19 @@ class Midi extends EventTarget {
 		this.arpeggio[channel] = enabled;
 	}
 
+	setLockedOn() {
+		this.lockedOn = true;
+		if (this.notes[0].length === 0) {
+			this.noteOn(0, 60);
+		}
+	}
+
 	parseMIDI(bytes) {
 		const parameterMap = new Map();
 		const command = bytes[0] & 0xf0;
-		const midiChannel = bytes[0] & 0x0f;
-		const fromChannel = this.fromChannel[midiChannel];
-		let toChannel = this.toChannel[midiChannel];
+		const inputChannel = bytes[0] & 0x0f;
+		const fromChannel = this.fromChannel[inputChannel];
+		let toChannel = this.toChannel[inputChannel];
 
 		if (fromChannel === undefined) {
 			return [[], parameterMap];
@@ -109,17 +139,17 @@ class Midi extends EventTarget {
 
 				if (velocity > 0) {
 					const note = bytes[1];
-					const notes = this.notes[midiChannel];
+					const notes = this.notes[inputChannel];
 					const numNotes = notes.length;
 
 					let changeType;
-					if (this.legato[midiChannel]) {
+					if (this.legato[inputChannel]) {
 						changeType = Synth.ChangeType.SET;
 					} else {
-						changeType = this.glide[midiChannel];
+						changeType = this.glide[inputChannel];
 					}
 
-					if (this.arpeggio[midiChannel]) {
+					if (this.arpeggio[inputChannel]) {
 						synthChannel = fromChannel;
 						let noteIndex = numNotes;
 						while (noteIndex > 0 && notes[noteIndex - 1] < note) {
@@ -127,12 +157,12 @@ class Midi extends EventTarget {
 						}
 						if (noteIndex === 0 || note !== notes[noteIndex - 1]) {
 							notes.splice(noteIndex, 0, note);
-							this.notesToChannels[midiChannel].splice(noteIndex, 0, synthChannel);
+							this.notesToChannels[inputChannel].splice(noteIndex, 0, synthChannel);
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes.slice()));
 						}
 					} else {
 						const numChannels = toChannel - fromChannel + 1;
-						const synthChannels = this.notesToChannels[midiChannel];
+						const synthChannels = this.notesToChannels[inputChannel];
 						let noteIndex = notes.indexOf(note);
 						synthChannel = undefined;
 						if (noteIndex !== -1) {
@@ -170,14 +200,15 @@ class Midi extends EventTarget {
 									}
 								}
 							}
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, [note]));
+							const chord = calculateChord(this.chord[inputChannel], note);
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, chord));
 						}
 						notes.push(note);
 						synthChannels.push(synthChannel);
 					}
 
 					parameterMap.set(Synth.Param.VELOCITY, new Synth.Change(Synth.ChangeType.SET, velocity));
-					const gate = this.gate[midiChannel];
+					const gate = this.lockedOn ? Synth.Gate.REOPEN : this.gate[inputChannel];
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 					break;
 				} // else fall through if velocity == 0
@@ -185,24 +216,29 @@ class Midi extends EventTarget {
 
 			case 0x80: { // Note off
 				const note = bytes[1];
-				const notes = this.notes[midiChannel];
+				const notes = this.notes[inputChannel];
+				const numNotes = notes.length;
+				const lockedOn = this.lockedOn;
+				if (numNotes === 1 && lockedOn) {
+					return [[], parameterMap];
+				}
 				const noteIndex = notes.indexOf(note);
 				if (noteIndex !== -1) {
-					const synthChannels = this.notesToChannels[midiChannel];
+					const synthChannels = this.notesToChannels[inputChannel];
 					synthChannel = synthChannels[noteIndex];
-					const numNotes = notes.length;
 					notes.splice(noteIndex, 1);
 					synthChannels.splice(noteIndex, 1);
-					const changeType = this.glide[midiChannel];
+					const changeType = this.glide[inputChannel];
+					let closeGate = false;
 
-					if (this.arpeggio[midiChannel]) {
+					if (this.arpeggio[inputChannel]) {
 						if (numNotes === 1) {
-							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
+							closeGate = true
 							if (fromChannel !== synthChannel) {
 								return [[fromChannel, synthChannel], parameterMap];
 							}
 						} else if (synthChannel !== fromChannel) {
-							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
+							closeGate = true;
 						} else {
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, notes.slice()));
 						}
@@ -214,10 +250,11 @@ class Midi extends EventTarget {
 								revivedIndex--;
 							}
 							const revivedNote = notes[revivedIndex];
-							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, [revivedNote]));
+							const chord = calculateChord(this.chord[inputChannel], revivedNote);
+							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, chord));
 							synthChannels[revivedIndex] = synthChannel;
-							if (this.retrigger[midiChannel]) {
-								const gate = this.gate[midiChannel];
+							if (this.retrigger[inputChannel]) {
+								const gate = this.gate[inputChannel];
 								parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 							}
 						} else {
@@ -229,8 +266,13 @@ class Midi extends EventTarget {
 								channelQueue.copyWithin(queuePosition, queuePosition + 1);
 								channelQueue[channelQueue.length - 1] = synthChannel;
 							}
-							parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
+							closeGate = true;
 						}
+					}
+					if (closeGate &&
+						(lockedOn || (this.gate[inputChannel] & Synth.Gate.TRIGGER) !== Synth.Gate.TRIGGER)
+					) {
+						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 					}
 				}
 				break;
@@ -238,8 +280,9 @@ class Midi extends EventTarget {
 
 			case 0xb0: {
 				if (bytes[1] === 120) { // All sound off
+					this.lockedOn = false;
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CUT));
-					const synthChannels = this.notesToChannels[midiChannel];
+					const synthChannels = this.notesToChannels[inputChannel];
 					const activeChannels = [];
 					for (let i = 0; i < synthChannels.length; i++) {
 						const channel = synthChannels[i];
@@ -247,8 +290,8 @@ class Midi extends EventTarget {
 							activeChannels.push(channel);
 						}
 					}
-					this.notes[midiChannel] = [];
-					this.notesToChannels[midiChannel] = [];
+					this.notes[inputChannel] = [];
+					this.notesToChannels[inputChannel] = [];
 					return [activeChannels, parameterMap];
 				}
 				break;
@@ -265,17 +308,38 @@ class Midi extends EventTarget {
 		}
 	}
 
+	noteOn(channel, note, velocity) {
+		const timestamp = performance.now();
+		const bytes = [
+			0x90 | channel,
+			note,
+			velocity === undefined ? 127 : velocity
+		];
+		this.parseAndDispatch(bytes, timestamp);
+	}
+
+	noteOff(channel, note) {
+		const timestamp = performance.now();
+		const bytes = [
+			0x80 | channel,
+			note,
+			127
+		];
+		this.parseAndDispatch(bytes, timestamp);
+	}
+
 	allSoundOff() {
 		const timestamp = performance.now();
 		const bytes = [0, 120];
-		for (let i = 0; i < 16; i++) {
+		const numberOfChannels = this.fromChannel.length;
+		for (let i = 0; i < numberOfChannels; i++) {
 			bytes[0] = 0xb0 | i;
 			this.parseAndDispatch(bytes, timestamp); // All notes off
 		}
 	}
 
 	open() {
-		const port = this.port;
+		const port = this.midiPort;
 		if (port !== undefined) {
 			const me = this;
 			return port.open().then(function (port) {
@@ -288,7 +352,7 @@ class Midi extends EventTarget {
 	}
 
 	close() {
-		const port = this.port;
+		const port = this.midiPort;
 		let promise;
 		if (port !== undefined) {
 			port.onmidimessage = null;
@@ -304,18 +368,18 @@ class Midi extends EventTarget {
 	}
 
 	get manufacturer() {
-		if (this.port === undefined) {
+		if (this.midiPort === undefined) {
 			return null;
 		} else {
-			return this.port.manufacturer;
+			return this.midiPort.manufacturer;
 		}
 	}
 
 	get version() {
-		if (this.port === undefined) {
+		if (this.midiPort === undefined) {
 			return null;
 		} else {
-			return this.port.version;
+			return this.midiPort.version;
 		}
 	}
 
@@ -326,10 +390,10 @@ class Midi extends EventTarget {
 
 }
 
-// Maps IDs to lazily created 'MIDI objects'.
-const midiObjects = new Map();
+// Maps IDs to lazily created 'input objects'.
+const inputs = new Map();
 const select = document.createElement('select');
-select.id = 'midi-port';
+select.id = 'input-port';
 
 function addPort(id, name) {
 	const option = document.createElement('option');
@@ -342,23 +406,23 @@ function removePort(id) {
 	const element = select.querySelector(`option[value="${id}"]`);
 	if (element !== null) {
 		element.remove();
-		const midiObject = midiObjects.get(id);
-		if (midiObject !== undefined) {
-			midiObject.allSoundOff();
-			midiObjects.delete(id);
+		const input = inputs.get(id);
+		if (input !== undefined) {
+			input.allSoundOff();
+			inputs.delete(id);
 		}
 	}
 }
 
-function addCustomPort(id, midiObject) {
+function addCustomPort(id, input) {
 	removePort(id);
-	addPort(id, midiObject.name);
-	midiObjects.set(id, midiObject);
+	addPort(id, input.name);
+	inputs.set(id, input);
 }
 
-function removeCustomPort(midiObjectToRemove) {
-	for (let [id, midiObject] of midiObjects) {
-		if (midiObject === midiObjectToRemove) {
+function removeCustomPort(inputToRemove) {
+	for (let [id, input] of inputs) {
+		if (input === inputToRemove) {
 			removePort(id);
 			break;
 		}
@@ -366,8 +430,8 @@ function removeCustomPort(midiObjectToRemove) {
 }
 
 if (window.parent !== window || window.opener !== null) {
-	const webLink = new Midi('WebMidiLink');
-	midiObjects.set('WebMidiLink', webLink);
+	const webLink = new Input('WebMidiLink');
+	inputs.set('WebMidiLink', webLink);
 	addPort('WebMidiLink', 'WebMidiLink');
 
 	function webMIDILinkReceive(event) {
@@ -380,7 +444,7 @@ if (window.parent !== window || window.opener !== null) {
 		for (let i = 1; i < numFields; i++) {
 			const value = parseInt(message[i], 16);
 			if (Number.isNaN(value)) {
-				console.warn('Invalid Web MIDI Link message received: ' + event.data);
+				console.warn('Invalid WebMidiLink message received: ' + event.data);
 				return;
 			}
 			bytes.push(value);
@@ -399,6 +463,9 @@ if (window.parent !== window || window.opener !== null) {
 		return Promise.resolve(webLink);
 	}
 }
+
+const keyboard = new Input('Computer Keyboard');
+inputs.set('ComputerKeyboard', keyboard);
 
 let access;
 
@@ -425,8 +492,8 @@ function open() {
 }
 
 function close() {
-	for (let midiObject of midiObjects.values()) {
-		midiObject.close();
+	for (let input of inputs.values()) {
+		input.close();
 	}
 	if (access !== undefined) {
 		access.onstatechange = null;
@@ -438,10 +505,10 @@ function close() {
 }
 
 function port(id) {
-	let midiObject = midiObjects.get(id);
+	let input = inputs.get(id);
 
-	if (midiObject !== undefined) {
-		return midiObject;
+	if (input !== undefined) {
+		return input;
 	}
 
 	if (access === undefined) {
@@ -453,20 +520,146 @@ function port(id) {
 		return undefined;
 	}
 
-	midiObject = new Midi(midiPort.name || id, midiPort);
-	midiObjects.set(id, midiObject);
-	return midiObject;
+	input = new Input(midiPort.name || id, midiPort);
+	inputs.set(id, input);
+	return input;
 }
 
-global.Midi = {
-	MidiPort: Midi,
+function calculateChord(pattern, rootNote) {
+	const length = pattern.length;
+	const result = new Array(length);
+	for (let i = 0; i < length; i++) {
+		result[i] = rootNote + pattern[i];
+	}
+	return result;
+}
+
+function trapKeyboardEvent(event) {
+	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+		return false;
+	}
+
+	const element = document.activeElement;
+	if (element === null) return true;
+	const tagName = element.tagName;
+
+	if (tagName === 'INPUT') {
+		const type = element.type;
+		return type === 'button' || type === 'checkbox' || type === 'color' ||
+			type === 'file' || type === 'radio' || type === 'range' || type === 'reset';
+	} else {
+		return tagName !== 'TEXTAREA';
+	}
+}
+
+window.addEventListener('keydown', function (event) {
+	if (!trapKeyboardEvent(event)) {
+		return;
+	}
+
+	const code = event.code;
+
+	if (code === 'Quote') {
+		keyboard.allSoundOff();
+		event.preventDefault();
+	} else if (code === 'NumpadDivide') {
+		MusicInput.keyboardOctave = Math.max(MusicInput.keyboardOctave - 1, 0);
+		event.preventDefault();
+	} else if (code === 'NumpadMultiply') {
+		MusicInput.keyboardOctave = Math.min(MusicInput.keyboardOctave + 1, 7);
+		event.preventDefault();
+	} else {
+		let note = keymap.get(code);
+		if (note === undefined) {
+			return;
+		}
+		event.preventDefault();
+		note = note + (MusicInput.keyboardOctave - 4) * 12;
+		if (note < 0) {
+			return;
+		}
+		if (keyboard.notes[0].includes(note)) {
+			return;
+		}
+		keyboard.noteOn(0, note);
+	}
+});
+
+window.addEventListener('keyup', function (event) {
+	if (!trapKeyboardEvent(event)) {
+		return;
+	}
+	let note = keymap.get(event.code);
+	if (note === undefined) {
+		return;
+	}
+	event.preventDefault();
+	note = note + (MusicInput.keyboardOctave - 4) * 12;
+	if (note < 0) {
+		return;
+	}
+	keyboard.noteOff(0, note);
+});
+
+
+window.addEventListener('blur', function (event) {
+	if (typeof(debug) !== 'object' || !debug.input) {
+		keyboard.allSoundOff();
+	}
+});
+
+const keymap = new Map();
+keymap.set('IntlBackslash', 47);
+keymap.set('KeyZ', 48);
+keymap.set('KeyS', 49);
+keymap.set('KeyX', 50);
+keymap.set('KeyD', 51);
+keymap.set('KeyC', 52);
+keymap.set('KeyV', 53);
+keymap.set('KeyG', 54);
+keymap.set('KeyB', 55);
+keymap.set('KeyH', 56);
+keymap.set('KeyN', 57);
+keymap.set('KeyJ', 58);
+keymap.set('KeyM', 59);
+keymap.set('Comma', 60);
+keymap.set('KeyL', 61);
+keymap.set('Period', 62);
+keymap.set('Semicolon', 63);
+keymap.set('Slash', 64);
+keymap.set('KeyQ', 60);
+keymap.set('Digit2', 61);
+keymap.set('KeyW', 62);
+keymap.set('Digit3', 63);
+keymap.set('KeyE', 64);
+keymap.set('KeyR', 65);
+keymap.set('Digit5', 66);
+keymap.set('KeyT', 67);
+keymap.set('Digit6', 68);
+keymap.set('KeyY', 69);
+keymap.set('Digit7', 70);
+keymap.set('KeyU', 71);
+keymap.set('KeyI', 72);
+keymap.set('Digit9', 73);
+keymap.set('KeyO', 74);
+keymap.set('Digit0', 75);
+keymap.set('KeyP', 76);
+keymap.set('BracketLeft', 77);
+keymap.set('Equal', 78);
+keymap.set('BracketRight', 79);
+
+global.MusicInput = {
+	Port: Input,
 	SynthInputEvent: SynthInputEvent,
 	open: open,
 	close: close,
+	keyboard: keyboard,
+	keyboardOctave: 4,
 	port: port,
 	ports: select,
 	addPort: addCustomPort,
 	removePort: removeCustomPort,
+	chord: calculateChord,
 };
 
 })(window);
