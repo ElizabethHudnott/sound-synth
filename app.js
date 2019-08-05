@@ -60,15 +60,20 @@ document.getElementById('chord').addEventListener('input', function (event) {
 });
 
 function applyInputMode() {
-	inputPort.toChannel[inputChannel] = channels.length - 1;
 	inputPort.legato[inputChannel] = false;
 
-	if (document.getElementById('input-mode-poly').checked) {
+	if (document.getElementById('input-mode-mono').checked) {
+		inputPort.toChannel[inputChannel] = 0;
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = [0];
+	} else if (document.getElementById('input-mode-poly').checked) {
+		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = [0];
 	} else if (document.getElementById('input-mode-arp').checked) {
 		inputPort.enableArpeggio(inputChannel, true);
 	} else {
+		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = chord;
 	}
@@ -104,10 +109,23 @@ document.getElementById('input-channel').addEventListener('input', function (eve
 	applyGateSetting();
 });
 
-document.getElementById('input-mode-poly').addEventListener('input', function (event) {
+document.getElementById('input-mode-mono').addEventListener('input', function (event) {
+	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
 	if (inputPort !== undefined) {
+		inputPort.toChannel[inputChannel] = 0;
+		inputPort.enableArpeggio(inputChannel, false);
+		inputPort.chord[inputChannel] = [0];
+	}
+});
+
+document.getElementById('input-mode-poly').addEventListener('input', function (event) {
+	keyboard.toChannel[0] = channels.length - 1;
+	keyboard.enableArpeggio(0, false);
+	keyboard.chord[0] = [0];
+	if (inputPort !== undefined) {
+		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = [0];
 	}
@@ -121,9 +139,11 @@ document.getElementById('input-mode-arp').addEventListener('input', function (ev
 });
 
 document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
+	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = chord;
 	if (inputPort !== undefined) {
+		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = chord;
 	}
