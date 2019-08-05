@@ -209,7 +209,6 @@ function initialize() {
 			inputPort = MusicInput.port(inputName);
 			inputPort.addEventListener('synthinput', processInput);
 			inputPort.toChannel[0] = channels.length - 1;
-			inputPort.gate[0] = Synth.Gate.TRIGGER;
 			inputPort.legato[0] = false;
 		}
 	}
@@ -217,7 +216,6 @@ function initialize() {
 	MusicInput.open().then(initializeInput, initializeInput);
 	keyboard.addEventListener('synthinput', processInput);
 	keyboard.toChannel[0] = channels.length - 1;
-	keyboard.gate[0] = Synth.Gate.TRIGGER;
 	keyboard.legato[0] = false;
 
 	const parameterMap = new Map();

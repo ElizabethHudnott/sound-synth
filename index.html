@@ -52,13 +52,13 @@
 				</fieldset>
 				<fieldset>
 					<legend>Articulation</legend>
-					<input id="one-shot" type="checkbox" checked oninput="document.getElementById('articulation-controls').classList.toggle('hidden', !this.checked); applyGateSetting()">Fixed Length Note
+					<input id="one-shot" type="checkbox" oninput="document.getElementById('articulation-controls').classList.toggle('hidden', !this.checked); applyGateSetting()">Fixed Length Note
 					<input id="legato" type="checkbox" oninput="applyGateSetting()">Legato
-					<div id="articulation-controls">
-						<input type="range" id="note-value" oninput="set(Synth.Param.DURATION, parseFloat(this.value) * parseFloat(document.getElementById('articulation').value)); document.getElementById('duration-readout').innerHTML = this.value + '/16'" min="1" max="16" value="4">
-						<span id="duration-readout" class="readout" style="width: 5em">4/16</span>
-						Note Value
-						<br>
+					<br>
+					<input type="range" id="note-value" oninput="set(Synth.Param.DURATION, parseFloat(this.value) * parseFloat(document.getElementById('articulation').value)); document.getElementById('duration-readout').innerHTML = this.value + '/16'" min="1" max="16" value="4">
+					<span id="duration-readout" class="readout" style="width: 5em">4/16</span>
+					Note Value
+					<div id="articulation-controls" class="hidden">
 						<span class="control-value">Staccato</span>
 						<input type="range" id="articulation" oninput="set(Synth.Param.DURATION, parseFloat(document.getElementById('note-value').value) * parseFloat(this.value)); if (this.value === '1') document.getElementById('legato').checked = true;" min="0" max="1" step="0.1" value="0">
 						<span class="control-value">Legato</span>
