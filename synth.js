@@ -83,6 +83,33 @@ function clamp(value) {
 	}
 }
 
+function downloadArrayBuffer(url) {
+	return new Promise(function (resolve, reject) {
+		const request = new XMLHttpRequest();
+		request.open('GET', url);
+		request.responseType = 'arraybuffer';
+		request.timeout = 60000;
+
+		request.addEventListener('load', function (event) {
+	  		if (request.status < 400) {
+	  			resolve(new Resource(url, request.response));
+		  	} else {
+		  		reject(new ResourceLoadError(url, request.status + ' - ' + request.statusText));
+		  	}
+	  	});
+
+		request.addEventListener('error', function (event) {
+			reject(new ResourceLoadError(url, 'Network error'));
+		});
+
+		request.addEventListener('timeout', function (event) {
+			reject(new ResourceLoadError(url, 'Timeout'));
+		});
+
+	 	request.send();
+	});
+}
+
 function enumFromArray(array) {
 	const result = {};
 	for (let i = 0; i < array.length; i++) {
@@ -1312,7 +1339,7 @@ class Sample {
 		if (loop) {
 			mixSource.loop = true;
 			mixSource.loopStart = mixSample.loopStart;
-			mixSource.loopEnd = mixSample.loopEnd;
+			mixSource.loopEnd = mixSample.loopEnd + 1;
 		}
 
 		return context.startRendering().then(function (newBuffer) {
@@ -1390,7 +1417,7 @@ class SamplePlayer {
 		if (loopEnd !== Number.MAX_VALUE) {
 			loopEnd /= buffer.sampleRate;
 		}
-		bufferNode.loopEnd = loopEnd;
+		bufferNode.loopEnd = loopEnd + 1;
 		this.samplePeriod = 1 / noteFrequencies[sample.sampledNote];
 		this.gain = sample.gain;
 	}
@@ -1686,6 +1713,20 @@ class SynthSystem {
 		noise.loop = true;
 		noise.loopEnd = noiseLength;
 
+		this.masterMetronomeBuffer = undefined;
+		this.metronomeBuffer = undefined;
+		this.metronomePeriod = 0;
+		this.metronomeNode = undefined;
+		downloadArrayBuffer('samples/metronome.wav')
+		.then(function (resource) {
+			audioContext.decodeAudioData(resource.data)
+			.then(function (buffer) {
+				me.masterMetronomeBuffer = buffer;
+				me.metronomeBuffer = buffer;
+				me.metronomePeriod = buffer.duration;
+			});
+		});
+
 		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
 				callback(me);
@@ -1780,6 +1821,45 @@ class SynthSystem {
 		for (let i = 0; i < this.channels.length; i++) {
 			channel.mute = enabled && i !== channelNumber;
 		}
+	}
+
+	metronome(period) {
+		const oldNode = this.metronomeNode;
+		if (oldNode !== undefined) {
+			oldNode.stop();
+			oldNode.disconnect();
+		}
+		if (period === 0) {
+			this.metronomeNode = undefined;
+			return;
+		}
+		if (period !== this.metronomePeriod) {
+			const masterBuffer = this.masterMetronomeBuffer;
+			const numberOfChannels = masterBuffer.numberOfChannels;
+			const sampleRate = masterBuffer.sampleRate;
+			const buffer = new AudioBuffer({
+				length: Math.round(sampleRate * period),
+				numberOfChannels: numberOfChannels,
+				sampleRate: sampleRate,
+			});
+			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+				const data = masterBuffer.getChannelData(channelNumber);
+				buffer.copyToChannel(data, channelNumber);
+			}
+			this.metronomeBuffer = buffer;
+			this.metronomePeriod = period;
+		}
+		const node = this.audioContext.createBufferSource();
+		node.buffer = this.metronomeBuffer;
+		node.loopEnd = Number.MAX_VALUE;
+		node.loop = true;
+		node.connect(this.volume);
+		node.start();
+		this.metronomeNode = node;
+	}
+
+	get metronomeOn() {
+		return this.metronomeNode !== undefined;
 	}
 
 	set(parameterNumber, value, delay, changeType, channelNumber) {

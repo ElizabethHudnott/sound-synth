@@ -60,6 +60,7 @@ Noise through S&H as a modulation source
 
 
 ------
+LFO modulating decay, etc.
 LFO rate modulated by an envelope
 LFO rate modulated by an LFO
 LFO amount modulated by an LFO
