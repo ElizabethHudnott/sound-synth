@@ -3,6 +3,7 @@
 
 const SEMITONE = 2 ** (1 / 12);
 const CENT = 2 ** (1 / 1200);
+const SMALLEST_VALUE = 2 ** -16;
 const TWO_PI = 2 * Math.PI;
 
 const LFO_MAX = 20;
@@ -682,7 +683,7 @@ class LFO {
 
 class Modulator {
 	constructor(audioContext, controller, carrier) {
-		this.audioContext = audioContext;
+		this.shortestTime = 1 / audioContext.sampleRate;
 		const range = audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
@@ -695,61 +696,42 @@ class Modulator {
 			this.centre = carrier.value;
 		}
 		this.setController(controller);
-		this.lastChange = 0;
-	}
-
-	start(time) {
-		this.lastChange = time;
 	}
 
 	setMinMax(changeType, min, max, time) {
 		const rangeGain = this.range.gain;
-		const multiplier = (max - min) / 2;
-		const centre = min + multiplier;
-
-		if (changeType === ChangeType.EXPONENTIAL) {
-			const lastChange = Math.max(this.lastChange, this.audioContext.currentTime);
-			const timeConstant = Math.max((time - lastChange) * 0.3, 0);
-			rangeGain.setTargetAtTime(multiplier, lastChange, timeConstant);
-			for (let carrier of this.carriers) {
-				carrier.setTargetAtTime(centre, lastChange, timeConstant);
-			}
+		let multiplier = (max - min) / 2;
+		if (multiplier === 0 && changeType === ChangeType.EXPONENTIAL) {
+			rangeGain.exponentialRampToValueAtTime(SMALLEST_VALUE, time - this.shortestTime);
+			rangeGain.setValueAtTime(0, time);
 		} else {
 			rangeGain[changeType](multiplier, time);
-			for (let carrier of this.carriers) {
-				carrier[changeType](centre, time);
-			}
+		}
+
+
+		const centre = min + multiplier;
+
+		for (let carrier of this.carriers) {
+			carrier[changeType](centre, time);
 		}
 		this.centre = centre;
-		this.lastChange = time;
 	}
 
 	setDepth(changeType, range, time) {
 		const rangeGain = this.range.gain;
-		if (changeType === ChangeType.EXPONENTIAL) {
-			const lastChange = Math.max(this.lastChange, this.audioContext.currentTime);
-			const timeConstant = Math.max((time - lastChange) * 0.3, 0);
-			rangeGain.setTargetAtTime(range / 2, this.lastChange, timeConstant);
+		if (range === 0 && changeType === ChangeType.EXPONENTIAL) {
+			rangeGain.exponentialRampToValueAtTime(SMALLEST_VALUE, time - this.shortestTime);
+			rangeGain.setValueAtTime(0, time);
 		} else {
 			rangeGain[changeType](range / 2, time);
 		}
-		this.lastChange = time;
 	}
 
 	setCentre(changeType, centre, time) {
-		if (changeType === ChangeType.EXPONENTIAL) {
-			const lastChange = Math.max(this.lastChange, this.audioContext.currentTime);
-			const timeConstant = Math.max((time - lastChange) * 0.3, 0);
-			for (let carrier of this.carriers) {
-				carrier.setTargetAtTime(centre, lastChange, timeConstant);
-			}
-		} else {
-			for (let carrier of this.carriers) {
-				carrier[changeType](centre, time);
-			}
+		for (let carrier of this.carriers) {
+			carrier[changeType](centre, time);
 		}
 		this.centre = centre;
-		this.lastChange = time;
 	}
 
 	connect(carrier) {
@@ -2406,16 +2388,6 @@ class Channel {
 			this.saw.start(when);
 			this.lfo1.start(when);
 			this.lfo2.start(when);
-
-			this.wavetableMod.start(when);
-			this.pwm.start(when);
-			this.vibrato.start(when);
-			this.siren.start(when);
-			this.filterFrequencyMod.start(when);
-			this.filterQMod.start(when);
-			this.tremolo.start(when);
-			this.flanger.start(when);
-			this.panMod.start(when);
 			this.started = true;
 		}
 	}

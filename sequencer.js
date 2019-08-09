@@ -480,9 +480,6 @@ class Phrase {
 		this.name = name;
 		this.rows = [];
 		this.length = length;
-		// These two properties are just for presentation purposes.
-		this.rowsPerBeat = 4;
-		this.rowsPerBar = 16;
 	}
 
 	clone() {
