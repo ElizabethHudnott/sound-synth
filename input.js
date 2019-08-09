@@ -603,7 +603,7 @@ window.addEventListener('keyup', function (event) {
 
 
 window.addEventListener('blur', function (event) {
-	if (typeof(debug) !== 'object' || !debug.input) {
+	if (!keyboard.lockedOn && (typeof(debug) !== 'object' || !debug.input)) {
 		keyboard.allSoundOff();
 	}
 });
