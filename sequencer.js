@@ -330,6 +330,7 @@ class Pattern {
 			step = system.nextStep();
 		}
 
+		system.beginPattern(step);
 		const numColumns = this.columns.length;
 		const length = this.length;
 		const masterColumn = this.columns[0];
@@ -1231,6 +1232,7 @@ class Phrase {
 		if (step === undefined) {
 			step = system.nextStep();
 		}
+		system.beginPattern(step);
 		const length = this.length;
 		const channel = system.channels[channelNumber];
 		let transpose = 0;

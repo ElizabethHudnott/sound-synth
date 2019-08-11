@@ -147,33 +147,6 @@ function lcm(a, b) {
 	return a / gcd(a, b) * b;
 }
 
-const previousTimes = new Map();
-
-function makeChange(audioParam, changeType, value, time, now) {
-	if (changeType === ChangeType.EXPONENTIAL) {
-		const timeDifference = time - now;
-		if (timeDifference <= 0) {
-			audioParam.value = value;
-		} else {
-			let prevTime = previousTimes.get(audioParam);
-			if (prevTime === undefined) {
-				prevTime = now;
-			}
-			if (prevTime <= now) {
-				audioParam.setTargetAtTime(value, now, timeDifference / 5);
-				audioParam.setValueAtTime(value, time);
-			} else {
-				const timeSpan = time - prevTime;
-				audioParam.setTargetAtTime(value, prevTime + SHORTEST_TIME, timeSpan / 5);
-				audioParam.setValueAtTime(value, time);
-			}
-		}
-	} else {
-		audioParam[changeType](value, time);
-	}
-	previousTimes.set(audioParam, time);
-}
-
 function randomize(value, amount, allowNegative) {
 	if (!allowNegative && value < amount) {
 		if (value <= 0) {
@@ -591,8 +564,9 @@ class TempoAutomation {
 
 
 class LFO {
-	constructor(audioContext) {
-		this.audioContext = audioContext;
+	constructor(system) {
+		this.system = system;
+		const audioContext = system.audioContext;
 		const oscillator = audioContext.createOscillator();
 		this.oscillator = oscillator;
 		oscillator.frequency.value = 5;
@@ -621,6 +595,11 @@ class LFO {
 		this.zeroPoint = when;
 	}
 
+	stopChanges() {
+		this.delayNode.delayTime.cancelScheduledValues(0);
+		this.envelope.gain.cancelScheduledValues(0);
+	}
+
 	setFrequency(changeType, frequency, time) {
 		if (this.retrigger) {
 			const period = 1 / this.frequency;
@@ -631,7 +610,7 @@ class LFO {
 		}
 		const param = this.oscillator.frequency;
 		param.cancelAndHoldAtTime(time);
-		makeChange(param, changeType, frequency, time, this.audioContext.currentTime);
+		this.system.makeChange(param, changeType, frequency, time, this.system.audioContext.currentTime);
 		this.frequency = frequency;
 	}
 
@@ -639,12 +618,13 @@ class LFO {
 		if (value && !this.retrigger) {
 			const oldOscillator = this.oscillator;
 			oldOscillator.stop(time);
-			const newOscillator = this.audioContext.createOscillator();
-			this.oscillator = newOscillator;
+			const newOscillator = this.system.audioContext.createOscillator();
 			newOscillator.frequency.value = this.frequency;
 			newOscillator.type = oldOscillator.type;
 			newOscillator.start(time);
 			newOscillator.connect(this.delayNode);
+			this.system.disposeAudioParam(oldOscillator.frequency);
+			this.oscillator = newOscillator;
 			this.zeroPoint = time;
 			this.rateMod = 1;
 		}
@@ -693,7 +673,7 @@ class LFO {
 				}
 				frequency.setValueAtTime(startRate, when);
 				frequency.setValueAtTime(startRate, endDelay);
-				frequency.linearRampToValueAtTime(endRate, endAttack);
+				this.system.makeChange(frequency, ChangeType.LINEAR, endRate, endAttack);
 			}
 		}
 	}
@@ -709,8 +689,9 @@ class LFO {
 }
 
 class Modulator {
-	constructor(audioContext, controller, carrier) {
-		const range = audioContext.createGain();
+	constructor(system, controller, carrier) {
+		this.system = system;
+		const range = system.audioContext.createGain();
 		this.range = range;
 		range.gain.value = 0;
 		if (carrier === undefined) {
@@ -726,11 +707,11 @@ class Modulator {
 
 	setMinMax(changeType, min, max, time, now) {
 		const multiplier = (max - min) / 2;
-		makeChange(this.range.gain, changeType, multiplier, time, now);
+		this.system.makeChange(this.range.gain, changeType, multiplier, time, now);
 
 		const centre = min + multiplier;
 		for (let carrier of this.carriers) {
-			makeChange(carrier, changeType, centre, time, now);
+			this.system.makeChange(carrier, changeType, centre, time, now);
 		}
 		this.centre = centre;
 	}
@@ -742,7 +723,7 @@ class Modulator {
 			if (carriers.length == 0) {
 				this.centre = carrier.value;
 			} else {
-				carrier.value = this.centre;
+				this.system.makeChange(carrier, ChangeType.SET, this.centre, this.system.audioContext.currentTime);
 			}
 			this.carriers.push(carrier);
 		}
@@ -1718,6 +1699,11 @@ class SynthSystem {
 		this.metronomeBuffer = undefined;
 		this.metronomePeriod = 0;
 		this.metronomeNode = undefined;
+
+		this.changeTimes = new Map();
+		this.audioParamValues = new Map();
+		this.patternBeginTime = 0;
+
 		downloadArrayBuffer('samples/metronome.wav')
 		.then(function (resource) {
 			audioContext.decodeAudioData(resource.data)
@@ -1733,6 +1719,75 @@ class SynthSystem {
 				callback(me);
 			}
 		});
+	}
+
+	makeChange(audioParam, changeType, value, time, now) {
+		switch (changeType) {
+		case ChangeType.SET: {
+			audioParam.setValueAtTime(value, time);
+			break;
+		}
+
+		case ChangeType.LINEAR: {
+			const prevTime = this.changeTimes.get(audioParam);
+			if (prevTime === undefined) {
+				let oldValue = this.audioParamValues.get(audioParam);
+				if (oldValue === undefined) {
+					oldValue = audioParam.value;
+				}
+				audioParam.setValueAtTime(oldValue, this.patternBeginTime);
+			}
+			audioParam.linearRampToValueAtTime(value, time);
+			break;
+		}
+
+		case ChangeType.EXPONENTIAL: {
+			const timeDifference = time - now;
+			if (timeDifference <= 0) {
+				audioParam.value = value;
+			} else {
+				let prevTime = this.changeTimes.get(audioParam);
+				if (prevTime === undefined) {
+					prevTime = this.patternBeginTime;
+				}
+				if (prevTime <= now) {
+					audioParam.setTargetAtTime(value, now, timeDifference / 5);
+					audioParam.setValueAtTime(value, time);
+				} else {
+					const timeSpan = time - prevTime;
+					audioParam.setTargetAtTime(value, prevTime + SHORTEST_TIME, timeSpan / 5);
+					audioParam.setValueAtTime(value, time);
+				}
+			}
+			break;
+		}
+
+		default:
+			throw new Error('Unknown Change Type ' + changeType);
+		}
+		this.changeTimes.set(audioParam, time);
+		this.audioParamValues.set(audioParam, value);
+	}
+
+	disposeAudioParam(audioParam) {
+		this.changeTimes.delete(audioParam);
+		this.audioParamValues.delete(audioParam);
+	}
+
+	beginPattern(step) {
+		this.patternBeginTime = this.startTime + step * TIME_STEP;
+		this.changeTimes = new Map();
+	}
+
+	stop() {
+		for (let audioParam of this.changeTimes.keys()) {
+			audioParam.cancelScheduledValues(0);
+		}
+		for (let channel of this.channels) {
+			channel.stop();
+		}
+		this.changeTimes = new Map();
+		this.audioParamValues = new Map();
 	}
 
 	addChannel(channel, output) {
@@ -2163,6 +2218,7 @@ class Channel {
 		this.release = 0.3;
 		this.calcEnvelope();
 		this.macroValues = new Map();
+		this.timeouts = new Map();
 
 		// State information for processing chords
 		this.frequencies = [440];
@@ -2180,9 +2236,9 @@ class Channel {
 		this.scheduledUntil = 0;
 
 		// LFOs
-		const lfo1 = new LFO(audioContext);
+		const lfo1 = new LFO(system);
 		this.lfo1 = lfo1;
-		const lfo2 = new LFO(audioContext);
+		const lfo2 = new LFO(system);
 		this.lfo2 = lfo2;
 		this.lfos = [lfo1, lfo2];
 
@@ -2212,7 +2268,7 @@ class Channel {
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);
-		const wavetableMod = new Modulator(audioContext, lfo1, wavetable.position);
+		const wavetableMod = new Modulator(system, lfo1, wavetable.position);
 		this.wavetableMod = wavetableMod;
 		wavetableMod.setMinMax(ChangeType.SET, Wave.TRIANGLE, Wave.TRIANGLE, now, now);
 		triangleGain.gain.value = 0.7;
@@ -2225,7 +2281,7 @@ class Channel {
 		pwmDetune.connect(reciprocal);
 		const dutyCycle = audioContext.createGain();
 		reciprocal.connect(dutyCycle);
-		const pwm = new Modulator(audioContext, lfo1, dutyCycle.gain);
+		const pwm = new Modulator(system, lfo1, dutyCycle.gain);
 		this.pwm = pwm;
 		pwm.setMinMax(ChangeType.SET, 0.5, 0.5, now, now);
 		const sawDelay = audioContext.createDelay(0.05);
@@ -2259,16 +2315,16 @@ class Channel {
 		system.noise.connect(sampleAndHold);
 		const noiseGain = audioContext.createGain();
 		this.noiseGain = noiseGain;
-		makeChange(noiseGain.gain, ChangeType.SET, 0, now, now);
+		noiseGain.gain.value = 0;
 		sampleAndHold.connect(noiseGain);
 		const sampleAndHoldRateMultiplier = audioContext.createGain();
 		this.sampleAndHoldRateMultiplier = sampleAndHoldRateMultiplier;
-		makeChange(sampleAndHoldRateMultiplier.gain, ChangeType.SET, 0, now, now);
+		sampleAndHoldRateMultiplier.gain.value = 0;
 		frequencyNode.connect(sampleAndHoldRateMultiplier);
 		sampleAndHoldRateMultiplier.connect(sampleAndHold.sampleRate);
 
 		// Vibrato
-		const vibrato = new Modulator(audioContext, lfo1);
+		const vibrato = new Modulator(system, lfo1);
 		this.vibrato = vibrato;
 		vibrato.connect(sine.frequency);
 		vibrato.connect(triangle.frequency);
@@ -2276,7 +2332,7 @@ class Channel {
 		vibrato.connect(frequencyNode.offset);
 
 		// Siren
-		const siren = new Modulator(audioContext, lfo2);
+		const siren = new Modulator(system, lfo2);
 		this.siren = siren;
 		siren.connect(sine.frequency);
 		siren.connect(triangle.frequency);
@@ -2292,9 +2348,9 @@ class Channel {
 		sampleGain.connect(filter);
 
 		// Filter modulation
-		const filterFrequencyMod = new Modulator(audioContext, lfo1, filter.frequency);
+		const filterFrequencyMod = new Modulator(system, lfo1, filter.frequency);
 		this.filterFrequencyMod = filterFrequencyMod;
-		const filterQMod = new Modulator(audioContext, lfo1, filter.Q);
+		const filterQMod = new Modulator(system, lfo1, filter.Q);
 		this.filterQMod = filterQMod;
 
 		// Filter output
@@ -2328,7 +2384,7 @@ class Channel {
 
 		// Tremolo
 		const tremoloGain = audioContext.createGain();
-		const tremoloModulator = new Modulator(audioContext, lfo1, tremoloGain.gain);
+		const tremoloModulator = new Modulator(system, lfo1, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
 		envelope.connect(tremoloGain);
 
@@ -2354,14 +2410,14 @@ class Channel {
 		this.delayOutput = delayOutput;
 		delayedPath.connect(delayOutput);
 		undelayedPath.connect(delayOutput);
-		const flanger = new Modulator(audioContext, lfo1, delay.delayTime);
+		const flanger = new Modulator(system, lfo1, delay.delayTime);
 		this.flanger = flanger;
 
 		// Panning
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		delayOutput.connect(panner);
-		const panMod = new Modulator(audioContext, lfo1, panner.pan);
+		const panMod = new Modulator(system, lfo1, panner.pan);
 		this.panMod = panMod;
 
 		// Volume
@@ -2392,6 +2448,42 @@ class Channel {
 			this.lfo2.start(when);
 			this.started = true;
 		}
+	}
+
+	stop() {
+		/* These audio parameters are not directly controlled by the user and hence aren't
+		 * covered by makeChange.
+		 * LFO.delayNode.delayTime
+		 * LFO.envelope.gain
+		 * playRateMultiplier.gain
+		 * sampleGain.gain
+		 * sampleAndHold.sampleRate
+		 * envelope.gain
+		 */
+		const now = this.system.audioContext.currentTime;
+		for (let lfo of this.lfos) {
+			lfo.stopChanges();
+		}
+		this.playRateMultiplier.gain.cancelScheduledValues(0);
+		this.sampleGain.gain.cancelScheduledValues(0);
+		this.sampleGain.gain.value = 0;
+		this.noiseOff(ChangeType.SET, now, now);
+		this.envelope.gain.cancelScheduledValues(0);
+		this.envelope.gain.value = 0;
+		for (let id of this.timeouts.values()) {
+			clearTimeout(id);
+		}
+		this.timeouts = new Map();
+	}
+
+	setTimeout(func, time, now) {
+		const delay = Math.round((time - now) * 1000);
+		const id = setTimeout(func, delay);
+		this.timeouts.set(time, id);
+	}
+
+	timeoutComplete(time) {
+		this.timeouts.delete(time);
 	}
 
 	toggleMute() {
@@ -2446,10 +2538,10 @@ class Channel {
 		const noiseTracking = this.parameters[Parameter.NOISE_TRACKING];
 		if (noiseTracking > 0) {
 			this.sampleAndHold.sampleRate.setValueAtTime(0, time);
-			makeChange(this.sampleAndHoldRateMultiplier.gain, ChangeType.SET, noiseTracking, time, now);
-			makeChange(this.noiseGain.gain, ChangeType.SET, 1, time, now);
+			this.system.makeChange(this.sampleAndHoldRateMultiplier.gain, ChangeType.SET, noiseTracking, time);
+			this.system.makeChange(this.noiseGain.gain, ChangeType.SET, 1, time);
 		} else {
-			makeChange(this.noiseGain.gain, changeType, 1, time, now);
+			this.system.makeChange(this.noiseGain.gain, changeType, 1, time, now);
 		}
 	}
 
@@ -2457,15 +2549,15 @@ class Channel {
 		const noiseTracking = this.parameters[Parameter.NOISE_TRACKING];
 		if (noiseTracking > 0) {
 			const sampleRate = this.system.sampleRate;
-			makeChange(this.sampleAndHoldRateMultiplier.gain, ChangeType.SET, 0, time, now);
+			this.system.makeChange(this.sampleAndHoldRateMultiplier.gain, ChangeType.SET, 0, time);
 			this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
-			makeChange(this.noiseGain.gain, ChangeType.SET, 0, time, now);
+			this.system.makeChange(this.noiseGain.gain, ChangeType.SET, 0, time);
 		} else {
-			makeChange(this.noiseGain.gain, changeType, 0, time, now);
+			this.system.makeChange(this.noiseGain.gain, changeType, 0, time, now);
 		}
 	}
 
-	gate(state, note, volume, sustainLevel, lineTime, start, now) {
+	gate(state, note, volume, sustainLevel, lineTime, start) {
 		const parameters = this.parameters;
 		let scaleAHD, duration, usingSamples;
 		const releaseTime = this.release;
@@ -2480,8 +2572,8 @@ class Channel {
 					usingSamples = false;
 				} else {
 					// First time the gate's been opened since switching into sample mode.
-					makeChange(this.oscillatorGain.gain, ChangeType.SET, 0, start, now);
-					this.noiseOff(ChangeType.SET, start, now);
+					this.system.makeChange(this.oscillatorGain.gain, ChangeType.SET, 0, start);
+					this.noiseOff(ChangeType.SET, start);
 					this.usingOscillator = false;
 				}
 			}
@@ -2494,9 +2586,9 @@ class Channel {
 					this.sampleGain.gain.setValueAtTime(0, start);
 				}
 				if (parameters[Parameter.WAVEFORM] === Wave.NOISE) {
-					this.noiseOn(ChangeType.SET, start, now);
+					this.noiseOn(ChangeType.SET, start);
 				} else {
-					makeChange(this.oscillatorGain.gain, ChangeType.SET, 1, start, now);
+					this.system.makeChange(this.oscillatorGain.gain, ChangeType.SET, 1, start);
 				}
 				this.usingOscillator = true;
 			}
@@ -2566,13 +2658,13 @@ class Channel {
 					sampleBufferNode.loop = true;
 					this.sampleLooping = true;
 					beginRelease = start + duration;
-					const timeDifference = Math.round((beginRelease - now) * 1000);
-					setTimeout(function () {
+					this.setTimeout(function () {
 						if (me.sampleBufferNode === sampleBufferNode) {
 							sampleBufferNode.loop = false;
 							me.sampleLooping = false;
 						}
-					}, timeDifference);
+						me.timeoutComplete(beginRelease);
+					}, beginRelease, this.system.audioContext.currentTime);
 				} else {
 					this.sampleLooping = false;
 				}
@@ -2891,7 +2983,7 @@ class Channel {
 
 			case Parameter.WAVEFORM:
 				if (value === Wave.NOISE) {
-					makeChange(this.oscillatorGain.gain, changeType, 0, time, now);
+					this.system.makeChange(this.oscillatorGain.gain, changeType, 0, time, now);
 					if (this.usingOscillator) {
 						this.noiseOn(changeType, time, now);
 					}
@@ -2899,7 +2991,7 @@ class Channel {
 					this.wavetableMod.setMinMax(changeType, value, value, time, now);
 					this.noiseOff(changeType, time, now);
 					if (this.usingOscillator) {
-						makeChange(this.oscillatorGain.gain, changeType, 1, time, now);
+						this.system.makeChange(this.oscillatorGain.gain, changeType, 1, time, now);
 					}
 					parameters[Parameter.MIN_WAVEFORM] = value;
 					parameters[Parameter.MAX_WAVEFORM] = value;
@@ -2913,7 +3005,7 @@ class Channel {
 
 			case Parameter.NOISE_TRACKING:
 				if (!dirtyWavetable && parameters[Parameter.WAVEFORM] === Wave.NOISE) {
-					makeChange(this.sampleAndHoldRateMultiplier.gain, changeType, value, time, now);
+					this.system.makeChange(this.sampleAndHoldRateMultiplier.gain, changeType, value, time, now);
 					if (value === 0) {
 						const sampleRate = this.system.sampleRate;
 						this.sampleAndHold.sampleRate.setValueAtTime(sampleRate, time);
@@ -2929,9 +3021,9 @@ class Channel {
 				break;
 
 			case Parameter.CHORUS:
-				makeChange(this.sine.detune, changeType, value, time, now);
-				makeChange(this.saw.detune, changeType, -value, time, now);
-				makeChange(this.pwmDetune.gain, changeType, CENT ** -value, time, now);
+				this.system.makeChange(this.sine.detune, changeType, value, time, now);
+				this.system.makeChange(this.saw.detune, changeType, -value, time, now);
+				this.system.makeChange(this.pwmDetune.gain, changeType, CENT ** -value, time, now);
 				break;
 
 			case Parameter.LFO1_WAVEFORM:
@@ -3058,7 +3150,7 @@ class Channel {
 				break;
 
 			case Parameter.VOLUME:
-				makeChange(this.volume.gain, changeType, expCurve(value, 1), time, now);
+				this.system.makeChange(this.volume.gain, changeType, expCurve(value, 1), time, now);
 				break;
 
 			case Parameter.TREMOLO_DEPTH:
@@ -3183,7 +3275,7 @@ class Channel {
 				break;
 
 			case Parameter.FILTER_GAIN:
-				makeChange(this.filter.gain, changeType, value, time, now);
+				this.system.makeChange(this.filter.gain, changeType, value, time, now);
 				break;
 
 			case Parameter.FILTER_MIX:
@@ -3203,13 +3295,13 @@ class Channel {
 				break;
 
 			case Parameter.DELAY_MIX:
-				makeChange(this.delayedPath.gain, changeType, value / 100, time, now);
-				makeChange(this.undelayedPath.gain, changeType, 1 - value / 100, time, now);
+				this.system.makeChange(this.delayedPath.gain, changeType, value / 100, time, now);
+				this.system.makeChange(this.undelayedPath.gain, changeType, 1 - value / 100, time, now);
 				break;
 
 			case Parameter.FEEDBACK:
-				makeChange(this.feedback.gain, changeType, value / 100, time, now);
-				makeChange(this.delayOutput.gain, changeType, 1 / (1 - Math.abs(value) / 100), time, now);
+				this.system.makeChange(this.feedback.gain, changeType, value / 100, time, now);
+				this.system.makeChange(this.delayOutput.gain, changeType, 1 / (1 - Math.abs(value) / 100), time, now);
 				break;
 
 			case Parameter.PAN:
@@ -3224,8 +3316,8 @@ class Channel {
 				break;
 
 			case Parameter.RING_MOD:
-				makeChange(this.ringMod.gain, changeType, 1 - value / 100, time, now);
-				makeChange(this.ringInput.gain, changeType, value / 100, time, now);
+				this.system.makeChange(this.ringMod.gain, changeType, 1 - value / 100, time, now);
+				this.system.makeChange(this.ringInput.gain, changeType, value / 100, time, now);
 				break;
 
 			case Parameter.TICKS:
@@ -3306,7 +3398,7 @@ class Channel {
 			parameters[Parameter.WAVEFORM] = min;
 			this.wavetableMod.setMinMax(dirtyWavetable, min, max, time, now);
 			if (this.usingOscillator) {
-				makeChange(this.oscillatorGain.gain, dirtyWavetable, 1, time, now);
+				this.system.makeChange(this.oscillatorGain.gain, dirtyWavetable, 1, time, now);
 				this.noiseOff(dirtyWavetable, time, now);
 			}
 		}
@@ -3339,8 +3431,8 @@ class Channel {
 				filtered = filtered / total;
 				unfiltered = unfiltered / total;
 			}
-			makeChange(this.filteredPath.gain, dirtyMix, filtered, time, now);
-			makeChange(this.unfilteredPath.gain, dirtyMix, unfiltered, time, now);
+			this.system.makeChange(this.filteredPath.gain, dirtyMix, filtered, time, now);
+			this.system.makeChange(this.unfilteredPath.gain, dirtyMix, unfiltered, time, now);
 		}
 		if (dirtyDelay) {
 			this.flanger.setMinMax(dirtyDelay, parameters[Parameter.MIN_DELAY] / 1000, parameters[Parameter.MAX_DELAY] / 1000, time, now);
@@ -3363,7 +3455,7 @@ class Channel {
 		}
 
 		if (gate !== undefined) {
-			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time, now);
+			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time);
 			glissandoAmount = 0;
 			prevGlissandoAmount = 0;
 			noteIndex = 0;
@@ -3378,7 +3470,7 @@ class Channel {
 			chordDir = this.chordDir;
 			noteRepeated = this.noteRepeated;
 			if (endRetrigger) {
-				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, lineTime, time, now);
+				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, lineTime, time);
 			}
 		}
 
@@ -3506,7 +3598,7 @@ class Channel {
 					if ((tick + tickOffset) % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
-						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, lineTime, timeOfTick, now);
+						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, lineTime, timeOfTick);
 						scheduledUntil = timeOfTick;
 					}
 					prevGlissandoAmount = glissandoAmount;
@@ -3522,16 +3614,12 @@ class Channel {
 
 		const numCallbacks = callbacks.length;
 		if (numCallbacks > 0) {
-			const timeDifference = Math.round((time - now) * 1000);
-			if (numCallbacks === 1) {
-				setTimeout(callbacks[0], timeDifference);
-			} else {
-				setTimeout(function () {
-					for (let callback of callbacks) {
-						callback();
-					}
-				}, timeDifference);
-			}
+			this.setTimeout(function () {
+				for (let callback of callbacks) {
+					callback();
+				}
+				me.timeoutComplete(time);
+			}, time, now);
 		}
 		this.prevLineTime = lineTime;
 		return lineTime;
@@ -3665,7 +3753,6 @@ global.Synth = {
 	fillNoise: fillNoise,
 	gcd: gcd,
 	lcm: lcm,
-	makeChange: makeChange,
 	noteFromFrequency: noteFromFrequency,
 	randomize: randomize,
 };

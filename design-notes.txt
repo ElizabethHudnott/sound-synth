@@ -25,7 +25,8 @@ Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE
 Loop start and end position incrementing (how to counter messing up fades?)
 Edit function to reverse a sequence of rows
 Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
-Song playback shouldn't all be scheduled at once
+(Song playback shouldn't all be scheduled at once)
+	Actually a whole pattern should be scheduled at once so ChangeType.EXPONENTIAL works
 Initial song parameters for Channel 1,... Channel N
 Song Loop From
 
@@ -36,6 +37,9 @@ Add a metronome function
 
 Synth
 -----
+makeChange:
+	make change types numeric
+add change types for setValueCurveAtTime
 UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)
