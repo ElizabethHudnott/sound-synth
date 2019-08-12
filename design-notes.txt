@@ -32,14 +32,20 @@ Song Loop From
 
 MIDI/Input
 ----------
-New modes: combinations with phrase trigger+transpose in lower 2 octaves
-Add a metronome function
+New modes:
+	unison
+	combinations with phrase trigger+transpose in lower 2 octaves
+Add a metronome function (needs to handle groove)
+
+UI
+--
+Add "Noise Type 2"
+Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
 
 Synth
 -----
 makeChange:
 	make change types numeric
-add change types for setValueCurveAtTime
 UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)

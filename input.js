@@ -56,6 +56,10 @@ class Input extends EventTarget {
 		this.arpeggio = new Array(numberOfChannels);
 		this.arpeggio.fill(false);
 
+		/* For each input channel the intervals (zero based) of the broken chord to play.
+		 * If the input channel is given more than one synthesizer channel then multiple
+		 * broken chords (transposed versions of each other) can cycle simultaneously.
+		 */
 		this.chord = new Array(numberOfChannels);
 		for (let i = 0; i < numberOfChannels; i++) {
 			this.chord[i] = [0];
@@ -78,7 +82,7 @@ class Input extends EventTarget {
 		 this.legato.fill(true);
 
 		 /* The change type used to implement glide. SET disables glide. EXPONENTIAL is
-		  * a normal glide. LINEAR is alternative glide.
+		  * a normal glide. LINEAR is an alternative glide style.
 		  */
 		 this.glide = new Array(numberOfChannels);
 		 this.glide.fill(Synth.ChangeType.EXPONENTIAL);
@@ -282,17 +286,13 @@ class Input extends EventTarget {
 				if (bytes[1] === 120) { // All sound off
 					this.lockedOn = false;
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CUT));
-					const synthChannels = this.notesToChannels[inputChannel];
-					const activeChannels = [];
-					for (let i = 0; i < synthChannels.length; i++) {
-						const channel = synthChannels[i];
-						if (channel !== undefined) {
-							activeChannels.push(channel);
-						}
+					const synthChannels = new Array(toChannel - fromChannel + 1);
+					for (let i = fromChannel; i <= toChannel; i++) {
+						synthChannels[i - fromChannel] = i;
 					}
 					this.notes[inputChannel] = [];
 					this.notesToChannels[inputChannel] = [];
-					return [activeChannels, parameterMap];
+					return [synthChannels, parameterMap];
 				}
 				break;
 			}

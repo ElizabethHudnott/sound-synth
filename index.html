@@ -20,7 +20,7 @@
 				<fieldset>
 					<legend>Activation</legend>
 					<button onclick="playNote()">Play Once</button>
-					<button onclick="if (MusicInput.keyboard.lockedOn) keyboard.allSoundOff(); else keyboard.setLockedOn()">Sound On/Off</button>
+					<button onclick="if (keyboard.lockedOn) keyboard.allSoundOff(); else keyboard.setLockedOn()">Sound On/Off</button>
 					<br>
 					<small>You can also play notes using the computer keyboard or MIDI.</small>
 					<div id="input-config">
@@ -127,6 +127,10 @@
 						</div>
 						<input type="checkbox" oninput="set(Synth.Param.SAMPLE_DECAY, this.checked ? 1 : 0)">Hold and Decay
 					</fieldset>
+				</fieldset>
+				<fieldset>
+					<legend>Modulation</legend>
+					<input type="range" min="0" max="100" value="1" step="any" oninput="set(Synth.Param.RING_MOD, parseFloat(this.value))">Ring Modulation
 				</fieldset>
 				<fieldset>
 					<legend>LFO 1</legend>
