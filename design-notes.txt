@@ -44,8 +44,6 @@ Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
 
 Synth
 -----
-makeChange:
-	make change types numeric
 UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)

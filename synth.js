@@ -3002,7 +3002,7 @@ class Channel {
 				break;
 
 			case Parameter.NOISE_TRACKING:
-				if (!dirtyWavetable && parameters[Parameter.WAVEFORM] === Wave.NOISE) {
+				if (dirtyWavetable === undefined && parameters[Parameter.WAVEFORM] === Wave.NOISE) {
 					this.system.makeChange(this.sampleAndHoldRateMultiplier.gain, changeType, value, time, now);
 					if (value === 0) {
 						const sampleRate = this.system.sampleRate;
@@ -3015,7 +3015,7 @@ class Channel {
 
 			case Parameter.WAVE_X:
 			case Parameter.WAVE_Y:
-				dirtyCustomWave = changeType;
+				dirtyCustomWave = true;
 				break;
 
 			case Parameter.CHORUS:
@@ -3390,7 +3390,7 @@ class Channel {
 			noteIndex = 0;
 			this.tickCounter = 0;
 		}
-		if (dirtyWavetable) {
+		if (dirtyWavetable !== undefined) {
 			const min = parameters[Parameter.MIN_WAVEFORM];
 			let max = parameters[Parameter.MAX_WAVEFORM];
 			parameters[Parameter.WAVEFORM] = min;
@@ -3400,7 +3400,7 @@ class Channel {
 				this.noiseOff(dirtyWavetable, time, now);
 			}
 		}
-		if (dirtyPWM) {
+		if (dirtyPWM !== undefined) {
 			this.pwm.setMinMax(dirtyPWM, parameters[Parameter.MIN_PULSE_WIDTH] / 100, parameters[Parameter.MAX_PULSE_WIDTH] / 100, time, now);
 		}
 		if (dirtyEnvelope) {
@@ -3415,13 +3415,13 @@ class Channel {
 				me.shaper.curve = shape;
 			});
 		}
-		if (dirtyFilterFrequency) {
+		if (dirtyFilterFrequency !== undefined) {
 			this.filterFrequencyMod.setMinMax(dirtyFilterFrequency, parameters[Parameter.MIN_FILTER_FREQUENCY], parameters[Parameter.MAX_FILTER_FREQUENCY], time, now);
 		}
-		if (dirtyFilterQ) {
+		if (dirtyFilterQ !== undefined) {
 			this.filterQMod.setMinMax(dirtyFilterQ, parameters[Parameter.MIN_Q], parameters[Parameter.MAX_Q], time, now);
 		}
-		if (dirtyMix) {
+		if (dirtyMix !== undefined) {
 			let filtered = expCurve(parameters[Parameter.FILTER_MIX], 1);
 			let unfiltered = expCurve(parameters[Parameter.UNFILTERED_MIX], 1);
 			const total = filtered + unfiltered;
@@ -3432,10 +3432,10 @@ class Channel {
 			this.system.makeChange(this.filteredPath.gain, dirtyMix, filtered, time, now);
 			this.system.makeChange(this.unfilteredPath.gain, dirtyMix, unfiltered, time, now);
 		}
-		if (dirtyDelay) {
+		if (dirtyDelay !== undefined) {
 			this.flanger.setMinMax(dirtyDelay, parameters[Parameter.MIN_DELAY] / 1000, parameters[Parameter.MAX_DELAY] / 1000, time, now);
 		}
-		if (dirtyPan) {
+		if (dirtyPan !== undefined) {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time, now);
 		}
 
