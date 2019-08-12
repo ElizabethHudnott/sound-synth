@@ -27,12 +27,12 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 		return [undefined, currentValue];
 	}
 	let changeType = change.type;
-	const prefix = changeType[0];
-	let changeValue = change.value;
+	const changeMode = changeType & CHANGE_TYPE_MASK;
+	changeType = changeType & (~CHANGE_TYPE_MASK);
+	const changeValue = change.value;
 	let newValue;
-	switch (prefix) {
+	switch (changeMode) {
 	case ChangeType.MARK:
-		changeType = ChangeType.SET;
 		newValue = currentValue;
 		break;
 	case ChangeType.DELTA:
@@ -44,10 +44,6 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 		} else {
 			newValue = currentValue + changeValue;
 		}
-		changeType = changeType.slice(1);
-		if (changeType === '') {
-			changeType = ChangeType.SET;
-		}
 		break;
 	case ChangeType.MULTIPLY:
 		if (arrayParam) {
@@ -57,10 +53,6 @@ function calculateParameterValue(change, currentValue, arrayParam) {
 			}
 		} else {
 			newValue = currentValue * changeValue;
-		}
-		changeType = changeType.slice(1);
-		if (changeType === '') {
-			changeType = ChangeType.SET;
 		}
 		break;
 	default:
@@ -277,14 +269,20 @@ const Parameter = enumFromArray([
 ]);
 
 const ChangeType = Object.freeze({
-	SET: 'setValueAtTime',
-	LINEAR: 'linearRampToValueAtTime',
-	EXPONENTIAL: 'exponentialRampToValueAtTime',
-	DELTA: '+',		//standalone or prefixed before LINEAR or EXPONENTIAL
-	MULTIPLY: '*',	//standalone or prefixed before LINEAR or EXPONENTIAL
-	MARK: '=',
-	NONE: 'none',
+	SET: 0,
+	LINEAR: 1,
+	EXPONENTIAL: 2,
+	NONE: 3,
+	DELTA: 4,		//standalone or with LINEAR or EXPONENTIAL
+	MULTIPLY: 8,	//standalone or with LINEAR or EXPONENTIAL
+	MARK: 12,
 });
+const CHANGE_TYPE_MASK = 12;
+
+const changeMethod = {};
+changeMethod[ChangeType.SET] = 'setValueAtTime';
+changeMethod[ChangeType.LINEAR] = 'linearRampToValueAtTime';
+changeMethod[ChangeType.EXPONENTIAL] = 'exponentialRampToValueAtTime';
 
 const ChangeTypes = (function() {
 	const all = new Set();
@@ -2559,13 +2557,9 @@ class Channel {
 
 	gate(state, note, volume, sustainLevel, lineTime, start) {
 		const parameters = this.parameters;
-		let scaleAHD, duration, usingSamples;
-		const releaseTime = this.release;
-
 		const gain = this.envelope.gain;
-		scaleAHD = parameters[Parameter.SCALE_AHD];
-		duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
-		usingSamples = this.instrument && this.instrument.sampled;
+
+		let usingSamples = this.instrument && this.instrument.sampled;
 		if (usingSamples) {
 			if (this.usingOscillator) {
 				if ((state & Gate.OPEN) === 0) {
@@ -2594,8 +2588,12 @@ class Channel {
 			}
 		}
 
+		const scaleAHD = parameters[Parameter.SCALE_AHD];
 		const endAttack = start + scaleAHD * this.endAttack;
 		const attackConstant = this.attackConstant * scaleAHD;
+		const decayShape = changeMethod[parameters[Parameter.DECAY_SHAPE]];
+		const duration = parameters[Parameter.DURATION] * lineTime * TIME_STEP;
+		const releaseTime = this.release;
 		let endHold, endDecay, beginRelease, endTime;
 		const releaseConstant = 4;
 
@@ -2634,7 +2632,7 @@ class Channel {
 				this.sampleLooping = true;
 				if (parameters[Parameter.SAMPLE_DECAY]) {
 					gain.setValueAtTime(volume, endHold);
-					gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
+					gain[decayShape](sustainLevel, endDecay);
 				}
 				break;
 
@@ -2652,7 +2650,7 @@ class Channel {
 				const sampleBufferNode = this.sampleBufferNode;
 				if (parameters[Parameter.SAMPLE_DECAY]) {
 					gain.setValueAtTime(volume, endHold);
-					gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
+					gain[decayShape](sustainLevel, endDecay);
 				}
 				if (duration > sampleBufferNode.loopStart * sampleBufferNode.playbackRate) {
 					sampleBufferNode.loop = true;
@@ -2686,7 +2684,7 @@ class Channel {
 		case Gate.REOPEN:
 			this.triggerLFOs(start);
 			gain.setValueAtTime(volume, start + scaleAHD * this.endHold);
-			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, start + scaleAHD * this.endDecay);
+			gain[decayShape](sustainLevel, start + scaleAHD * this.endDecay);
 			break;
 
 		case Gate.CLOSED:
@@ -2720,7 +2718,7 @@ class Channel {
 				beginRelease = endDecay;
 			}
 			gain.setValueAtTime(volume, endHold);
-			gain[parameters[Parameter.DECAY_SHAPE]](sustainLevel, endDecay);
+			gain[decayShape](sustainLevel, endDecay);
 			gain.setValueAtTime(sustainLevel, beginRelease);
 
 			if (parameters[Parameter.RELEASE_SHAPE] === ChangeType.EXPONENTIAL) {
@@ -3723,6 +3721,7 @@ global.Synth = {
 	Channel:  Channel,
 	System: SynthSystem,
 	ChangeType: ChangeType,
+	CHANGE_TYPE_MASK: CHANGE_TYPE_MASK,
 	ChangeTypes: ChangeTypes,
 	Direction: Direction,
 	Gate: Gate,

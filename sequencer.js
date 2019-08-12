@@ -823,15 +823,14 @@ class Phrase {
 			const noteChange = changes.get(Synth.Param.NOTES);
 			if (noteChange !== undefined) {
 				const changeType = noteChange.type;
-				const prefix = changeType[0];
-				if (prefix === Synth.ChangeType.DELTA) {
+				const changeMode = changeType & Synth.CHANGE_TYPE_MASK;
+				if (changeMode === Synth.ChangeType.DELTA) {
 					const newChange = noteChange.clone();
 					changes.set(Synth.Param.NOTES, newChange);
 					newChange.value += amount;
 				} else if (
 					changeType !== Synth.ChangeType.NONE &&
-					prefix !== Synth.ChangeType.MULTIPLY &&
-					prefix !== Synth.ChangeType.MARK
+					changeMode === 0
 				) {
 					const newChange = noteChange.clone();
 					changes.set(Synth.Param.NOTES, newChange);
