@@ -2789,6 +2789,7 @@ class Channel {
 		parameterMap = new Map(parameterMap);
 		const parameters = this.parameters;
 		const numLFOs = this.lfos.length;
+		const callbacks = [];
 
 		const macroChanges = parameterMap.get(Parameter.MACRO);
 		if (macroChanges !== undefined) {
@@ -2927,7 +2928,6 @@ class Channel {
 		let dirtyCustomWave = false;
 		let dirtyTickEvents = false;
 		let endRetrigger = false;
-		const callbacks = [];
 
 		for (let [paramNumber, change] of parameterMap) {
 			if (paramNumber <= Parameter.INSTRUMENT) {
