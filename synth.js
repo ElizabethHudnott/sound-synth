@@ -110,6 +110,26 @@ function enumFromArray(array) {
 	return Object.freeze(result);
 }
 
+function equalValues(a, b) {
+	if (Array.isArray(a)) {
+		if (!Array.isArray(b)) {
+			return false;
+		}
+		const length = a.length;
+		if (length !== b.length) {
+			return false;
+		}
+		for (let i = 0; i < length; i++) {
+			if (a[i] !== b[i]) {
+				return false;
+			}
+		}
+		return true;
+	} else {
+		return a === b;
+	}
+}
+
 function expCurve(value, power) {
 	if (value === 0) {
 		return 0;
@@ -1695,7 +1715,7 @@ class SynthSystem {
 
 		this.masterMetronomeBuffer = undefined;
 		this.metronomeBuffer = undefined;
-		this.metronomePeriod = 0;
+		this.metronomeGroove = [];
 		this.metronomeNode = undefined;
 
 		this.changeTimes = new Map();
@@ -1877,31 +1897,33 @@ class SynthSystem {
 		}
 	}
 
-	metronome(period) {
-		const oldNode = this.metronomeNode;
-		if (oldNode !== undefined) {
-			oldNode.stop();
-			oldNode.disconnect();
-		}
-		if (period === 0) {
-			this.metronomeNode = undefined;
-			return;
-		}
-		if (period !== this.metronomePeriod) {
+	metronome(groove) {
+		this.metronomeOff();
+		if (!equalValues(groove, this.metronomeGroove)) {
 			const masterBuffer = this.masterMetronomeBuffer;
 			const numberOfChannels = masterBuffer.numberOfChannels;
 			const sampleRate = masterBuffer.sampleRate;
+			let length = 0;
+			for (let lineTime of groove) {
+				length += Math.round(lineTime * TIME_STEP * sampleRate);
+			}
 			const buffer = new AudioBuffer({
-				length: Math.round(sampleRate * period),
+				length: length,
 				numberOfChannels: numberOfChannels,
 				sampleRate: sampleRate,
 			});
 			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 				const data = masterBuffer.getChannelData(channelNumber);
-				buffer.copyToChannel(data, channelNumber);
+				let startOffset = 0;
+				for (let lineTime of groove) {
+					const clipLength = Math.round(lineTime * TIME_STEP * sampleRate);
+					const clip = data.subarray(0, clipLength + 1);
+					buffer.copyToChannel(clip, channelNumber, startOffset);
+					startOffset += clipLength;
+				}
 			}
 			this.metronomeBuffer = buffer;
-			this.metronomePeriod = period;
+			this.metronomeGroove = groove.slice();
 		}
 		const node = this.audioContext.createBufferSource();
 		node.buffer = this.metronomeBuffer;
@@ -1912,7 +1934,16 @@ class SynthSystem {
 		this.metronomeNode = node;
 	}
 
-	get metronomeOn() {
+	metronomeOff() {
+		const oldNode = this.metronomeNode;
+		if (oldNode !== undefined) {
+			oldNode.stop();
+			oldNode.disconnect();
+			this.metronomeNode = undefined;
+		}
+	}
+
+	get metronomeRunning() {
 		return this.metronomeNode !== undefined;
 	}
 
@@ -3754,6 +3785,7 @@ global.Synth = {
 	aWeighting: aWeighting,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,
+	equalValues: equalValues,
 	expCurve: expCurve,
 	fillNoise: fillNoise,
 	gcd: gcd,

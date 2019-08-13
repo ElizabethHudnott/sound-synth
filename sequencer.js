@@ -89,26 +89,6 @@ function equalChanges(a, b) {
 	return true;
 }
 
-function equalValues(a, b) {
-	if (Array.isArray(a)) {
-		if (!Array.isArray(b)) {
-			return false;
-		}
-		const length = a.length;
-		if (length !== b.length) {
-			return false;
-		}
-		for (let i = 0; i < length; i++) {
-			if (a[i] !== b[i]) {
-				return false;
-			}
-		}
-		return true;
-	} else {
-		return a === b;
-	}
-}
-
 class Song {
 
 	constructor() {
@@ -876,7 +856,7 @@ class Phrase {
 
 	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
 		const increment = reverse ? -1 : 1;
-		const equalMinMax = minValue !== undefined && equalValues(minValue, maxValue);
+		const equalMinMax = minValue !== undefined && Synth.equalValues(minValue, maxValue);
 		let i = -1;
 		let revisedFrom, numRows;
 
@@ -901,7 +881,7 @@ class Phrase {
 			}
 
 			const value = change.value;
-			if (equalMinMax && !equalValues(value, minValue)) {
+			if (equalMinMax && !Synth.equalValues(value, minValue)) {
 				// Handle arrays
 				continue;
 			} else if (minValue !== undefined && value < minValue) {
@@ -1141,7 +1121,7 @@ class Phrase {
 			}
 
 			const currentValue = change.value;
-			if (equalValues(currentValue, value1)) {
+			if (Synth.equalValues(currentValue, value1)) {
 				[doReplace, reverse] = yield [rowNumber, change];
 				if (doReplace) {
 					const newChange = change.clone();
@@ -1149,7 +1129,7 @@ class Phrase {
 					newChange.value = value2;
 					modified.add(changes);
 				}
-			} else if (equalValues(currentValue, value2)) {
+			} else if (Synth.equalValues(currentValue, value2)) {
 				[doReplace, reverse] = yield [rowNumber, change];
 				if (doReplace) {
 					const newChange = change.clone();
