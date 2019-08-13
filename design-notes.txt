@@ -64,7 +64,7 @@ Handle gate triggered previously but not yet closed
 
 Noise
 -----
-Noise through S&H as a modulation source
+Noise through filter (or S&H?) as a modulation source
 
 
 ------

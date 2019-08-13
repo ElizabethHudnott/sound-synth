@@ -2373,6 +2373,7 @@ class Channel {
 		this.ringInput = ringInput;
 		filteredPath.connect(ringMod);
 		unfilteredPath.connect(ringMod);
+		this.hasConnection = false;
 
 		// Envelope
 		const envelope = audioContext.createGain();
@@ -2435,6 +2436,7 @@ class Channel {
 		const node = channel.ringInput;
 		this.filteredPath.connect(node);
 		this.unfilteredPath.connect(node);
+		channel.hasConnection = true;
 	}
 
 	start(when) {
@@ -3314,8 +3316,12 @@ class Channel {
 				break;
 
 			case Parameter.RING_MOD:
-				this.system.makeChange(this.ringMod.gain, changeType, 1 - value / 100, time, now);
-				this.system.makeChange(this.ringInput.gain, changeType, value / 100, time, now);
+				if (this.hasConnection) {
+					this.system.makeChange(this.ringMod.gain, changeType, 1 - value / 100, time, now);
+					this.system.makeChange(this.ringInput.gain, changeType, value / 100, time, now);
+				} else {
+					console.warn('Unable to apply ring modulation. No modulator channel connected.')
+				}
 				break;
 
 			case Parameter.TICKS:
