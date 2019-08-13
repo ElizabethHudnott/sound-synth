@@ -856,7 +856,6 @@ class Phrase {
 
 	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
 		const increment = reverse ? -1 : 1;
-		const equalMinMax = minValue !== undefined && Synth.equalValues(minValue, maxValue);
 		let i = -1;
 		let revisedFrom, numRows;
 
@@ -881,10 +880,7 @@ class Phrase {
 			}
 
 			const value = change.value;
-			if (equalMinMax && !Synth.equalValues(value, minValue)) {
-				// Handle arrays
-				continue;
-			} else if (minValue !== undefined && value < minValue) {
+			if (minValue !== undefined && value < minValue) {
 				continue;
 			} else if (maxValue !== undefined && value > maxValue) {
 				continue;

@@ -30,12 +30,16 @@ Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messi
 Initial song parameters for Channel 1,... Channel N
 Song Loop From
 
+Easy
+-----
+Document find-replace
+
 MIDI/Input
 ----------
 New modes:
 	unison
 	combinations with phrase trigger+transpose in lower 2 octaves
-Add a metronome function (needs to handle groove)
+Metronome UI
 
 UI
 --

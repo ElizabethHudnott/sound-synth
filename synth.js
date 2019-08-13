@@ -1897,14 +1897,27 @@ class SynthSystem {
 		}
 	}
 
-	metronome(groove) {
+	metronome(groove, linesPerBeat) {
 		this.metronomeOff();
-		if (!equalValues(groove, this.metronomeGroove)) {
+
+		const grooveLength = groove.length;
+		const rhythmLength = lcm(grooveLength, linesPerBeat);
+		const beats = [];
+		for (let i = 0; i < rhythmLength; i += linesPerBeat) {
+			let beatLength = 0;
+			for (let j = i; j < i + linesPerBeat; j++) {
+				beatLength += groove[j % grooveLength];
+			}
+			beats.push(beatLength);
+		}
+		console.log(beats);
+
+		if (!equalValues(beats, this.metronomeGroove)) {
 			const masterBuffer = this.masterMetronomeBuffer;
 			const numberOfChannels = masterBuffer.numberOfChannels;
 			const sampleRate = masterBuffer.sampleRate;
 			let length = 0;
-			for (let lineTime of groove) {
+			for (let lineTime of beats) {
 				length += Math.round(lineTime * TIME_STEP * sampleRate);
 			}
 			const buffer = new AudioBuffer({
@@ -1915,7 +1928,7 @@ class SynthSystem {
 			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 				const data = masterBuffer.getChannelData(channelNumber);
 				let startOffset = 0;
-				for (let lineTime of groove) {
+				for (let lineTime of beats) {
 					const clipLength = Math.round(lineTime * TIME_STEP * sampleRate);
 					const clip = data.subarray(0, clipLength + 1);
 					buffer.copyToChannel(clip, channelNumber, startOffset);
@@ -1923,7 +1936,7 @@ class SynthSystem {
 				}
 			}
 			this.metronomeBuffer = buffer;
-			this.metronomeGroove = groove.slice();
+			this.metronomeGroove = beats.slice();
 		}
 		const node = this.audioContext.createBufferSource();
 		node.buffer = this.metronomeBuffer;
