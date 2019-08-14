@@ -1353,7 +1353,7 @@ class Sample {
 		});
 	}
 
-	crossFade() {
+	crossFade(length, postLength, changeType) {
 
 	}
 
@@ -1423,6 +1423,7 @@ class SamplePlayer {
 			loopEnd = (loopEnd + 1) / buffer.sampleRate;
 		}
 		bufferNode.loopEnd = loopEnd;
+		this.duration = buffer.duration;
 		this.samplePeriod = 1 / noteFrequencies[sample.sampledNote];
 		this.gain = sample.gain;
 	}
@@ -2573,7 +2574,8 @@ class Channel {
 		sampleBufferNode.connect(this.sampleGain);
 
 		this.sampleGain.gain.setValueAtTime(samplePlayer.gain, time);
-		sampleBufferNode.start(time, parameters[Parameter.OFFSET]);
+		const offset = parameters[Parameter.OFFSET] / 256 * samplePlayer.duration;
+		sampleBufferNode.start(time, offset);
 		this.sampleBufferNode = sampleBufferNode;
 		this.samplePlayer = samplePlayer;
 	}
@@ -3406,6 +3408,12 @@ class Channel {
 
 			case Parameter.RETRIGGER_VOLUME:
 				this.retriggerVolumeChangeType = changeType;
+				break;
+
+			case Parameter.OFFSET:
+				if (value < 0) {
+					parameters[Parameter.OFFSET] = 0;
+				}
 				break;
 
 			case undefined:
