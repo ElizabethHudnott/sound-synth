@@ -33,6 +33,7 @@ Song Loop From
 Easy
 -----
 Document find-replace
+Crossfade loop
 
 MIDI/Input
 ----------

@@ -581,7 +581,7 @@ window.addEventListener('keydown', function (event) {
 		if (keyboard.notes[0].includes(note)) {
 			return;
 		}
-		keyboard.noteOn(0, note);
+		keyboard.noteOn(0, note, MusicInput.keyboardVelocity);
 	}
 });
 
@@ -655,6 +655,7 @@ global.MusicInput = {
 	close: close,
 	keyboard: keyboard,
 	keyboardOctave: 4,
+	keyboardVelocity: 127,
 	port: port,
 	ports: select,
 	addPort: addCustomPort,

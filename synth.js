@@ -1337,9 +1337,10 @@ class Sample {
 		mixGain.connect(context.destination);
 		mixSource.start(position / sampleRate);
 		if (loop) {
+			const mixSampleRate = mixSample.buffer.sampleRate;
 			mixSource.loop = true;
-			mixSource.loopStart = mixSample.loopStart;
-			mixSource.loopEnd = mixSample.loopEnd + 1;
+			mixSource.loopStart = mixSample.loopStart / mixSampleRate;
+			mixSource.loopEnd = (mixSample.loopEnd + 1) / mixSampleRate;
 		}
 
 		return context.startRendering().then(function (newBuffer) {
@@ -1350,6 +1351,10 @@ class Sample {
 			newSample.gain = me.gain;
 			return newSample;
 		});
+	}
+
+	crossFade() {
+
 	}
 
 	separateStereo(separation) {
@@ -1415,9 +1420,9 @@ class SamplePlayer {
 		bufferNode.loopStart = sample.loopStart / buffer.sampleRate;
 		let loopEnd = sample.loopEnd;
 		if (loopEnd !== Number.MAX_VALUE) {
-			loopEnd /= buffer.sampleRate;
+			loopEnd = (loopEnd + 1) / buffer.sampleRate;
 		}
-		bufferNode.loopEnd = loopEnd + 1;
+		bufferNode.loopEnd = loopEnd;
 		this.samplePeriod = 1 / noteFrequencies[sample.sampledNote];
 		this.gain = sample.gain;
 	}
@@ -2698,7 +2703,8 @@ class Channel {
 					gain.setValueAtTime(volume, endHold);
 					gain[decayShape](sustainLevel, endDecay);
 				}
-				if (duration > sampleBufferNode.loopStart * sampleBufferNode.playbackRate) {
+				const loopPoint = sampleBufferNode.loopEnd * this.samplePlayer.samplePeriod / this.noteFrequencies[note];
+				if (duration > loopPoint) {
 					sampleBufferNode.loop = true;
 					this.sampleLooping = true;
 					beginRelease = start + duration;
