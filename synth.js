@@ -277,7 +277,7 @@ const Parameter = enumFromArray([
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
 	'GLISSANDO', // number of steps
-	'OFFSET', 		// instrument offset in seconds
+	'OFFSET', 		// instrument offset (0-256)
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'MACHINE',
 	// Parameters below this line only affect the sequencer
@@ -839,22 +839,34 @@ class Sample {
 	pingPong() {
 		const oldBuffer = this.buffer;
 		const oldLength = oldBuffer.length;
-		const newLength = oldLength * 2;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const loopStart = this.loopStart;
+		let loopEnd = this.loopEnd;
+		if (loopEnd >= oldLength) {
+			loopEnd = oldLength - 1;
+		}
+		const pongLength = loopEnd - loopStart;
 		const newBuffer = new AudioBuffer({
-			length: newLength,
+			length: oldLength + pongLength,
 			numberOfChannels: oldBuffer.numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
 		});
-		for (let channelNumber = 0; channelNumber < oldBuffer.numberOfChannels; channelNumber++) {
-			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber);
-			const channelData = newBuffer.getChannelData(channelNumber);
-			for (let i = 0; i < oldLength; i++) {
-				channelData[newLength - i - 1] = channelData[i];
+
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const oldData = oldBuffer.getChannelData(channelNumber);
+			const newData = newBuffer.getChannelData(channelNumber);
+			const before = oldData.subarray(0, loopEnd + 1);
+			newBuffer.copyToChannel(before, channelNumber);
+			for (let i = loopEnd + 1; i <= loopEnd + pongLength; i++) {
+				newData[i] = before[loopEnd - (i - loopEnd)];
 			}
+			const after = oldData.subarray(loopEnd + 1);
+			newBuffer.copyToChannel(after, channelNumber, loopEnd + pongLength + 1);
 		}
+
 		const newSample = new Sample(newBuffer);
-		newSample.loopStart = this.loopStart;
-		newSample.loopEnd = this.loopEnd;
+		newSample.loopStart = loopStart;
+		newSample.loopEnd = loopEnd + pongLength;
 		newSample.sampledNote = this.sampledNote;
 		newSample.gain = this.gain;
 		return newSample;
@@ -1290,12 +1302,13 @@ class Sample {
 			numberOfChannels: numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
 		});
-		const before = new Float32Array(position);
 		const afterPosition = position + silenceLength;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
-			oldBuffer.copyFromChannel(before, channelNumber);
+			const oldData = oldBuffer.getChannelData(channelNumber);
+			const before = oldData.subarray(0, position + 1);
 			newBuffer.copyToChannel(before, channelNumber);
-			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber, afterPosition);
+			const after = oldData.subarray(position + 1);
+			newBuffer.copyToChannel(after, channelNumber, afterPosition);
 		}
 		const newSample = new Sample(newBuffer);
 		let loopStart = this.loopStart;
@@ -1399,13 +1412,18 @@ class Sample {
 		return newSample;
 	}
 
-	positionAtTime(time) {
+	offsetAtTime(time, snapToZero) {
 		const buffer = this.buffer;
+		let offset;
 		if (time >= 0) {
-			return buffer.sampleRate * time;
+			offset = buffer.sampleRate * time;
 		} else {
-			return buffer.length + buffer.sampleRate * time;
+			offset = buffer.length + buffer.sampleRate * time;
 		}
+		if (snapToZero) {
+			offset = this.findZero(offset, 0);
+		}
+		return offset;
 	}
 
 }
@@ -1532,12 +1550,6 @@ class SampledInstrument extends Instrument {
 	reverse() {
 		for (let sample of this.samples) {
 			sample.reverse();
-		}
-	}
-
-	pingPong() {
-		for (let i = 0; i < this.samples.length; i++) {
-			this.samples[i] = this.samples[i].pingPong();
 		}
 	}
 

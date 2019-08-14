@@ -53,7 +53,7 @@ UI Rewrite
 Choice of New Note Action (release, cut)
 Choice of sample release action? (fade or not)
 Sample resampling, crossfade
-Add sample slicing
+Add custom offset/beat slice positions, automatic searching, stop at next offset option
 Time stretching
 Probability
 Instruments
