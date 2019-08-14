@@ -1367,7 +1367,86 @@ class Sample {
 	}
 
 	crossFade(length, postLength, changeType) {
+		if (length >= this.loopStart) {
+			length = this.loopStart;
+		}
 
+		const me = this;
+		const oldBuffer = this.buffer;
+		const bufferLength = oldBuffer.length;
+		const sampleRate = oldBuffer.sampleRate;
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			bufferLength,
+			sampleRate
+		);
+
+		const loopStartTime = (this.loopStart + 1) / sampleRate;
+		let loopEnd = this.loopEnd;
+		if (loopEnd >= bufferLength) {
+			loopEnd = bufferLength - 1;
+		}
+		const loopEndTime = (loopEnd + 1) / sampleRate;
+
+		const fadeTime = length / sampleRate;
+		const postFadeTime = postLength / sampleRate;
+
+		const fadeOut = context.createBufferSource();
+		fadeOut.buffer = oldBuffer;
+		const fadeIn = context.createBufferSource();
+		fadeIn.buffer = oldBuffer;
+
+		const fadeOutGain = context.createGain();
+		fadeOut.connect(fadeOutGain);
+		fadeOutGain.connect(context.destination);
+		const fadeInGain = context.createGain();
+		fadeIn.connect(fadeInGain);
+		fadeInGain.connect(context.destination);
+
+		const begin = loopEndTime - fadeTime;
+		fadeOut.start();
+		if (postLength > 0) {
+			fadeIn.start(begin, loopStartTime - fadeTime);
+		} else {
+			fadeIn.start(begin, loopStartTime - fadeTime, fadeTime);
+		}
+
+		if (length > 0) {
+			fadeInGain.gain.setValueAtTime(0, 0);
+			if (changeType === ChangeType.LINEAR) {
+				fadeOutGain.gain.setValueAtTime(1, begin);
+				fadeOutGain.gain.linearRampToValueAtTime(0, loopEndTime);
+				fadeInGain.gain.setValueAtTime(0, begin);
+				fadeInGain.gain.linearRampToValueAtTime(1, loopEndTime);
+			} else {
+				const rate = fadeTime / 5;
+				fadeOutGain.gain.setTargetAtTime(0, begin, rate);
+				fadeInGain.gain.setTargetAtTime(1, begin, rate);
+			}
+		}
+
+		if (postLength > 0) {
+			if (changeType === ChangeType.LINEAR) {
+				const endTime = loopEndTime + postFadeTime;
+				fadeOutGain.gain.linearRampToValueAtTime(1, endTime);
+				fadeInGain.gain.linearRampToValueAtTime(0, endTime);
+			} else {
+				const rate = postFadeTime / 5;
+				fadeOutGain.gain.setTargetAtTime(1, loopEndTime, rate);
+				fadeInGain.gain.setTargetAtTime(0, loopEndTime, rate);
+			}
+		} else {
+			fadeOutGain.gain.setValueAtTime(1, loopEndTime + SHORTEST_TIME);
+		}
+
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = me.loopStart;
+			newSample.loopEnd = me.loopEnd;
+			newSample.sampledNote = me.sampledNote;
+			newSample.gain = me.gain;
+			return newSample;
+		});
 	}
 
 	separateStereo(separation) {
