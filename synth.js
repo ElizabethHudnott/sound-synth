@@ -1449,6 +1449,30 @@ class Sample {
 		});
 	}
 
+	resample(newSampleRate) {
+		const me = this;
+		const oldBuffer = this.buffer;
+		const rateRatio = newSampleRate / oldBuffer.sampleRate;
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			Math.ceil(oldBuffer.length * rateRatio),
+			newSampleRate
+		);
+		const source = context.createBufferSource();
+		source.buffer = oldBuffer;
+		source.connect(context.destination);
+		source.start();
+
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = Math.round(me.loopStart * rateRatio);
+			newSample.loopEnd = Math.round(me.loopEnd * rateRatio);
+			newSample.sampledNote = me.sampledNote;
+			newSample.gain = me.gain;
+			return newSample;
+		});
+	}
+
 	separateStereo(separation) {
 		const buffer = this.buffer;
 		const leftChannel = buffer.getChannelData(0);
