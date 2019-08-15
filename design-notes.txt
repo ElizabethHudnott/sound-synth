@@ -51,7 +51,6 @@ Sampler
 Bitcrusher needs dithering
 WAV export
 Copy & Paste to/from other apps
-Split left & right into separate samples
 Time stretching
 Add custom offset/beat slice positions, automatic beat finding, stop at next offset option
 UI

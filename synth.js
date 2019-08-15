@@ -1557,6 +1557,30 @@ class Sample {
 		}
 	}
 
+	channelSplit() {
+		const oldBuffer = this.buffer;
+		const length = oldBuffer.length;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const sampleRate = oldBuffer.sampleRate;
+		const samples = [];
+
+		for (let i = 0; i < numberOfChannels; i++) {
+			const newBuffer = new AudioBuffer({
+				length: length,
+				numberOfChannels: 1,
+				sampleRate: sampleRate,
+			});
+			newBuffer.copyToChannel(oldBuffer.getChannelData(i), 0);
+			const sample = new Sample(newBuffer);
+			sample.loopStart = this.loopStart;
+			sample.loopEnd = this.loopEnd;
+			sample.sampledNote = this.sampledNote;
+			sample.gain = this.gain;
+			samples[i] = sample;
+		}
+		return samples;
+	}
+
 	mixToMono(pan) {
 		const rightFraction = (pan + 1) / 2;
 		const leftFraction = 1 - rightFraction;

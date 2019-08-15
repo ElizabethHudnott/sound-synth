@@ -1,5 +1,5 @@
 const BUFFER_LENGTH = 5;
-const audioContext = new AudioContext({latencyHint: 0.05});
+const audioContext = new AudioContext({latencyHint: 0.06});
 let debug = {input: false};
 const system = new Synth.System(audioContext, initialize);
 const channels = system.channels;
