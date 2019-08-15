@@ -216,7 +216,7 @@ const Parameter = enumFromArray([
 	'FREQUENCY',	// in hertz
 	'DETUNE',		// overall channel detune in cents
 	'TUNING_STRETCH', // in cents
-	'NOISE_TRACKING',
+	'NOISE_TRACKING', // frequency x noiseTracking = number of noise samples per second (0 = don't sample and hold)
 	'LFO1_WAVEFORM', // 'sine', 'square', 'sawtooth' or 'triangle'
 	'LFO1_RATE',	// in hertz
 	'LFO1_PHASE',	// 0 to 360
@@ -1067,7 +1067,9 @@ class Sample {
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
 			newSample.loopStart = Math.round(me.loopStart * ratio);
-			newSample.loopEnd = Math.round(me.loopEnd * ratio);
+			if (me.loopEnd < Number.MAX_VALUE) {
+				newSample.loopEnd = Math.round(me.loopEnd * ratio);
+			}
 			newSample.sampledNote = me.sampledNote;
 			newSample.gain = me.gain;
 			return newSample;
@@ -1178,9 +1180,8 @@ class Sample {
 			if (meLoopStart > from) {
 				newSample.loopStart = meLoopStart - from;
 			}
-			const meLoopEnd = this.loopEnd;
-			if (meLoopEnd < to) {
-				newSample.loopEnd = meLoopEnd - from;
+			if (this.loopEnd < to) {
+				newSample.loopEnd = this.loopEnd - from;
 			}
 		}
 		newSample.sampledNote = this.sampledNote;
@@ -1317,7 +1318,7 @@ class Sample {
 		}
 		newSample.loopStart = loopStart;
 		let loopEnd = this.loopEnd;
-		if (loopEnd >= position) {
+		if (loopEnd >= position && loopEnd !== Number.MAX_VALUE) {
 			loopEnd += silenceLength;
 		}
 		newSample.loopEnd = loopEnd;
@@ -1455,7 +1456,7 @@ class Sample {
 		const rateRatio = newSampleRate / oldBuffer.sampleRate;
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			Math.ceil(oldBuffer.length * rateRatio),
+			Math.round(oldBuffer.length * rateRatio),
 			newSampleRate
 		);
 		const source = context.createBufferSource();
@@ -1466,11 +1467,44 @@ class Sample {
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
 			newSample.loopStart = Math.round(me.loopStart * rateRatio);
-			newSample.loopEnd = Math.round(me.loopEnd * rateRatio);
+			if (me.loopEnd < Number.MAX_VALUE) {
+				newSample.loopEnd = Math.round(me.loopEnd * rateRatio);
+			}
 			newSample.sampledNote = me.sampledNote;
 			newSample.gain = me.gain;
 			return newSample;
 		});
+	}
+
+	/**Resamples without any interpolation.
+	 */
+	upsample(newSampleRate) {
+		const me = this;
+		const oldBuffer = this.buffer;
+		const rateRatio = newSampleRate / oldBuffer.sampleRate;
+		const newLength = Math.trunc(oldBuffer.length * rateRatio);
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: newLength,
+			numberOfChannels: numberOfChannels,
+			sampleRate: newSampleRate,
+		});
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const oldData = oldBuffer.getChannelData(channelNumber);
+			const newData = newBuffer.getChannelData(channelNumber);
+			for (let i = 0; i < newLength; i++) {
+				const index = Math.round(i / rateRatio);
+				newData[i] = oldData[index];
+			}
+		}
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = Math.round(this.loopStart * rateRatio);
+		if (this.loopEnd < Number.MAX_VALUE) {
+			newSample.loopEnd = Math.round(this.loopEnd * rateRatio);
+		}
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
 	}
 
 	separateStereo(separation) {
