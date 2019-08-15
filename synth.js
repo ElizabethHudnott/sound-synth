@@ -1507,6 +1507,38 @@ class Sample {
 		return newSample;
 	}
 
+	bitcrush(numBits) {
+		const oldBuffer = this.buffer;
+		const length = oldBuffer.length;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: length,
+			numberOfChannels: numberOfChannels,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		const numValues = 1 << numBits;
+		const halfRange = numValues >> 1;
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const oldData = oldBuffer.getChannelData(channelNumber);
+			const newData = newBuffer.getChannelData(channelNumber);
+			for (let i = 0; i < length; i++) {
+				let intValue = Math.round((oldData[i] + 1) * halfRange);
+				if (intValue >= numValues) {
+					intValue = numValues - 1;
+				} else if (intValue < 0) {
+					intValue = 0;
+				}
+				newData[i] =  intValue / halfRange - 1;
+			}
+		}
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
+	}
+
 	separateStereo(separation) {
 		const buffer = this.buffer;
 		const leftChannel = buffer.getChannelData(0);
