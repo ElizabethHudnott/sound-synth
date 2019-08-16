@@ -797,6 +797,10 @@ class Sample {
 		return newSample;
 	}
 
+	exportToWav() {
+		return audioBufferToWav(this.buffer);
+	}
+
 	autotune(a4Pitch, from, to) {
 		if (a4Pitch === undefined) {
 			a4Pitch = 440;
@@ -3985,6 +3989,58 @@ function decodeSampleData(arr) {
 	return buffers[0];
 }
 
+function audioBufferToWav(audioBuffer) {
+	const numberOfSamples = audioBuffer.length;
+	const numberOfChannels = audioBuffer.numberOfChannels;
+	const sampleRate = audioBuffer.sampleRate;
+	const headerLength = 46;
+	const fileLength = numberOfSamples * numberOfChannels * 4 + headerLength;
+	const arrayBuffer = new ArrayBuffer(fileLength);
+	const view = new DataView(arrayBuffer);
+	let writePos = 0;
+
+	// Write header
+	setUint32(0x46464952);				// "RIFF"
+	setUint32(fileLength - 8);			// file length - 8
+	setUint32(0x45564157);				// "WAVE"
+
+	setUint32(0x20746d66);				// "fmt " chunk
+	setUint32(18);						// length
+	setUint16(3);						// floating point samples
+	setUint16(numberOfChannels);
+	setUint32(sampleRate);
+	setUint32(sampleRate * 4 * numberOfChannels); // avg. bytes/sec
+	setUint16(numberOfChannels * 4); 	// block-align
+	setUint16(32);						// 32-bit
+	setUint16(0)						// zero length extension
+
+	setUint32(0x61746164);				// "data" - chunk
+	setUint32(fileLength - writePos - 4); // chunk length
+
+	// Write interleaved data.
+	for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+		const channel = audioBuffer.getChannelData(channelNumber);
+		writePos = headerLength + channelNumber * 4;
+		for (let i = 0; i < numberOfSamples; i++) {
+			view.setFloat32(writePos, channel[i], true);
+			writePos += numberOfChannels * 4;
+		}
+	}
+
+	// Create BLOB
+	return new Blob([arrayBuffer], {type: "audio/wav"});
+
+	function setUint16(data) {
+		view.setUint16(writePos, data, true);
+		writePos += 2;
+	}
+
+	function setUint32(data) {
+		view.setUint32(writePos, data, true);
+		writePos += 4;
+	}
+}
+
 global.Synth = {
 	Change: Change,
 	Channel:  Channel,
@@ -4014,6 +4070,7 @@ global.Synth = {
 	ReciprocalNode: ReciprocalNode,
 	SampleAndHoldNode: SampleAndHoldNode,
 	WavetableNode: WavetableNode,
+	audioBufferToWav: audioBufferToWav,
 	aWeighting: aWeighting,
 	decodeSampleData: decodeSampleData,
 	enumFromArray: enumFromArray,

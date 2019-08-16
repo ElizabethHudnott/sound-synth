@@ -50,7 +50,6 @@ Sampler
 -------
 Bitcrusher needs dithering
 WAV export
-Copy & Paste to/from other apps
 Time stretching
 Add custom offset/beat slice positions, automatic beat finding, stop at next offset option
 UI
@@ -76,6 +75,11 @@ Noise
 -----
 Noise through filter as a modulation source
 
+
+Low Priority
+------------
+Parse smpl and inst chunks of a WAV file.
+Parse more than one sample per IFF file + envelope chunks, etc.
 
 ------
 LFO modulating decay, etc.
