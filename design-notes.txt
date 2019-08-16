@@ -43,15 +43,13 @@ Metronome UI
 
 UI
 --
-Add "Noise Type 2"
 Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
 
 Sampler
 -------
 Bitcrusher needs dithering
-WAV export
 Time stretching
-Add custom offset/beat slice positions, automatic beat finding, stop at next offset option
+Add custom offset/beat slice positions, stop at next slice
 UI
 
 Synth
@@ -62,6 +60,7 @@ Choice of sample release action? (fade or not)
 Probability
 Instruments
 Velocity & Pitch Automations
+	Add "Noise Type 2" to UI
 Changes for 1 line vs changes over a pattern vs ongoing results?
 Allow choosing sampled notes by time as well as by pitch (for percussion)?
 
@@ -86,7 +85,7 @@ LFO modulating decay, etc.
 LFO rate modulated by an envelope
 LFO rate modulated by an LFO
 LFO amount modulated by an LFO
-Pulse width modulated by an envelope
+**Pulse width modulated by an envelope**
 --------
 
 --------

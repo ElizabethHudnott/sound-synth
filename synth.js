@@ -1561,7 +1561,23 @@ class Sample {
 		}
 	}
 
-	channelSplit() {
+	channel(channelNumber) {
+		const oldBuffer = this.buffer;
+		const newBuffer = new AudioBuffer({
+			length: oldBuffer.length,
+			numberOfChannels: 1,
+			sampleRate: oldBuffer.sampleRate,
+		});
+		newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), 0);
+		const newSample = new Sample(newBuffer);
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
+	}
+
+	channels() {
 		const oldBuffer = this.buffer;
 		const length = oldBuffer.length;
 		const numberOfChannels = oldBuffer.numberOfChannels;
