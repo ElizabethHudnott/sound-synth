@@ -37,6 +37,7 @@ class SignalFollowerMachine extends Machine {
 
 		const offset = audioContext.createConstantSource();
 		offset.offset.value = -1;
+		offset.start();
 
 		// Connecting a node to this machine will connect that node to each of these
 		// internal destinations.
