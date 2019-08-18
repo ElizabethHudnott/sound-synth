@@ -1014,9 +1014,20 @@ class Sample {
 	}
 
 	normalize(from, to) {
+		const length = this.buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
 		const amplitude = this.peakAmplitude(from, to);
 		const gain = 1 / amplitude;
-		this.amplify(gain, gain, from, to);
+		if (from === 0 && to === length - 1) {
+			this.gain *= gain;
+		} else {
+			this.amplify(gain, gain, from, to);
+		}
 	}
 
 	amplify(startGain, endGain, from, to) {
@@ -1522,19 +1533,26 @@ class Sample {
 			sampleRate: oldBuffer.sampleRate,
 		});
 		const numValues = 1 << numBits;
-		const halfRange = numValues >> 1;
-		const scale = halfRange - 0.5 - noiseShapingAmount;
+		const maxValue = numValues - 1;
+		const scale = maxValue / 2;
+		const midValue = numValues >> 1;
 		let error = 0;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			const oldData = oldBuffer.getChannelData(channelNumber);
 			const newData = newBuffer.getChannelData(channelNumber);
 			for (let i = 0; i < length; i++) {
+				// E.g. for 8 bit scale -1 <= oldData[i] <= 1 into the range 0 <= scaled <= 255
 				const scaled = (oldData[i] + 1) * scale;
 				const dither = 0.5 * Math.random() - 0.5 * Math.random();
-				const sum = scaled + dither + noiseShapingAmount * error;
-				const intValue = Math.floor(sum);
-				error = scaled - intValue;
-				newData[i] =  (intValue + 0.5) / halfRange - 1;
+				const sum = scaled + dither - noiseShapingAmount * error;
+				let intValue = Math.floor(sum);
+				if (intValue < 0) {
+					intValue = 0;
+				} else if (intValue > maxValue) {
+					intValue = maxValue;
+				}
+				error = intValue - scaled;
+				newData[i] =  (intValue - midValue) / midValue;
 			}
 		}
 		const newSample = new Sample(newBuffer);
@@ -2116,7 +2134,7 @@ class SynthSystem {
 		for (let channel of this.channels) {
 			channel.start(when);
 		}
-		this.noise.start();
+		this.noise.start(when);
 		this.startTime = when;
 	}
 
@@ -2579,10 +2597,10 @@ class Channel {
 		/* The vibrato feeds a varying frequency into this, which divides by the central
 		 * frequency to compute the playback speed.
 		 */
+		 this.frequencyNode = frequencyNode;
 		frequencyNode.connect(playRateMultiplier);
 		// Also use the frequency to compute pulse the pulse width.
 		frequencyNode.connect(pwmDetune);
-		frequencyNode.start();
 
 		// Noise
 		const sampleAndHold = new SampleAndHoldNode(audioContext);
@@ -2723,6 +2741,7 @@ class Channel {
 			this.saw.start(when);
 			this.lfo1.start(when);
 			this.lfo2.start(when);
+			this.frequencyNode.start(when);
 			this.started = true;
 		}
 	}

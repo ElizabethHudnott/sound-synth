@@ -221,7 +221,6 @@ function initialize() {
 	const channel1 = new Synth.Channel(system);
 	const channel2 = new Synth.Channel(system);
 	channel2.connect(channel1);
-	system.start();
 
 	function initializeInput() {
 		const inputName = MusicInput.ports.value;
@@ -264,6 +263,7 @@ function initialize() {
 
 function begin() {
 	audioContext.resume();
+	system.start();
 	document.getElementById('intro').style.display = 'none';
 	document.getElementById('controls').style.display = 'block';
 	resizeGraph();
