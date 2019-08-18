@@ -1512,6 +1512,7 @@ class Sample {
 	}
 
 	bitcrush(numBits) {
+		const noiseShapingAmount = 0.8;
 		const oldBuffer = this.buffer;
 		const length = oldBuffer.length;
 		const numberOfChannels = oldBuffer.numberOfChannels;
@@ -1522,17 +1523,18 @@ class Sample {
 		});
 		const numValues = 1 << numBits;
 		const halfRange = numValues >> 1;
+		const scale = halfRange - 0.5 - noiseShapingAmount;
+		let error = 0;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			const oldData = oldBuffer.getChannelData(channelNumber);
 			const newData = newBuffer.getChannelData(channelNumber);
 			for (let i = 0; i < length; i++) {
-				let intValue = Math.round((oldData[i] + 1) * halfRange);
-				if (intValue >= numValues) {
-					intValue = numValues - 1;
-				} else if (intValue < 0) {
-					intValue = 0;
-				}
-				newData[i] =  intValue / halfRange - 1;
+				const scaled = (oldData[i] + 1) * scale;
+				const dither = 0.5 * Math.random() - 0.5 * Math.random();
+				const sum = scaled + dither + noiseShapingAmount * error;
+				const intValue = Math.floor(sum);
+				error = scaled - intValue;
+				newData[i] =  (intValue + 0.5) / halfRange - 1;
 			}
 		}
 		const newSample = new Sample(newBuffer);

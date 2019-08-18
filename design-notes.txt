@@ -47,7 +47,6 @@ Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
 
 Sampler
 -------
-Bitcrusher needs dithering
 Time stretching
 Add custom offset/beat slice positions, stop at next slice
 UI
@@ -73,7 +72,6 @@ Handle gate triggered previously but not yet closed
 Noise
 -----
 Noise through filter as a modulation source
-
 
 Low Priority
 ------------
