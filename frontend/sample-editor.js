@@ -6,14 +6,15 @@ const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
 const container = document.getElementById('waveform-container');
 const outerContainer = document.getElementById('waveform-outer-container');
-let waveWidth = canvas.parentElement.clientWidth;
+let waveWidth = outerContainer.clientWidth;
 canvas.width = waveWidth;
 let waveOffset = 0;
+let bufferLength = 0;
 let sample, xScale;
 
 window.addEventListener('resize', function (event) {
-	 const elementWidth = canvas.parentElement.clientWidth;
-	 canvas.width = elementWidth;
+	const elementWidth = outerContainer.clientWidth;
+	canvas.width = elementWidth;
 	if (waveWidth < elementWidth) {
 		waveWidth = elementWidth;
 	}
@@ -21,18 +22,18 @@ window.addEventListener('resize', function (event) {
 });
 
 outerContainer.addEventListener('scroll', function (event) {
-	if (sample !== undefined) {
-		waveOffset = this.scrollLeft / waveWidth * sample.buffer.length;
-		redrawWaveform();
-	}
+	waveOffset = this.scrollLeft / waveWidth * bufferLength;
+	redrawWaveform();
 });
 
 function resizeWaveform() {
 	if (sample === undefined) {
 		context2d.clearRect(0, 0, canvas.width, canvas.height);
+		container.style.width = '';
+		xScale = 0;
+		waveOffset = 0;
 	} else {
 		container.style.width = waveWidth + 'px';
-		const bufferLength = sample.buffer.length;
 		xScale = bufferLength / waveWidth;
 		waveOffset = outerContainer.scrollLeft / waveWidth * bufferLength;
 		redrawWaveform();
@@ -122,6 +123,19 @@ function calculateY(data, pixelX) {
 
 function setSample(newSample) {
 	sample = newSample;
+	if (sample === undefined) {
+		bufferLength = 0;
+	} else {
+		const newLength = sample.buffer.length;
+		if (bufferLength > 0) {
+			const ratio = newLength / bufferLength;
+			waveWidth *= ratio;
+			if (waveWidth < canvas.width) {
+				waveWidth = canvas.width;
+			}
+		}
+		bufferLength = newLength;
+	}
 	resizeWaveform();
 }
 
