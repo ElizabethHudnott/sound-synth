@@ -2511,7 +2511,7 @@ class Channel {
 		this.release = 0.3;
 		this.calcEnvelope();
 		this.macroValues = new Map();
-		this.timeouts = new Map();
+		this.timeouts = new Set();
 
 		// State information for processing chords
 		this.frequencies = [440];
@@ -2766,7 +2766,7 @@ class Channel {
 		this.noiseOff(ChangeType.SET, now, now);
 		this.envelope.gain.cancelScheduledValues(0);
 		this.envelope.gain.value = 0;
-		for (let id of this.timeouts.values()) {
+		for (let id of this.timeouts) {
 			clearTimeout(id);
 		}
 		this.timeouts = new Map();
@@ -2775,11 +2775,12 @@ class Channel {
 	setTimeout(func, time, now) {
 		const delay = Math.round((time - now) * 1000);
 		const id = setTimeout(func, delay);
-		this.timeouts.set(time, id);
+		this.timeouts.add(id);
+		return id;
 	}
 
-	timeoutComplete(time) {
-		this.timeouts.delete(time);
+	timeoutComplete(id) {
+		this.timeouts.delete(id);
 	}
 
 	toggleMute() {
@@ -2956,12 +2957,12 @@ class Channel {
 					sampleBufferNode.loop = true;
 					this.sampleLooping = true;
 					beginRelease = start + duration;
-					this.setTimeout(function () {
+					const timer = this.setTimeout(function () {
 						if (me.sampleBufferNode === sampleBufferNode) {
 							sampleBufferNode.loop = false;
 							me.sampleLooping = false;
 						}
-						me.timeoutComplete(beginRelease);
+						me.timeoutComplete(timer);
 					}, beginRelease, this.system.audioContext.currentTime);
 				} else {
 					this.sampleLooping = false;
@@ -3922,11 +3923,11 @@ class Channel {
 
 		const numCallbacks = callbacks.length;
 		if (numCallbacks > 0) {
-			this.setTimeout(function () {
+			const timer = this.setTimeout(function () {
 				for (let callback of callbacks) {
 					callback();
 				}
-				me.timeoutComplete(time);
+				me.timeoutComplete(timer);
 			}, time, now);
 		}
 		this.prevLineTime = lineTime;
