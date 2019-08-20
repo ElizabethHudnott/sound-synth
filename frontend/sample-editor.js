@@ -4,22 +4,39 @@ const waveColor = 'black';
 
 const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
-let zoom = 1;
+const container = document.getElementById('waveform-container');
+const outerContainer = document.getElementById('waveform-outer-container');
+let waveWidth = canvas.parentElement.clientWidth;
+canvas.width = waveWidth;
+let waveOffset = 0;
 let sample, xScale;
 
-window.addEventListener('resize', resizeWaveform);
+window.addEventListener('resize', function (event) {
+	 const elementWidth = canvas.parentElement.clientWidth;
+	 canvas.width = elementWidth;
+	if (waveWidth < elementWidth) {
+		waveWidth = elementWidth;
+	}
+	resizeWaveform();
+});
+
+outerContainer.addEventListener('scroll', function (event) {
+	if (sample !== undefined) {
+		waveOffset = this.scrollLeft / waveWidth * sample.buffer.length;
+		redrawWaveform();
+	}
+});
 
 function resizeWaveform() {
 	if (sample === undefined) {
-		return;
+		context2d.clearRect(0, 0, canvas.width, canvas.height);
+	} else {
+		container.style.width = waveWidth + 'px';
+		const bufferLength = sample.buffer.length;
+		xScale = bufferLength / waveWidth;
+		waveOffset = outerContainer.scrollLeft / waveWidth * bufferLength;
+		redrawWaveform();
 	}
-	canvas.width = canvas.parentElement.clientWidth * zoom;
-	calculateScale();
-	redrawWaveform();
-}
-
-function calculateScale() {
-	xScale = sample.buffer.length / canvas.width;
 }
 
 function redrawWaveform() {
@@ -30,11 +47,6 @@ function redrawWaveform() {
 		drawWave(0, endX, 55, 50, 55, 0);
 		drawWave(0, endX, 170, 50, 55, 1);
 	}
-}
-
-function scaleAndRedraw() {
-	calculateScale();
-	redrawWaveform();
 }
 
 function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
@@ -48,8 +60,12 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.clip();
 	context2d.beginPath();
 	context2d.moveTo(0, centre);
-	for (let x = startX; x <= endX; x++) {
-		const audioY = calculateY(data, x, xScale);
+	let incX = 1;
+	if (xScale < 1) {
+		incX = Math.trunc(1 / xScale);
+	}
+	for (let x = startX; x <= endX; x += incX) {
+		const audioY = calculateY(data, x);
 		const pixelY = centre - Math.round(audioY * yScale);
 		context2d.lineTo(x, pixelY);
 	}
@@ -58,10 +74,10 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.restore();
 }
 
-function calculateY(data, pixelX, scale) {
+function calculateY(data, pixelX) {
 	const gain = sample.gain;
-	const waveMinX = Math.max((pixelX - 0.5) * scale, 0);
-	const waveMaxX = Math.min((pixelX + 0.5) * scale, data.length - 1);
+	const waveMinX = Math.max((pixelX - 0.5) * xScale + waveOffset, 0);
+	const waveMaxX = Math.min((pixelX + 0.5) * xScale + waveOffset, data.length - 1);
 	const firstX = Math.trunc(waveMinX);
 	const first = gain * data[firstX];
 	const firstPortion = waveMinX - firstX;
@@ -105,27 +121,36 @@ function calculateY(data, pixelX, scale) {
 }
 
 function setSample(newSample) {
-	const noPreviousSample = sample === undefined;
 	sample = newSample;
-	if (newSample === undefined) {
-		canvas.width = 0;
-	} else if (noPreviousSample) {
-		resizeWaveform();
-	} else {
-		calculateScale();
-		redrawWaveform();
-	}
+	resizeWaveform();
 }
 
-function setZoom(zoomFactor) {
-	zoom = zoomFactor;
+function zoomIn() {
+	const canvasWidth = canvas.width;
+	waveWidth = (Math.trunc(waveWidth / canvasWidth) + 1) * canvasWidth;
+	resizeWaveform();
+}
+
+function zoomOut() {
+	const canvasWidth = canvas.width;
+	let multiple = Math.trunc(waveWidth / canvasWidth) - 1;
+	if (multiple < 1) {
+		multiple = 1;
+	}
+	waveWidth = multiple * canvasWidth;
+	resizeWaveform();
+}
+
+function zoomShowAll() {
+	waveWidth = canvas.width;
 	resizeWaveform();
 }
 
 global.SampleEditor = {
 	setSample: setSample,
-	setZoom: setZoom,
-	redraw: scaleAndRedraw,
+	zoomIn: zoomIn,
+	zoomOut: zoomOut,
+	zoomShowAll: zoomShowAll,
 };
 
 })(window);

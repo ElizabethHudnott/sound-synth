@@ -11,11 +11,13 @@
 	</head>
 	<body>
 		<div class="container-fluid">
-			<div id="waveform-container">
-				<!-- Waveform 0-100 (101 pixels) + 5 pixels extra top & bottom (111),
-					2 channels (222) + 4 pixel gap
-				-->
-				<canvas id="waveform" width="0" height="226"></canvas>
+			<div id="waveform-outer-container">
+				<div id="waveform-container">
+					<!-- Waveform 0-100 (101 pixels) + 5 pixels extra top & bottom (111),
+						2 channels (222) + 4 pixel gap
+					-->
+					<canvas id="waveform" height="226"></canvas>
+				</div>
 			</div>
 		</div>
 	</body>
