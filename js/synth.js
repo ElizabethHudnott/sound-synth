@@ -1,6 +1,8 @@
 (function (global) {
 'use strict';
 
+const PATH = document.currentScript.src.slice(0, -8); // minus synth.js
+
 const SEMITONE = 2 ** (1 / 12);
 const CENT = 2 ** (1 / 1200);
 const SHORTEST_TIME = 1 / 44100
@@ -1983,7 +1985,7 @@ class SynthSystem {
 			});
 		});
 
-		audioContext.audioWorklet.addModule('audioworkletprocessors.js').then(function () {
+		audioContext.audioWorklet.addModule(PATH + 'audioworkletprocessors.js').then(function () {
 			if (callback !== undefined) {
 				callback(me);
 			}

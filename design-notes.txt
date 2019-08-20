@@ -54,8 +54,9 @@ UI
 Synth
 -----
 UI Rewrite
-Choice of New Note Action (release, cut)
-Choice of sample release action? (fade or not)
+Choice of sample release action (fade or end loop)
+Choice of New Note Action
+	(release, cut, continue until gate closed or cut, duplicate notes of the same instrument always cut)
 Probability
 Instruments
 Velocity & Pitch Automations

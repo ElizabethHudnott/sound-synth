@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<title>ORSSUM: Online Retro Synthesizer &amp; Sequencer for Unleashing Music</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, shrink-to-fit=no">
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+		<link rel="stylesheet" href="css/sample-editor.css">
+		<script src="js/synth.js" defer></script>
+		<script src="frontend/sample-editor.js" defer></script>
+	</head>
+	<body>
+		<div class="container-fluid">
+			<div id="waveform-container">
+				<!-- Waveform 0-100 (101 pixels) + 5 pixels extra top & bottom (111),
+					2 channels (222) + 4 pixel gap
+				-->
+				<canvas id="waveform" width="0" height="226"></canvas>
+			</div>
+		</div>
+	</body>
+</html>
