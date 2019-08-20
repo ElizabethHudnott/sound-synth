@@ -62,20 +62,46 @@ function calculateY(data, pixelX, scale) {
 	const gain = sample.gain;
 	const waveMinX = Math.max((pixelX - 0.5) * scale, 0);
 	const waveMaxX = Math.min((pixelX + 0.5) * scale, data.length - 1);
-	const lowerX = Math.trunc(waveMinX);
-	const lowerPortion = waveMinX - lowerX;
-	const upperX = Math.ceil(waveMaxX);
-	const upperPortion = upperX - waveMaxX;
-	let n = lowerPortion + upperPortion;
-	let sum = gain * (data[lowerX] * lowerPortion + data[upperX] * upperPortion);
-	let absSum = gain * (Math.abs(data[lowerX]) * lowerPortion + Math.abs(data[upperX]) * upperPortion);
-	for (let x = lowerX + 1; x <= upperX - 1; x++) {
-		const value = data[x] * gain;
+	const firstX = Math.trunc(waveMinX);
+	const first = gain * data[firstX];
+	const firstPortion = waveMinX - firstX;
+	const lastX = Math.ceil(waveMaxX);
+	const last = gain * data[lastX];
+	const lastPortion = lastX - waveMaxX;
+	let sum = first * firstPortion + last * lastPortion;
+	let min = gain * data[firstX];
+	let max = min;
+	if (last < min) {
+		min = last;
+	} else if (last > max) {
+		max = last;
+	}
+	let n = firstPortion + lastPortion;
+	for (let x = firstX + 1; x <= lastX - 1; x++) {
+		const value = gain * data[x];
 		sum += value;
-		absSum += Math.abs(value);
+		if (value < min) {
+			min = value;
+		} else if (value > max) {
+			max = value;
+		}
 		n++;
 	}
-	return Math.sign(sum) * absSum / n;
+	if ((min <= 0 && max <= 0) || (min >= 0 && max >= 0)) {
+		if (max > first && max > last && (min === first || min === last)) {
+			// local maximum
+			return max;
+		} else if (min < first && min < last && (max === first || max === last)) {
+			// local minimum
+			return min;
+		} else {
+			return sum / n;
+		}
+	} else if (sum < 0) {
+		return min;
+	} else {
+		return max;
+	}
 }
 
 function setSample(newSample) {
