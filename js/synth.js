@@ -811,7 +811,7 @@ class Sample {
 		let total = 0;
 		let numChannelsMatched = 0;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
-			const [frequency, correlation] = this.frequency(channelNumber);
+			const [frequency, correlation] = this.frequency(channelNumber, from ,to);
 			if (correlation >= 0.9) {
 				total += frequency;
 				numChannelsMatched++;
@@ -957,6 +957,7 @@ class Sample {
 		const goodEnoughCorrelation = 0.9;
 		const data = buffer.getChannelData(channelNumber);
 		const maxSamples = Math.trunc((to - from + 1) / 2);
+		const maxSample = from + maxSamples - 1;
 		const correlations = new Array(maxSamples);
 		let bestOffset;
 		let bestCorrelation = 0;
@@ -964,9 +965,8 @@ class Sample {
 		let foundGoodCorrelation = false;
 
 		for (let offset = minSamples; offset < maxSamples; offset++) {
-			const maxSample = from + maxSamples;
 			let correlation = 0;
-			for (let i = from; i < maxSample; i++) {
+			for (let i = from; i <= maxSample; i++) {
 				correlation += Math.abs(data[i] - data[i + offset]);
 			}
 

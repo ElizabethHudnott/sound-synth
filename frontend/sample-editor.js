@@ -157,7 +157,10 @@ function zoomOut() {
 		multiple = 1;
 	}
 	waveWidth = multiple * canvasWidth;
-	resizeWaveform();
+	container.style.width = waveWidth + 'px';
+	xScale = bufferLength / waveWidth;
+	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+	redrawWaveform();
 }
 
 function zoomShowAll() {
@@ -166,6 +169,8 @@ function zoomShowAll() {
 }
 
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
+document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
+document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
 
 document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {
@@ -187,9 +192,6 @@ document.getElementById('btn-ping-pong').addEventListener('click', function(even
 global.SampleEditor = {
 	getSample: getSample,
 	setSample: setSample,
-	zoomIn: zoomIn,
-	zoomOut: zoomOut,
-	zoomShowAll: zoomShowAll,
 };
 
 })(window);
