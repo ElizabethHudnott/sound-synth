@@ -1,8 +1,14 @@
+body {
+	background: black;
+	color: white;
+}
+
 #waveform-outer-container {
 	overflow-x: auto;
 }
 
 #waveform {
-	position: sticky;
+	background: MidnightBlue;
 	left: 0;
+	position: sticky;
 }

@@ -1,6 +1,6 @@
 (function (global) {
 'use strict';
-const waveColor = 'black';
+const waveColor = 'gold';
 const zoomMultiplier = 2;
 
 const canvas = document.getElementById('waveform');
