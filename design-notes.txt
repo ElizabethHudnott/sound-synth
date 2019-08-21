@@ -53,6 +53,7 @@ UI
 
 Synth
 -----
+Reverb
 UI Rewrite
 Choice of sample release action (fade or end loop)
 Choice of New Note Action

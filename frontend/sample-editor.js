@@ -10,7 +10,8 @@ let waveWidth = outerContainer.clientWidth;
 canvas.width = waveWidth;
 let waveOffset = 0;
 let bufferLength = 0;
-let sample, xScale;
+let instrument, sample;
+let sampleIndex = 0, xScale = 0;
 let selectionStart = 0, selectionEnd = 0;
 
 window.addEventListener('resize', function (event) {
@@ -122,13 +123,22 @@ function calculateY(data, pixelX) {
 	}
 }
 
+function editSample(newInstrument, newSampleIndex) {
+	instrument = newInstrument;
+	sampleIndex = newSampleIndex;
+	setSample(newInstrument.samples[newSampleIndex], true);
+}
+
 function setSample(newSample, resize) {
 	sample = newSample;
+	if (instrument !== undefined) {
+		instrument.samples[sampleIndex] = newSample;
+	}
 	if (sample === undefined) {
 		bufferLength = 0;
 	} else {
 		const newLength = sample.buffer.length;
-		if (resize !== false && bufferLength > 0) {
+		if (!resize && bufferLength > 0) {
 			const ratio = newLength / bufferLength;
 			waveWidth *= ratio;
 			if (waveWidth < canvas.width) {
@@ -138,10 +148,6 @@ function setSample(newSample, resize) {
 		bufferLength = newLength;
 	}
 	resizeWaveform();
-}
-
-function getSample() {
-	return sample;
 }
 
 function zoomIn() {
@@ -172,6 +178,22 @@ document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
 document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
 
+document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		const numberOfChannels = sample.buffer.numberOfChannels;
+		if (selectionStart === selectionEnd) {
+			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+				sample.polarityFlip(channelNumber);
+			}
+		} else {
+			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+				sample.polarityFlip(channelNumber, selectionStart, selectionEnd);
+			}
+		}
+		redrawWaveform();
+	}
+});
+
 document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {
 		if (selectionStart === selectionEnd) {
@@ -190,8 +212,7 @@ document.getElementById('btn-ping-pong').addEventListener('click', function(even
 });
 
 global.SampleEditor = {
-	getSample: getSample,
-	setSample: setSample,
+	editSample: editSample,
 };
 
 })(window);
@@ -200,5 +221,5 @@ const audioContext = new AudioContext();
 const instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
 .then(function (resource) {
-	SampleEditor.setSample(resource.data);
+	SampleEditor.editSample(instrument, 0);
 });
