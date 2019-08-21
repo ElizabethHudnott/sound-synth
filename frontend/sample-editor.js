@@ -1,12 +1,14 @@
 (function (global) {
 'use strict';
 const waveColor = 'black';
+const zoomMultiplier = 2;
 
 const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
 const container = document.getElementById('waveform-container');
 const outerContainer = document.getElementById('waveform-outer-container');
 let waveWidth = outerContainer.clientWidth;
+let zoomAmount = 1;
 canvas.width = waveWidth;
 let waveOffset = 0;
 let bufferLength = 0;
@@ -151,18 +153,17 @@ function setSample(newSample, resize) {
 }
 
 function zoomIn() {
-	const canvasWidth = canvas.width;
-	waveWidth = (Math.trunc(waveWidth / canvasWidth) + 1) * canvasWidth;
+	zoomAmount *= zoomMultiplier;
+	waveWidth = Math.round(canvas.width * zoomAmount);
 	resizeWaveform();
 }
 
 function zoomOut() {
-	const canvasWidth = canvas.width;
-	let multiple = Math.trunc(waveWidth / canvasWidth) - 1;
-	if (multiple < 1) {
-		multiple = 1;
+	zoomAmount /= zoomMultiplier;
+	if (zoomAmount < 1) {
+		zoomAmount = 1;
 	}
-	waveWidth = multiple * canvasWidth;
+	waveWidth = Math.round(canvas.width * zoomAmount);
 	container.style.width = waveWidth + 'px';
 	xScale = bufferLength / waveWidth;
 	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
@@ -170,6 +171,7 @@ function zoomOut() {
 }
 
 function zoomShowAll() {
+	zoomAmount = 1;
 	waveWidth = canvas.width;
 	resizeWaveform();
 }
@@ -177,6 +179,13 @@ function zoomShowAll() {
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
 document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
+
+document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		sample.removeOffset();
+		redrawWaveform();
+	}
+});
 
 document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {

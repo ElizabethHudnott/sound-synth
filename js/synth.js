@@ -1000,10 +1000,18 @@ class Sample {
 		return [buffer.sampleRate / bestOffset, bestCorrelation];
 	}
 
-	removeOffset() {
+	removeOffset(channel) {
 		const buffer = this.buffer;
 		const length = buffer.length;
-		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+		let fromChannel, toChannel;
+		if (channel === undefined) {
+			fromChannel = 0;
+			toChannel = buffer.numberOfChannels - 1;
+		} else {
+			fromChannel = channel;
+			toChannel = channel;
+		}
+		for (let channelNumber = fromChannel; channelNumber <= toChannel; channelNumber++) {
 			const data = buffer.getChannelData(channelNumber);
 			let offset = 0;
 			for (let i = 0; i < length; i++) {
