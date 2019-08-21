@@ -44,12 +44,14 @@ Metronome UI
 UI
 --
 Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
+Add touch driven piano (if the app's going to be used on mobile)
 
 Sampler
 -------
+crossFade() should use a sine curve
+amplify() should support *exponential* fades
 Time stretching
 Add custom offset/beat slice positions, stop at next slice
-UI
 
 Synth
 -----
