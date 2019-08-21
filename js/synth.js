@@ -867,7 +867,7 @@ class Sample {
 				newData[i] = before[loopEnd - (i - loopEnd)];
 			}
 			const after = oldData.subarray(loopEnd + 1);
-			newBuffer.copyToChannel(after, channelNumber, loopEnd + pongLength + 1);
+			newBuffer.copyToChannel(after, channelNumber, loopEnd + 1);
 		}
 
 		const newSample = new Sample(newBuffer);

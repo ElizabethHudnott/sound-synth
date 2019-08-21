@@ -11,6 +11,7 @@ canvas.width = waveWidth;
 let waveOffset = 0;
 let bufferLength = 0;
 let sample, xScale;
+let selectionStart = 0, selectionEnd = 0;
 
 window.addEventListener('resize', function (event) {
 	const elementWidth = outerContainer.clientWidth;
@@ -121,13 +122,13 @@ function calculateY(data, pixelX) {
 	}
 }
 
-function setSample(newSample) {
+function setSample(newSample, resize) {
 	sample = newSample;
 	if (sample === undefined) {
 		bufferLength = 0;
 	} else {
 		const newLength = sample.buffer.length;
-		if (bufferLength > 0) {
+		if (resize !== false && bufferLength > 0) {
 			const ratio = newLength / bufferLength;
 			waveWidth *= ratio;
 			if (waveWidth < canvas.width) {
@@ -137,6 +138,10 @@ function setSample(newSample) {
 		bufferLength = newLength;
 	}
 	resizeWaveform();
+}
+
+function getSample() {
+	return sample;
 }
 
 function zoomIn() {
@@ -160,7 +165,27 @@ function zoomShowAll() {
 	resizeWaveform();
 }
 
+document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
+
+document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			sample.reverse();
+		} else {
+			sample.reverse(selectionStart, selectionEnd);
+		}
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-ping-pong').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		setSample(sample.pingPong(), false);
+	}
+});
+
 global.SampleEditor = {
+	getSample: getSample,
 	setSample: setSample,
 	zoomIn: zoomIn,
 	zoomOut: zoomOut,

@@ -11,6 +11,21 @@
 	</head>
 	<body>
 		<div class="container-fluid">
+			<div class="btn-toolbar" role="toolbar" aria-label="Sample editing toolbar">
+				<div class="btn-group mr-r" role="group" aria-label="Zoom">
+					<button id="btn-zoom-sample" type="button" class="btn btn-light" title="Zoom in">
+						<img src="../img/zoom-in.png">
+					</button>
+				</div>
+				<div class="btn-group mr-2" role="group">
+					<button id="btn-reverse-sample" type="button" class="btn btn-light" title="Reverse">
+						<img src="../img/reverse.png">
+					</button>
+					<button id="btn-ping-pong" type="button" class="btn btn-light" title="Ping pong loop">
+						<img src="../img/ping-pong.png">
+					</button>
+				</div>
+			</div>
 			<div id="waveform-outer-container">
 				<div id="waveform-container">
 					<!-- Waveform 0-100 (101 pixels) + 5 pixels extra top & bottom (111),
