@@ -20,6 +20,8 @@ let selectionStart = 0, selectionEnd = 0;
 
 const Drag = Synth.enumFromArray([
 	'NONE',
+	'LOOP_START',
+	'LOOP_END',
 	'RANGE',
 ]);
 
@@ -109,7 +111,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 
 function drawOverlay() {
 	overlayContext.clearRect(0, 0, overlay.width, overlay.height);
-	const maxOffset = waveOffset + canvas.width * xScale;
+	const maxOffset = Math.round(waveOffset + canvas.width * xScale);
 	const height = overlay.height;
 
 	const loopStart = sample.loopStart;
@@ -197,7 +199,7 @@ function calculateY(data, pixelX) {
 }
 
 function calculateOffset(pixelX) {
-	return waveOffset + pixelX * xScale;
+	return Math.round(waveOffset + pixelX * xScale);
 }
 
 function calculateX(offset) {
@@ -256,29 +258,76 @@ function zoomShowAll() {
 }
 
 overlay.addEventListener('mousedown', function (event) {
+	if (sample === undefined) {
+		return;
+	}
+
 	const x = event.offsetX;
 	if (event.offsetY >= 16) {
 		selectionStart = calculateOffset(x);
 		selectionEnd = selectionStart;
 		drawOverlay();
 		dragging = Drag.RANGE;
+		return;
+	}
+
+	const maxOffset = Math.round(waveOffset + canvas.width * xScale);
+	const loopStart = sample.loopStart;
+	let distanceToNearest = Number.MAX_VALUE;
+	if (loopStart >= waveOffset && loopStart < maxOffset) {
+		const loopStartX = calculateX(loopStart);
+		const distance = Math.abs(x - loopStartX);
+		if (distance <= 8) {
+			dragging = Drag.LOOP_START;
+			distanceToNearest = distance;
+		}
+	}
+	const loopEnd = Math.min(sample.loopEnd, sample.buffer.length - 1);
+	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
+		const loopEndX = calculateX(loopEnd);
+		const distance = Math.abs(x - loopEndX);
+		if (distance <= 8 && distance < distanceToNearest) {
+			dragging = Drag.LOOP_END;
+			distanceToNearest = distance;
+		}
 	}
 });
 
 overlay.addEventListener('mousemove', function (event) {
 	const x = event.offsetX;
-	if (dragging === Drag.RANGE) {
+	switch (dragging) {
+	case Drag.RANGE:
 		const redrawOverlay = selectionStart === selectionEnd;
 		selectionEnd = calculateOffset(x);
 		if (redrawOverlay) {
 			drawOverlay();
 		}
+		break;
+
+	case Drag.LOOP_START:
+		const loopStart = calculateOffset(x);
+		if (loopStart < sample.loopEnd) {
+			sample.loopStart = loopStart;
+			drawOverlay();
+		}
+		break;
+
+	case Drag.LOOP_END:
+		const loopEnd = calculateOffset(x);
+		if (loopEnd > sample.loopStart) {
+			sample.loopEnd = loopEnd;
+			drawOverlay();
+		}
+		break;
 	}
 });
 
-overlay.addEventListener('mouseup', function (event) {
+function stopDragging(event) {
 	dragging = Drag.NONE;
-});
+}
+
+overlay.addEventListener('mouseup', stopDragging);
+overlay.addEventListener('mouseleave', stopDragging);
 
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
