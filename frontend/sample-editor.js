@@ -52,10 +52,10 @@ function resizeWaveform() {
 function redrawWaveform() {
 	const endX = canvas.width - 1;
 	if (sample.buffer.numberOfChannels === 1) {
-		drawWave(0, endX, 113, 100, 105, 0);
+		drawWave(0, endX, 130, 130, 130, 0);
 	} else {
-		drawWave(0, endX, 55, 50, 55, 0);
-		drawWave(0, endX, 170, 50, 55, 1);
+		drawWave(0, endX, 62, 62, 62, 0);
+		drawWave(0, endX, 197, 62, 62, 1);
 	}
 }
 
