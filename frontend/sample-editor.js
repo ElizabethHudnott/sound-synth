@@ -1,6 +1,10 @@
+const audioContext = new AudioContext();
+
 (function (global) {
 'use strict';
 const waveColor = 'gold';
+const selectionBackground = 'hsl(45, 100%, 42%)';
+const selectedWaveColor = '#222222';
 const zoomMultiplier = 2;
 const HEADER_HEIGHT = 24;
 
@@ -60,13 +64,16 @@ function resizeWaveform() {
 	}
 }
 
-function redrawWaveform() {
-	const endX = canvas.width - 1;
+function redrawWaveform(startX, endX) {
+	if (startX === undefined) {
+		startX = 0;
+		endX = canvas.width - 1;
+	}
 	if (sample.buffer.numberOfChannels === 1) {
-		drawWave(0, endX, 130, 130, 130, 0);
+		drawWave(startX, endX, 130, 130, 130, 0);
 	} else {
-		drawWave(0, endX, 62, 62, 62, 0);
-		drawWave(0, endX, 197, 62, 62, 1);
+		drawWave(startX, endX, 62, 62, 62, 0);
+		drawWave(startX, endX, 197, 62, 62, 1);
 	}
 	drawOverlay();
 }
@@ -75,10 +82,11 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	const data = sample.buffer.getChannelData(channelNumber);
 	const width = endX - startX + 1;
 	const height = 2 * halfHeight + 1;
-	context2d.clearRect(startX, centre - halfHeight, width, height);
+	const top = centre - halfHeight;
+	context2d.clearRect(startX, top, width, height);
 	context2d.save();
 	context2d.beginPath();
-	context2d.rect(startX, centre - halfHeight, width, height);
+	context2d.rect(startX, top, width, height);
 	context2d.clip();
 
 	//Draw guide lines
@@ -91,6 +99,14 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.strokeStyle = 'DarkSlateBlue';
 	context2d.stroke();
 
+	const range = getRange()
+	const selectionStartX = calculateX(range[0]);
+	const selectionEndX = calculateX(range[1]);
+	if (selectionStart !== selectionEnd) {
+		context2d.fillStyle = selectionBackground;
+		context2d.fillRect(selectionStartX, top, selectionEndX - selectionStartX, height);
+	}
+
 	// Draw waveform
 	context2d.beginPath();
 	context2d.lineWidth = 1;
@@ -100,13 +116,43 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	if (xScale < 1) {
 		incX = Math.trunc(1 / xScale);
 	}
-	for (let x = startX; x <= endX; x += incX) {
-		const audioY = calculateY(data, x);
-		const pixelY = centre - Math.round(audioY * yScale);
-		context2d.lineTo(x, pixelY);
+	let x = startX;
+
+	if (x < selectionStartX) {
+		while (x <= endX && x < selectionStartX) {
+			const audioY = calculateY(data, x);
+			const pixelY = centre - Math.round(audioY * yScale);
+			context2d.lineTo(x, pixelY);
+			x += incX;
+		}
+		context2d.strokeStyle = waveColor;
+		context2d.stroke();
 	}
-	context2d.strokeStyle = waveColor;
-	context2d.stroke();
+
+	if (x <= endX && x < selectionEndX) {
+		context2d.beginPath();
+		while (x <= endX && x <= selectionEndX) {
+			const audioY = calculateY(data, x);
+			const pixelY = centre - Math.round(audioY * yScale);
+			context2d.lineTo(x, pixelY);
+			x += incX;
+		}
+		context2d.strokeStyle = selectedWaveColor;
+		context2d.stroke();
+	}
+
+	if (x <= endX) {
+		context2d.beginPath();
+		while (x <= endX) {
+			const audioY = calculateY(data, x);
+			const pixelY = centre - Math.round(audioY * yScale);
+			context2d.lineTo(x, pixelY);
+			x += incX;
+		}
+		context2d.strokeStyle = waveColor;
+		context2d.stroke();
+	}
+
 	context2d.restore();
 }
 
@@ -207,6 +253,14 @@ function calculateX(offset) {
 	return Math.round((offset - waveOffset) / xScale);
 }
 
+function getRange() {
+	if (selectionStart <= selectionEnd) {
+		return [selectionStart, selectionEnd];
+	} else {
+		return [selectionEnd, selectionStart];
+	}
+}
+
 function editSample(newInstrument, newSampleIndex) {
 	instrument = newInstrument;
 	sampleIndex = newSampleIndex;
@@ -265,8 +319,12 @@ overlay.addEventListener('mousedown', function (event) {
 
 	const x = event.offsetX;
 	if (event.offsetY >= HEADER_HEIGHT) {
+		const needDrawWave = selectionStart !== selectionEnd;
 		selectionStart = calculateOffset(x);
 		selectionEnd = selectionStart;
+		if (needDrawWave) {
+			redrawWaveform();
+		}
 		drawOverlay();
 		dragging = Drag.RANGE;
 		return;
@@ -298,11 +356,13 @@ overlay.addEventListener('mousemove', function (event) {
 	const x = event.offsetX;
 	switch (dragging) {
 	case Drag.RANGE:
-		const redrawOverlay = selectionStart === selectionEnd;
-		selectionEnd = calculateOffset(x);
-		if (redrawOverlay) {
+		const needDrawOverlay = selectionStart === selectionEnd;
+		const offsetX = calculateOffset(x);
+		selectionEnd = offsetX;
+		if (needDrawOverlay) {
 			drawOverlay();
 		}
+		redrawWaveform();
 		break;
 
 	case Drag.LOOP_START:
@@ -352,8 +412,9 @@ document.getElementById('btn-flip-sample').addEventListener('click', function(ev
 				sample.polarityFlip(channelNumber);
 			}
 		} else {
+			const range = getRange();
 			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
-				sample.polarityFlip(channelNumber, selectionStart, selectionEnd);
+				sample.polarityFlip(channelNumber, range[0], range[1]);
 			}
 		}
 		redrawWaveform();
@@ -365,7 +426,8 @@ document.getElementById('btn-reverse-sample').addEventListener('click', function
 		if (selectionStart === selectionEnd) {
 			sample.reverse();
 		} else {
-			sample.reverse(selectionStart, selectionEnd);
+			const range = getRange();
+			sample.reverse(range[0], range[1]);
 		}
 		redrawWaveform();
 	}
@@ -383,7 +445,6 @@ global.SampleEditor = {
 
 })(window);
 
-const audioContext = new AudioContext();
 const instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
 .then(function (resource) {
