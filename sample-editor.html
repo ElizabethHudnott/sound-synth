@@ -40,12 +40,16 @@
 					</button>
 				</div>
 			</div>
-			<div id="waveform-outer-container">
+			<div id="waveform-outer-container" class="my-1">
 				<div id="waveform-container">
 					<!-- Waveform 0-100 (101 pixels) + 5 pixels extra top & bottom (111),
 						2 channels (222) + 4 pixel gap
 					-->
-					<canvas id="waveform" height="226"></canvas>
+					<div id="waveform-inner-container">
+						<canvas id="waveform" height="226"></canvas>
+						<!-- 16px header -->
+						<canvas id="waveform-overlay" height="242"></canvas>
+					</div>
 				</div>
 			</div>
 		</div>

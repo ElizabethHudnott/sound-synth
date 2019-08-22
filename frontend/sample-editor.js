@@ -5,25 +5,30 @@ const zoomMultiplier = 2;
 
 const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
+const overlay = document.getElementById('waveform-overlay');
+const overlayContext = overlay.getContext('2d');
 const container = document.getElementById('waveform-container');
 const outerContainer = document.getElementById('waveform-outer-container');
-let waveWidth = outerContainer.clientWidth;
+let waveWidth = 0;
 let zoomAmount = 1;
-canvas.width = waveWidth;
 let waveOffset = 0;
 let bufferLength = 0;
 let instrument, sample;
 let sampleIndex = 0, xScale = 0;
 let selectionStart = 0, selectionEnd = 0;
 
-window.addEventListener('resize', function (event) {
+window.addEventListener('load', fitWidth);
+window.addEventListener('resize', fitWidth);
+
+function fitWidth(event) {
 	const elementWidth = outerContainer.clientWidth;
 	canvas.width = elementWidth;
+	overlay.width = elementWidth;
 	if (waveWidth < elementWidth) {
 		waveWidth = elementWidth;
 	}
 	resizeWaveform();
-});
+}
 
 outerContainer.addEventListener('scroll', function (event) {
 	waveOffset = this.scrollLeft / waveWidth * bufferLength;
@@ -63,7 +68,21 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.beginPath();
 	context2d.rect(startX, centre - halfHeight, width, height);
 	context2d.clip();
+
+	//Draw guide lines
 	context2d.beginPath();
+	context2d.lineWidth = 3;
+	context2d.lineCap = 'round';
+	context2d.setLineDash([1, 6]);
+	context2d.moveTo(startX, centre);
+	context2d.lineTo(endX, centre);
+	context2d.strokeStyle = 'DarkSlateBlue';
+	context2d.stroke();
+
+	// Draw waveform
+	context2d.beginPath();
+	context2d.lineWidth = 1;
+	context2d.setLineDash([]);
 	context2d.moveTo(0, centre);
 	let incX = 1;
 	if (xScale < 1) {
@@ -77,6 +96,11 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.strokeStyle = waveColor;
 	context2d.stroke();
 	context2d.restore();
+}
+
+function drawOverlay() {
+
+	// draw line color #ffffdd;
 }
 
 function calculateY(data, pixelX) {
@@ -123,6 +147,10 @@ function calculateY(data, pixelX) {
 	} else {
 		return max;
 	}
+}
+
+function calculateOffset(pixelX) {
+	return waveOffset + pixelX * xScale;
 }
 
 function editSample(newInstrument, newSampleIndex) {
@@ -175,6 +203,15 @@ function zoomShowAll() {
 	waveWidth = canvas.width;
 	resizeWaveform();
 }
+
+overlay.addEventListener('click', function (event) {
+	const x = event.offsetX;
+	if (event.offsetY >= 16) {
+		selectionStart = calculateOffset(x);
+		selectionEnd = selectionStart;
+		drawOverlay();
+	}
+});
 
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);

@@ -7,8 +7,20 @@ body {
 	overflow-x: auto;
 }
 
+#waveform-container {
+	height: 242px;
+}
+
+#waveform-inner-container {
+	position: fixed;
+}
+
 #waveform {
 	background: MidnightBlue;
-	left: 0;
-	position: sticky;
+	top: 16px;
+	position: absolute;
+}
+
+#waveform-overlay {
+	position: absolute;
 }
