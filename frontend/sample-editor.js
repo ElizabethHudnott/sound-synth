@@ -7,6 +7,7 @@ const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
 const overlay = document.getElementById('waveform-overlay');
 const overlayContext = overlay.getContext('2d');
+overlayContext.lineWidth = 2;
 const container = document.getElementById('waveform-container');
 const outerContainer = document.getElementById('waveform-outer-container');
 let waveWidth = 0;
@@ -16,6 +17,13 @@ let bufferLength = 0;
 let instrument, sample;
 let sampleIndex = 0, xScale = 0;
 let selectionStart = 0, selectionEnd = 0;
+
+const Drag = Synth.enumFromArray([
+	'NONE',
+	'RANGE',
+]);
+
+let dragging = Drag.NONE;
 
 window.addEventListener('load', fitWidth);
 window.addEventListener('resize', fitWidth);
@@ -57,6 +65,7 @@ function redrawWaveform() {
 		drawWave(0, endX, 62, 62, 62, 0);
 		drawWave(0, endX, 197, 62, 62, 1);
 	}
+	drawOverlay();
 }
 
 function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
@@ -99,8 +108,46 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 }
 
 function drawOverlay() {
+	overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+	const maxOffset = waveOffset + canvas.width * xScale;
+	const height = overlay.height;
 
-	// draw line color #ffffdd;
+	const loopStart = sample.loopStart;
+	if (loopStart >= waveOffset && loopStart < maxOffset) {
+		const loopStartX = calculateX(loopStart);
+		overlayContext.beginPath();
+		overlayContext.moveTo(loopStartX, height);
+		overlayContext.lineTo(loopStartX, 0);
+		overlayContext.lineTo(loopStartX + 8, 8);
+		overlayContext.lineTo(loopStartX, 16);
+		overlayContext.strokeStyle = 'LimeGreen';
+		overlayContext.fillStyle = 'LimeGreen';
+		overlayContext.stroke();
+		overlayContext.fill();
+	}
+
+	const loopEnd = Math.min(sample.loopEnd, sample.buffer.length - 1);
+	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
+		const loopEndX = calculateX(loopEnd);
+		overlayContext.beginPath();
+		overlayContext.moveTo(loopEndX, height);
+		overlayContext.lineTo(loopEndX, 0);
+		overlayContext.lineTo(loopEndX - 8, 8);
+		overlayContext.lineTo(loopEndX, 16);
+		overlayContext.strokeStyle = 'LimeGreen';
+		overlayContext.fillStyle = 'LimeGreen';
+		overlayContext.stroke();
+		overlayContext.fill();
+	}
+
+	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
+		overlayContext.beginPath();
+		const selectionX = calculateX(selectionStart);
+		overlayContext.moveTo(selectionX, 16);
+		overlayContext.lineTo(selectionX, height);
+		overlayContext.strokeStyle = '#ffffdd';
+		overlayContext.stroke();
+	}
 }
 
 function calculateY(data, pixelX) {
@@ -151,6 +198,10 @@ function calculateY(data, pixelX) {
 
 function calculateOffset(pixelX) {
 	return waveOffset + pixelX * xScale;
+}
+
+function calculateX(offset) {
+	return Math.round((offset - waveOffset) / xScale);
 }
 
 function editSample(newInstrument, newSampleIndex) {
@@ -204,13 +255,29 @@ function zoomShowAll() {
 	resizeWaveform();
 }
 
-overlay.addEventListener('click', function (event) {
+overlay.addEventListener('mousedown', function (event) {
 	const x = event.offsetX;
 	if (event.offsetY >= 16) {
 		selectionStart = calculateOffset(x);
 		selectionEnd = selectionStart;
 		drawOverlay();
+		dragging = Drag.RANGE;
 	}
+});
+
+overlay.addEventListener('mousemove', function (event) {
+	const x = event.offsetX;
+	if (dragging === Drag.RANGE) {
+		const redrawOverlay = selectionStart === selectionEnd;
+		selectionEnd = calculateOffset(x);
+		if (redrawOverlay) {
+			drawOverlay();
+		}
+	}
+});
+
+overlay.addEventListener('mouseup', function (event) {
+	dragging = Drag.NONE;
 });
 
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
