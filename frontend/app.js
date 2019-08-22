@@ -195,10 +195,7 @@ function processInput(event) {
 
 	const changes = event.changes;
 	const noteChange = changes.get(Synth.Param.NOTES);
-	const gateChange = changes.get(Synth.Param.GATE);
-	if (noteChange !== undefined &&
-		(gateChange === undefined || (gateChange.value & Synth.Gate.OPEN) !== 0)
-	) {
+	if (noteChange !== undefined) {
 		const note = noteChange.value[0];
 		document.getElementById('note').value = note;
 		document.getElementById('frequency').value = channels[0].noteFrequencies[note];

@@ -156,7 +156,7 @@ class Input extends EventTarget {
 					if (this.arpeggio[inputChannel]) {
 						synthChannel = fromChannel;
 						let noteIndex = numNotes;
-						while (noteIndex > 0 && notes[noteIndex - 1] < note) {
+						while (noteIndex > 0 && notes[noteIndex - 1] > note) {
 							noteIndex--;
 						}
 						if (noteIndex === 0 || note !== notes[noteIndex - 1]) {

@@ -3680,9 +3680,9 @@ class Channel {
 		} // end loop over each parameter
 
 		const notes = parameters[Parameter.NOTES];
+		const numNotes = notes.length;
 		const noteChangeType = this.noteChangeType;
 		const frequencies = this.frequencies;
-		const numNotes = frequencies.length;
 		const chordTicks = parameters[Parameter.CHORD_SPEED];
 		let arpGlideTime = parameters[Parameter.GLIDE] * chordTicks * tickTime;
 		let noteIndex;
