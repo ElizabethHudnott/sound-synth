@@ -2,6 +2,7 @@
 'use strict';
 const waveColor = 'gold';
 const zoomMultiplier = 2;
+const HEADER_HEIGHT = 24;
 
 const canvas = document.getElementById('waveform');
 const context2d = canvas.getContext('2d');
@@ -119,9 +120,9 @@ function drawOverlay() {
 		const loopStartX = calculateX(loopStart);
 		overlayContext.beginPath();
 		overlayContext.moveTo(loopStartX, height);
-		overlayContext.lineTo(loopStartX, 0);
-		overlayContext.lineTo(loopStartX + 8, 8);
-		overlayContext.lineTo(loopStartX, 16);
+		overlayContext.lineTo(loopStartX, 8);
+		overlayContext.lineTo(loopStartX + 8, 16);
+		overlayContext.lineTo(loopStartX, HEADER_HEIGHT);
 		overlayContext.strokeStyle = 'LimeGreen';
 		overlayContext.fillStyle = 'LimeGreen';
 		overlayContext.stroke();
@@ -133,9 +134,9 @@ function drawOverlay() {
 		const loopEndX = calculateX(loopEnd);
 		overlayContext.beginPath();
 		overlayContext.moveTo(loopEndX, height);
-		overlayContext.lineTo(loopEndX, 0);
-		overlayContext.lineTo(loopEndX - 8, 8);
-		overlayContext.lineTo(loopEndX, 16);
+		overlayContext.lineTo(loopEndX, 8);
+		overlayContext.lineTo(loopEndX - 8, 16);
+		overlayContext.lineTo(loopEndX, HEADER_HEIGHT);
 		overlayContext.strokeStyle = 'LimeGreen';
 		overlayContext.fillStyle = 'LimeGreen';
 		overlayContext.stroke();
@@ -145,7 +146,7 @@ function drawOverlay() {
 	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
 		overlayContext.beginPath();
 		const selectionX = calculateX(selectionStart);
-		overlayContext.moveTo(selectionX, 16);
+		overlayContext.moveTo(selectionX, HEADER_HEIGHT);
 		overlayContext.lineTo(selectionX, height);
 		overlayContext.strokeStyle = '#ffffdd';
 		overlayContext.stroke();
@@ -263,7 +264,7 @@ overlay.addEventListener('mousedown', function (event) {
 	}
 
 	const x = event.offsetX;
-	if (event.offsetY >= 16) {
+	if (event.offsetY >= HEADER_HEIGHT) {
 		selectionStart = calculateOffset(x);
 		selectionEnd = selectionStart;
 		drawOverlay();
@@ -277,7 +278,7 @@ overlay.addEventListener('mousedown', function (event) {
 	if (loopStart >= waveOffset && loopStart < maxOffset) {
 		const loopStartX = calculateX(loopStart);
 		const distance = Math.abs(x - loopStartX);
-		if (distance <= 8) {
+		if (distance <= 10) {
 			dragging = Drag.LOOP_START;
 			distanceToNearest = distance;
 		}
@@ -286,7 +287,7 @@ overlay.addEventListener('mousedown', function (event) {
 	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
 		const loopEndX = calculateX(loopEnd);
 		const distance = Math.abs(x - loopEndX);
-		if (distance <= 8 && distance < distanceToNearest) {
+		if (distance <= 10 && distance < distanceToNearest) {
 			dragging = Drag.LOOP_END;
 			distanceToNearest = distance;
 		}
@@ -322,12 +323,15 @@ overlay.addEventListener('mousemove', function (event) {
 	}
 });
 
-function stopDragging(event) {
+overlay.addEventListener('mouseup', function (event) {
 	dragging = Drag.NONE;
-}
+});
 
-overlay.addEventListener('mouseup', stopDragging);
-overlay.addEventListener('mouseleave', stopDragging);
+overlay.addEventListener('mouseenter', function (event) {
+	if (event.buttons !== 1 || event.offsetY >= HEADER_HEIGHT) {
+		dragging = Drag.NONE;
+	}
+});
 
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);

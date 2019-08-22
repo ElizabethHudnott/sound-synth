@@ -8,7 +8,7 @@ body {
 }
 
 #waveform-container {
-	height: 277px;
+	height: 285px;
 }
 
 #waveform-inner-container {
@@ -17,7 +17,7 @@ body {
 
 #waveform {
 	background: MidnightBlue;
-	top: 16px;
+	top: 24px;
 	position: absolute;
 }
 
