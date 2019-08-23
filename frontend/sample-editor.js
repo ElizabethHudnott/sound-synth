@@ -280,10 +280,11 @@ function setSample(newSample, resize) {
 		const newLength = sample.buffer.length;
 		if (!resize && bufferLength > 0) {
 			const ratio = newLength / bufferLength;
-			waveWidth *= ratio;
+			waveWidth = Math.round(waveWidth * ratio);
 			if (waveWidth < canvas.width) {
 				waveWidth = canvas.width;
 			}
+			zoomAmount = waveWidth / canvas.width;
 		}
 		bufferLength = newLength;
 	}
@@ -300,18 +301,18 @@ function zoomIn() {
 	const range = getRange();
 	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
 		// centre the cursor
-		waveOffset = Math.trunc(selectionStart - viewWidth / 2);
+		waveOffset = selectionStart - viewWidth / 2;
 	} else if (range[0] >= waveOffset && range[0] < maxOffset) {
 		if (range[1] < maxOffset) {
 			// centre the selection
 			const zoomTo = (range[0] + range[1]) / 2;
-			waveOffset = Math.trunc(zoomTo - viewWidth / 2);
+			waveOffset = zoomTo - viewWidth / 2;
 		} else {
-			waveOffset += Math.trunc((maxOffset - waveOffset) / zoomMultiplier);
+			waveOffset += (maxOffset - waveOffset) / zoomMultiplier;
 		}
 	} else if (!(range[1] >= waveOffset && range[1] < maxOffset)) {
 		// zoom and preserve the centre point
-		waveOffset += Math.trunc(viewWidth / 2);
+		waveOffset += viewWidth / 2;
 	}
 	if (waveOffset < 0) {
 		waveOffset = 0;
@@ -328,6 +329,17 @@ function zoomOut() {
 	waveWidth = Math.round(canvas.width * zoomAmount);
 	container.style.width = waveWidth + 'px';
 	xScale = bufferLength / waveWidth;
+	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+	redrawWaveform();
+}
+
+function zoomRange(from, to) {
+	const viewWidth = to - from + 1;
+	xScale = viewWidth / canvas.width;
+	waveWidth = Math.round(bufferLength / xScale);
+	container.style.width = waveWidth + 'px';
+	zoomAmount = waveWidth / canvas.width;
+	waveOffset = from;
 	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
 	redrawWaveform();
 }
@@ -382,12 +394,8 @@ overlay.addEventListener('mousemove', function (event) {
 	const x = event.offsetX;
 	switch (dragging) {
 	case Drag.RANGE:
-		const needDrawOverlay = selectionStart === selectionEnd;
 		const offsetX = calculateOffset(x);
 		selectionEnd = offsetX;
-		if (needDrawOverlay) {
-			drawOverlay();
-		}
 		redrawWaveform();
 		break;
 
@@ -419,9 +427,85 @@ overlay.addEventListener('mouseenter', function (event) {
 	}
 });
 
+document.getElementById('sample-editor').addEventListener('keydown', function (event) {
+	const incrementSize = Math.ceil(xScale * (event.repeat ? 6 : 1));
+	const ctrl = event.ctrlKey ^ event.metaKey;
+
+	switch (event.key) {
+	case 'a':
+		if (ctrl) {
+			selectionStart = 0;
+			selectionEnd = bufferLength - 1;
+			zoomShowAll();
+		}
+		break;
+
+	case 'ArrowLeft':
+		if (selectionStart === selectionEnd && !event.shiftKey) {
+			selectionStart -= incrementSize;
+			if (selectionStart < 0) {
+				selectionStart = 0;
+			}
+			selectionEnd = selectionStart;
+			drawOverlay();
+		} else {
+			selectionEnd -= incrementSize;
+			if (selectionEnd < 0) {
+				selectionEnd = 0;
+			} else if (Math.abs(selectionEnd - selectionStart) < xScale) {
+				selectionEnd = selectionStart;
+			}
+			redrawWaveform();
+		}
+		break;
+
+	case 'ArrowRight':
+		if (selectionStart === selectionEnd && !event.shiftKey) {
+			selectionStart += incrementSize;
+			if (selectionStart >= bufferLength) {
+				selectionStart = bufferLength - 1;
+			}
+			selectionEnd = selectionStart;
+			drawOverlay();
+		} else {
+			selectionEnd += incrementSize;
+			if (selectionEnd >= bufferLength) {
+				selectionEnd = bufferLength - 1;
+			} else if (Math.abs(selectionEnd - selectionStart) < xScale) {
+				selectionEnd = selectionStart;
+			}
+			redrawWaveform();
+		}
+		break;
+
+	case '=':
+		if (event.altKey) {
+			zoomIn();
+		}
+		break;
+
+	case '-':
+		if (event.altKey) {
+			zoomOut();
+		}
+		break;
+
+	case '0':
+		if (event.altKey) {
+			zoomShowAll();
+		}
+		break;
+	}
+});
+
 document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
 document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
+document.getElementById('btn-zoom-sample-selection').addEventListener('click', function (event) {
+	if (selectionStart !== selectionEnd) {
+		zoomRange(selectionStart, selectionEnd);
+	}
+});
 
 document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {

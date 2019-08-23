@@ -24,3 +24,7 @@ body {
 #waveform-overlay {
 	position: absolute;
 }
+
+.no-focus-outline:focus {
+	outline: none;
+}
