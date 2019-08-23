@@ -50,8 +50,10 @@ Sampler
 -------
 crossFade() should use a sine curve
 amplify() should support *exponential* fades
+trim silence method
 Time stretching
 Add custom offset/beat slice positions, stop at next slice
+MOD2Sample (advanced)
 
 Synth
 -----

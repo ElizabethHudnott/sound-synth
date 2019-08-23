@@ -119,7 +119,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	let x = startX;
 
 	if (x < selectionStartX) {
-		while (x <= endX && x < selectionStartX) {
+		while (x <= endX && x <= selectionStartX) {
 			const audioY = calculateY(data, x);
 			const pixelY = centre - Math.round(audioY * yScale);
 			context2d.lineTo(x, pixelY);
@@ -130,6 +130,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	}
 
 	if (x <= endX && x < selectionEndX) {
+		x -= incX;
 		context2d.beginPath();
 		while (x <= endX && x <= selectionEndX) {
 			const audioY = calculateY(data, x);
@@ -139,10 +140,11 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		}
 		context2d.strokeStyle = selectedWaveColor;
 		context2d.stroke();
+		x -= incX
+		context2d.beginPath();
 	}
 
-	if (x <= endX) {
-		context2d.beginPath();
+	if (x < endX) {
 		while (x <= endX) {
 			const audioY = calculateY(data, x);
 			const pixelY = centre - Math.round(audioY * yScale);
@@ -158,7 +160,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 
 function drawOverlay() {
 	overlayContext.clearRect(0, 0, overlay.width, overlay.height);
-	const maxOffset = Math.round(waveOffset + canvas.width * xScale);
+	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
 	const height = overlay.height;
 
 	const loopStart = sample.loopStart;
@@ -175,7 +177,7 @@ function drawOverlay() {
 		overlayContext.fill();
 	}
 
-	const loopEnd = Math.min(sample.loopEnd, sample.buffer.length - 1);
+	const loopEnd = Math.min(sample.loopEnd, bufferLength - 1);
 	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
 		const loopEndX = calculateX(loopEnd);
 		overlayContext.beginPath();
@@ -289,9 +291,33 @@ function setSample(newSample, resize) {
 }
 
 function zoomIn() {
+	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
 	zoomAmount *= zoomMultiplier;
 	waveWidth = Math.round(canvas.width * zoomAmount);
-	resizeWaveform();
+	container.style.width = waveWidth + 'px';
+	xScale = bufferLength / waveWidth;
+	const viewWidth = canvas.width * xScale;
+	const range = getRange();
+	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
+		// centre the cursor
+		waveOffset = Math.trunc(selectionStart - viewWidth / 2);
+	} else if (range[0] >= waveOffset && range[0] < maxOffset) {
+		if (range[1] < maxOffset) {
+			// centre the selection
+			const zoomTo = (range[0] + range[1]) / 2;
+			waveOffset = Math.trunc(zoomTo - viewWidth / 2);
+		} else {
+			waveOffset += Math.trunc((maxOffset - waveOffset) / zoomMultiplier);
+		}
+	} else if (!(range[1] >= waveOffset && range[1] < maxOffset)) {
+		// zoom and preserve the centre point
+		waveOffset += Math.trunc(viewWidth / 2);
+	}
+	if (waveOffset < 0) {
+		waveOffset = 0;
+	}
+	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+	redrawWaveform();
 }
 
 function zoomOut() {
@@ -330,7 +356,7 @@ overlay.addEventListener('mousedown', function (event) {
 		return;
 	}
 
-	const maxOffset = Math.round(waveOffset + canvas.width * xScale);
+	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
 	const loopStart = sample.loopStart;
 	let distanceToNearest = Number.MAX_VALUE;
 	if (loopStart >= waveOffset && loopStart < maxOffset) {
@@ -341,7 +367,7 @@ overlay.addEventListener('mousedown', function (event) {
 			distanceToNearest = distance;
 		}
 	}
-	const loopEnd = Math.min(sample.loopEnd, sample.buffer.length - 1);
+	const loopEnd = Math.min(sample.loopEnd, bufferLength - 1);
 	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
 		const loopEndX = calculateX(loopEnd);
 		const distance = Math.abs(x - loopEndX);
