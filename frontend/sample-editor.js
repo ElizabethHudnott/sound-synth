@@ -498,7 +498,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 	}
 });
 
-document.getElementById('btn-zoom-sample').addEventListener('click', zoomIn);
+document.getElementById('btn-zoom-sample-in').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
 document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
 document.getElementById('btn-zoom-sample-selection').addEventListener('click', function (event) {
@@ -507,9 +507,33 @@ document.getElementById('btn-zoom-sample-selection').addEventListener('click', f
 	}
 });
 
-document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
+document.getElementById('btn-zero-crossing').addEventListener('click', function(event) {
+	if (selectionStart === selectionEnd) {
+		selectionStart = sample.findZero(selectionStart, 0);
+		selectionEnd = selectionStart;
+		drawOverlay();
+	} else {
+		selectionStart = sample.findZero(selectionStart, 0);
+		selectionEnd = sample.findZero(selectionEnd, 0);
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-remove-dc').addEventListener('click', function(event) {
 	if (sample !== undefined) {
 		sample.removeOffset();
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-normalize-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			sample.normalize();
+		} else {
+			const range = getRange();
+			sample.normalize(range[0], range[1]);
+		}
 		redrawWaveform();
 	}
 });
