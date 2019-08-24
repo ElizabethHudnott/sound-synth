@@ -1101,7 +1101,7 @@ class Sample {
 		});
 	}
 
-	findZero(position, channelNumber) {
+	findZero(position, channelNumber, direction) {
 		const length = this.buffer.length;
 		const data = this.buffer.getChannelData(channelNumber);
 		let afterPosition = position;
@@ -1137,7 +1137,7 @@ class Sample {
 				}
 			}
 		}
-		if (position <= 0) {
+		if (position <= 0 || direction === Direction.UP) {
 			return afterPosition;
 		}
 
@@ -1171,7 +1171,7 @@ class Sample {
 			}
 		}
 
-		if (position >= length - 1) {
+		if (position >= length - 1 || direction === Direction.DOWN) {
 			return beforePosition;
 		} else if (beforePosition === 0 || afterPosition === length - 1) {
 			if (Math.abs(beforeValue) < Math.abs(afterValue)) {

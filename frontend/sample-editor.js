@@ -22,6 +22,7 @@ let bufferLength = 0;
 let instrument, sample;
 let sampleIndex = 0, xScale = 0;
 let selectionStart = 0, selectionEnd = 0;
+let clipboard = Synth.Sample.EMPTY_SAMPLE;
 
 const Drag = Synth.enumFromArray([
 	'NONE',
@@ -117,37 +118,45 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		incX = Math.trunc(1 / xScale);
 	}
 	let x = startX;
+	let audioY, pixelY;
 
 	if (x < selectionStartX) {
-		while (x <= endX && x <= selectionStartX) {
-			const audioY = calculateY(data, x);
-			const pixelY = centre - Math.round(audioY * yScale);
+		x = selectionStartX - Math.ceil((selectionStartX - startX) * incX) / incX;
+		while (x <= endX && x < selectionStartX) {
+			audioY = calculateY(data, x);
+			pixelY = centre - Math.round(audioY * yScale);
 			context2d.lineTo(x, pixelY);
 			x += incX;
 		}
+		audioY = calculateY(data, selectionStartX);
+		pixelY = centre - Math.round(audioY * yScale);
+		context2d.lineTo(selectionStartX, pixelY);
 		context2d.strokeStyle = waveColor;
 		context2d.stroke();
 	}
 
 	if (x <= endX && x < selectionEndX) {
-		x -= incX;
+		x = selectionStartX;
 		context2d.beginPath();
-		while (x <= endX && x <= selectionEndX) {
-			const audioY = calculateY(data, x);
-			const pixelY = centre - Math.round(audioY * yScale);
+		while (x <= endX && x < selectionEndX) {
+			audioY = calculateY(data, x);
+			pixelY = centre - Math.round(audioY * yScale);
 			context2d.lineTo(x, pixelY);
 			x += incX;
 		}
+		audioY = calculateY(data, selectionEndX);
+		pixelY = centre - Math.round(audioY * yScale);
+		context2d.lineTo(selectionEndX, pixelY);
 		context2d.strokeStyle = selectedWaveColor;
 		context2d.stroke();
-		x -= incX
+		x = selectionEndX;
 		context2d.beginPath();
 	}
 
 	if (x < endX) {
 		while (x <= endX) {
-			const audioY = calculateY(data, x);
-			const pixelY = centre - Math.round(audioY * yScale);
+			audioY = calculateY(data, x);
+			pixelY = centre - Math.round(audioY * yScale);
 			context2d.lineTo(x, pixelY);
 			x += incX;
 		}
@@ -350,6 +359,108 @@ function zoomShowAll() {
 	resizeWaveform();
 }
 
+document.getElementById('btn-zoom-sample-in').addEventListener('click', zoomIn);
+document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
+document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
+document.getElementById('btn-zoom-sample-selection').addEventListener('click', function (event) {
+	if (selectionStart !== selectionEnd) {
+		zoomRange(selectionStart, selectionEnd);
+	}
+});
+
+
+document.getElementById('btn-cut-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		const range = getRange();
+		clipboard = sample.copy(range[0], range[1]);
+		setSample(sample.remove(range[0], range[1]), true);
+	}
+});
+
+document.getElementById('btn-copy-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			clipboard = sample.clone();
+		} else {
+			const range = getRange();
+			clipboard = sample.copy(range[0], range[1]);
+		}
+	}
+});
+
+document.getElementById('btn-zero-crossing').addEventListener('click', function(event) {
+	if (selectionStart === selectionEnd) {
+		selectionStart = sample.findZero(selectionStart, 0);
+		selectionEnd = selectionStart;
+		drawOverlay();
+	} else {
+		let newSelectionStart = sample.findZero(selectionStart, 0);
+		let newSelectionEnd = sample.findZero(selectionEnd, 0);
+		if (newSelectionStart === newSelectionEnd) {
+			const range = getRange();
+			newSelectionStart = sample.findZero(range[0], 0, Synth.Direction.DOWN);
+			newSelectionEnd = sample.findZero(range[1], 0, Synth.Direction.UP);
+		}
+		selectionStart = newSelectionStart;
+		selectionEnd = newSelectionEnd;
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-remove-dc').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		sample.removeOffset();
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-normalize-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			sample.normalize();
+		} else {
+			const range = getRange();
+			sample.normalize(range[0], range[1]);
+		}
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		const numberOfChannels = sample.buffer.numberOfChannels;
+		if (selectionStart === selectionEnd) {
+			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+				sample.polarityFlip(channelNumber);
+			}
+		} else {
+			const range = getRange();
+			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+				sample.polarityFlip(channelNumber, range[0], range[1]);
+			}
+		}
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			sample.reverse();
+		} else {
+			const range = getRange();
+			sample.reverse(range[0], range[1]);
+		}
+		redrawWaveform();
+	}
+});
+
+document.getElementById('btn-ping-pong').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		setSample(sample.pingPong(), false);
+	}
+});
+
 overlay.addEventListener('mousedown', function (event) {
 	if (sample === undefined) {
 		return;
@@ -495,81 +606,6 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 			zoomShowAll();
 		}
 		break;
-	}
-});
-
-document.getElementById('btn-zoom-sample-in').addEventListener('click', zoomIn);
-document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
-document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
-document.getElementById('btn-zoom-sample-selection').addEventListener('click', function (event) {
-	if (selectionStart !== selectionEnd) {
-		zoomRange(selectionStart, selectionEnd);
-	}
-});
-
-document.getElementById('btn-zero-crossing').addEventListener('click', function(event) {
-	if (selectionStart === selectionEnd) {
-		selectionStart = sample.findZero(selectionStart, 0);
-		selectionEnd = selectionStart;
-		drawOverlay();
-	} else {
-		selectionStart = sample.findZero(selectionStart, 0);
-		selectionEnd = sample.findZero(selectionEnd, 0);
-		redrawWaveform();
-	}
-});
-
-document.getElementById('btn-remove-dc').addEventListener('click', function(event) {
-	if (sample !== undefined) {
-		sample.removeOffset();
-		redrawWaveform();
-	}
-});
-
-document.getElementById('btn-normalize-sample').addEventListener('click', function(event) {
-	if (sample !== undefined) {
-		if (selectionStart === selectionEnd) {
-			sample.normalize();
-		} else {
-			const range = getRange();
-			sample.normalize(range[0], range[1]);
-		}
-		redrawWaveform();
-	}
-});
-
-document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
-	if (sample !== undefined) {
-		const numberOfChannels = sample.buffer.numberOfChannels;
-		if (selectionStart === selectionEnd) {
-			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
-				sample.polarityFlip(channelNumber);
-			}
-		} else {
-			const range = getRange();
-			for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
-				sample.polarityFlip(channelNumber, range[0], range[1]);
-			}
-		}
-		redrawWaveform();
-	}
-});
-
-document.getElementById('btn-reverse-sample').addEventListener('click', function(event) {
-	if (sample !== undefined) {
-		if (selectionStart === selectionEnd) {
-			sample.reverse();
-		} else {
-			const range = getRange();
-			sample.reverse(range[0], range[1]);
-		}
-		redrawWaveform();
-	}
-});
-
-document.getElementById('btn-ping-pong').addEventListener('click', function(event) {
-	if (sample !== undefined) {
-		setSample(sample.pingPong(), false);
 	}
 });
 
