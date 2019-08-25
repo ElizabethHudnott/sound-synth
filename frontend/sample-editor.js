@@ -343,7 +343,7 @@ function zoomOut() {
 }
 
 function zoomRange(from, to) {
-	const viewWidth = to - from + 1;
+	const viewWidth = Math.abs(to - from) + 1;
 	xScale = viewWidth / canvas.width;
 	waveWidth = Math.round(bufferLength / xScale);
 	container.style.width = waveWidth + 'px';
@@ -385,6 +385,19 @@ document.getElementById('btn-copy-sample').addEventListener('click', function(ev
 			const range = getRange();
 			clipboard = sample.copy(range[0], range[1]);
 		}
+	}
+});
+
+document.getElementById('btn-paste-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		const range = getRange();
+		if (selectionStart !== selectionEnd) {
+			sample = sample.remove(range[0], range[1]);
+		}
+		sample.insert(clipboard, range[0]).then(function (newSample) {
+			selectionEnd = selectionStart + clipboard.buffer.length - 1;
+			setSample(newSample, true);
+		});
 	}
 });
 
