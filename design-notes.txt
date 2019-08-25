@@ -48,6 +48,7 @@ Add touch driven piano (if the app's going to be used on mobile)
 
 Sampler
 -------
+mix() should loop a whole number of times, then release
 crossFade() should use a sine curve
 amplify() should support *exponential* fades
 trim silence method
@@ -57,6 +58,8 @@ MOD2Sample (advanced)
 
 Synth
 -----
+Change sample release to play in a new AudioBufferSourceNode instead of using setTimeout (also atm Gate.CLOSED doesn't schedule properly!)
+	Add option to finish the current loop or not.
 Reverb
 UI Rewrite
 Choice of sample release action (fade or end loop)

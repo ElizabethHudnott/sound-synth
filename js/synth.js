@@ -1315,7 +1315,7 @@ class Sample {
 			newSample.loopEnd = loopEnd;
 			newSample.sampledNote = me.sampledNote;
 			newSample.gain = me.gain;
-			return newSample;
+			return [newSample, insertLength];
 		});
 	}
 
@@ -1352,15 +1352,23 @@ class Sample {
 		return newSample;
 	}
 
-	mix(mixSample, position, loop) {
+	mix(mixSample, position, mixLength, loop) {
 		const me = this;
 		const oldBuffer = this.buffer;
 		const sampleRate = oldBuffer.sampleRate;
 		const playbackRate = noteFrequencies[this.sampledNote] / noteFrequencies[mixSample.sampledNote];
-		const mixLength = sampleRate * mixSample.buffer.duration / playbackRate;
+		const mixSampleLength = sampleRate * mixSample.buffer.duration / playbackRate;
+		let length, changedLength;
+		if (mixLength === undefined) {
+			length = Math.max(oldBuffer.length, position + mixSampleLength);
+			changedLength = mixSampleLength;
+		} else {
+			length = Math.max(oldBuffer.length, position + mixLength);
+			changedLength = mixLength;
+		}
 		const context = new OfflineAudioContext(
 			oldBuffer.numberOfChannels,
-			Math.max(oldBuffer.length, position + mixLength),
+			length,
 			sampleRate
 		);
 		const thisSource = context.createBufferSource();
@@ -1381,6 +1389,9 @@ class Sample {
 			mixSource.loopStart = mixSample.loopStart / mixSampleRate;
 			mixSource.loopEnd = (mixSample.loopEnd + 1) / mixSampleRate;
 		}
+		if (mixLength !== undefined) {
+			mixSource.stop((position + mixLength) / sampleRate);
+		}
 
 		return context.startRendering().then(function (newBuffer) {
 			const newSample = new Sample(newBuffer);
@@ -1388,7 +1399,7 @@ class Sample {
 			newSample.loopEnd = me.loopEnd;
 			newSample.sampledNote = me.sampledNote;
 			newSample.gain = me.gain;
-			return newSample;
+			return [newSample, changedLength];
 		});
 	}
 

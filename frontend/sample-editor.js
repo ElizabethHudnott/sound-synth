@@ -408,8 +408,8 @@ document.getElementById('btn-paste-sample').addEventListener('click', function(e
 		if (selectionStart !== selectionEnd) {
 			sample = sample.remove(range[0], range[1]);
 		}
-		sample.insert(clipboard, range[0]).then(function (newSample) {
-			setRange(range[0], range[1] + clipboard.buffer.length - 1);
+		sample.insert(clipboard, range[0]).then(function ([newSample, insertLength]) {
+			setRange(range[0], range[0] + insertLength - 1);
 			setSample(newSample, true);
 		});
 	}
@@ -417,7 +417,19 @@ document.getElementById('btn-paste-sample').addEventListener('click', function(e
 
 document.getElementById('btn-mix-sample').addEventListener('click', function(event) {
 	if (sample !== undefined && clipboard !== undefined) {
-
+		if (selectionStart === selectionEnd) {
+			sample.mix(clipboard, selectionStart, undefined, false).then(function ([newSample, changedLength]) {
+				setRange(selectionStart, selectionStart + changedLength - 1);
+				setSample(newSample, true);
+			});
+		} else {
+			const range = getRange();
+			const mixLength = range[1] - range[0] + 1;
+			sample.mix(clipboard, range[0], mixLength, true).then(function ([newSample, changedLength]) {
+				setRange(selectionStart, range[0] + changedLength - 1);
+				setSample(newSample, true);
+			});
+		}
 	}
 });
 
