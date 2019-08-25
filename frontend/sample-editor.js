@@ -387,6 +387,7 @@ document.getElementById('btn-cut-sample').addEventListener('click', function(eve
 	if (sample !== undefined) {
 		const range = getRange();
 		clipboard = sample.copy(range[0], range[1]);
+		selectionEnd = selectionStart;
 		setSample(sample.remove(range[0], range[1]), true);
 	}
 });
@@ -412,6 +413,19 @@ document.getElementById('btn-paste-sample').addEventListener('click', function(e
 			setRange(range[0], range[0] + insertLength - 1);
 			setSample(newSample, true);
 		});
+	}
+});
+
+document.getElementById('btn-swap-sample').addEventListener('click', function(event) {
+	if (sample !== undefined && clipboard !== undefined) {
+		const range = getRange();
+		const cutPart = sample.copy(range[0], range[1]);
+		sample = sample.remove(range[0], range[1]);
+		sample.insert(clipboard, range[0]).then(function ([newSample, insertLength]) {
+			setRange(range[0], range[0] + insertLength - 1);
+			setSample(newSample, true);
+		});
+		clipboard = cutPart;
 	}
 });
 
@@ -655,6 +669,18 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 			}
 			redrawWaveform();
 		}
+		break;
+
+	case 'Home':
+		waveOffset = 0;
+		outerContainer.scrollLeft = 0;
+		redrawWaveform();
+		break;
+
+	case 'End':
+		waveOffset = waveWidth - canvas.width * xScale;
+		outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+		redrawWaveform();
 		break;
 
 	case '=':
