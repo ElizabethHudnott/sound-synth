@@ -22,7 +22,7 @@ let bufferLength = 0;
 let instrument, sample;
 let sampleIndex = 0, xScale = 0;
 let selectionStart = 0, selectionEnd = 0;
-let clipboard = Synth.Sample.EMPTY_SAMPLE;
+let clipboard;
 
 const Drag = Synth.enumFromArray([
 	'NONE',
@@ -169,7 +169,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 
 function drawOverlay() {
 	overlayContext.clearRect(0, 0, overlay.width, overlay.height);
-	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
+	const maxOffset = getMaxOffset();
 	const height = overlay.height;
 
 	const loopStart = sample.loopStart;
@@ -272,6 +272,20 @@ function getRange() {
 	}
 }
 
+function setRange(min, max) {
+	if (selectionStart <= selectionEnd) {
+		selectionStart = min;
+		selectionEnd = max;
+	} else {
+		selectionStart = max;
+		selectionEnd = min;
+	}
+}
+
+function getMaxOffset() {
+	return Math.ceil(waveOffset + canvas.width * xScale);
+}
+
 function editSample(newInstrument, newSampleIndex) {
 	instrument = newInstrument;
 	sampleIndex = newSampleIndex;
@@ -301,7 +315,7 @@ function setSample(newSample, resize) {
 }
 
 function zoomIn() {
-	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
+	const maxOffset = getMaxOffset();
 	zoomAmount *= zoomMultiplier;
 	waveWidth = Math.round(canvas.width * zoomAmount);
 	container.style.width = waveWidth + 'px';
@@ -389,15 +403,21 @@ document.getElementById('btn-copy-sample').addEventListener('click', function(ev
 });
 
 document.getElementById('btn-paste-sample').addEventListener('click', function(event) {
-	if (sample !== undefined) {
+	if (sample !== undefined && clipboard !== undefined) {
 		const range = getRange();
 		if (selectionStart !== selectionEnd) {
 			sample = sample.remove(range[0], range[1]);
 		}
 		sample.insert(clipboard, range[0]).then(function (newSample) {
-			selectionEnd = selectionStart + clipboard.buffer.length - 1;
+			setRange(range[0], range[1] + clipboard.buffer.length - 1);
 			setSample(newSample, true);
 		});
+	}
+});
+
+document.getElementById('btn-mix-sample').addEventListener('click', function(event) {
+	if (sample !== undefined && clipboard !== undefined) {
+
 	}
 });
 
@@ -407,15 +427,14 @@ document.getElementById('btn-zero-crossing').addEventListener('click', function(
 		selectionEnd = selectionStart;
 		drawOverlay();
 	} else {
-		let newSelectionStart = sample.findZero(selectionStart, 0);
-		let newSelectionEnd = sample.findZero(selectionEnd, 0);
+		const range = getRange();
+		let newSelectionStart = sample.findZero(range[0], 0);
+		let newSelectionEnd = sample.findZero(range[1], 0);
 		if (newSelectionStart === newSelectionEnd) {
-			const range = getRange();
 			newSelectionStart = sample.findZero(range[0], 0, Synth.Direction.DOWN);
 			newSelectionEnd = sample.findZero(range[1], 0, Synth.Direction.UP);
 		}
-		selectionStart = newSelectionStart;
-		selectionEnd = newSelectionEnd;
+		setRange(newSelectionStart, newSelectionEnd);
 		redrawWaveform();
 	}
 });
@@ -437,6 +456,30 @@ document.getElementById('btn-normalize-sample').addEventListener('click', functi
 		}
 		redrawWaveform();
 	}
+});
+
+document.getElementById('btn-silence-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		if (selectionStart === selectionEnd) {
+			$('#insert-silence-modal').modal();
+		} else {
+
+		}
+	}
+});
+
+$('#insert-silence-modal').on('shown.bs.modal', function (event) {
+	document.getElementById('silence-length').focus();
+});
+
+// Insert button inside modal
+document.getElementById('btn-insert-silence').addEventListener('click', function(event) {
+	const time = parseFloat(document.getElementById('silence-length').value);
+	if (time > 0) {
+		const length = time * sample.buffer.sampleRate;
+		setSample(sample.insertSilence(length, selectionStart));
+	}
+	$('#insert-silence-modal').modal('hide');
 });
 
 document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
@@ -492,7 +535,7 @@ overlay.addEventListener('mousedown', function (event) {
 		return;
 	}
 
-	const maxOffset = Math.ceil(waveOffset + canvas.width * xScale);
+	const maxOffset = getMaxOffset();
 	const loopStart = sample.loopStart;
 	let distanceToNearest = Number.MAX_VALUE;
 	if (loopStart >= waveOffset && loopStart < maxOffset) {

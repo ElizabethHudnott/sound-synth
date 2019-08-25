@@ -48,7 +48,6 @@ Add touch driven piano (if the app's going to be used on mobile)
 
 Sampler
 -------
-selection not highlighting properly sometimes
 crossFade() should use a sine curve
 amplify() should support *exponential* fades
 trim silence method
@@ -84,6 +83,8 @@ Low Priority
 ------------
 Parse smpl and inst chunks of a WAV file.
 Parse more than one sample per IFF file + envelope chunks, etc.
+Make modals local to the component (Sampler, Synth...) (https://webkul.com/blog/how-to-display-a-bootstrap-modal-inside-a-div/)
+Insert silence modal: String should be fixed length, overtype entry, spinners increment current column
 
 ------
 LFO modulating decay, etc.
