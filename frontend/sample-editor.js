@@ -503,6 +503,7 @@ document.getElementById('btn-insert-silence').addEventListener('click', function
 	const time = parseFloat(document.getElementById('silence-length').value);
 	if (time > 0) {
 		const length = time * sample.buffer.sampleRate;
+		selectionEnd = selectionStart + length - 1;
 		setSample(sample.insertSilence(length, selectionStart));
 	}
 	$('#insert-silence-modal').modal('hide');
