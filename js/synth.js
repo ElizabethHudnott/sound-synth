@@ -1581,10 +1581,16 @@ class Sample {
 		return newSample;
 	}
 
-	bitcrush(numBits) {
+	bitcrush(numBits, from, to) {
 		const noiseShapingAmount = 0.8;
 		const oldBuffer = this.buffer;
 		const length = oldBuffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
 		const numberOfChannels = oldBuffer.numberOfChannels;
 		const newBuffer = new AudioBuffer({
 			length: length,
@@ -1598,8 +1604,12 @@ class Sample {
 		let error = 0;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			const oldData = oldBuffer.getChannelData(channelNumber);
+			if (from > 0) {
+				const before = oldData.subarray(0, from);
+				newBuffer.copyToChannel(before, channelNumber);
+			}
 			const newData = newBuffer.getChannelData(channelNumber);
-			for (let i = 0; i < length; i++) {
+			for (let i = from; i <= to; i++) {
 				// E.g. for 8 bit scale -1 <= oldData[i] <= 1 into the range 0 <= scaled <= 255
 				const scaled = (oldData[i] + 1) * scale;
 				const dither = 0.5 * Math.random() - 0.5 * Math.random();
@@ -1611,7 +1621,11 @@ class Sample {
 					intValue = maxValue;
 				}
 				error = intValue - scaled;
-				newData[i] =  (intValue - midValue) / midValue;
+				newData[i] =  (intValue - midValue + 0.5) / midValue;
+			}
+			if (to < length - 1) {
+				const after = oldData.subarray(to + 1, length);
+				newBuffer.copyToChannel(after, channelNumber, to + 1);
 			}
 		}
 		const newSample = new Sample(newBuffer);

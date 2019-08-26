@@ -387,6 +387,7 @@ document.getElementById('btn-cut-sample').addEventListener('click', function(eve
 	if (sample !== undefined) {
 		const range = getRange();
 		clipboard = sample.copy(range[0], range[1]);
+		selectionStart = range[0];
 		selectionEnd = selectionStart;
 		setSample(sample.remove(range[0], range[1]), true);
 	}
@@ -441,7 +442,7 @@ document.getElementById('btn-mix-sample').addEventListener('click', function(eve
 			const mixLength = range[1] - range[0] + 1;
 			sample.mix(clipboard, range[0], mixLength, true).then(function ([newSample, changedLength]) {
 				setRange(selectionStart, range[0] + changedLength - 1);
-				setSample(newSample, true);
+				setSample(newSample, false);
 			});
 		}
 	}
@@ -494,8 +495,18 @@ document.getElementById('btn-silence-sample').addEventListener('click', function
 	}
 });
 
+document.getElementById('btn-quantize-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		$('#quantize-modal').modal();
+	}
+});
+
 $('#insert-silence-modal').on('shown.bs.modal', function (event) {
 	document.getElementById('silence-length').focus();
+});
+
+$('#quantize-modal').on('shown.bs.modal', function (event) {
+	document.getElementById('quantize-bit-depth').focus();
 });
 
 // Insert button inside modal
@@ -504,9 +515,22 @@ document.getElementById('btn-insert-silence').addEventListener('click', function
 	if (time > 0) {
 		const length = time * sample.buffer.sampleRate;
 		selectionEnd = selectionStart + length - 1;
-		setSample(sample.insertSilence(length, selectionStart));
+		setSample(sample.insertSilence(length, selectionStart), true);
 	}
 	$('#insert-silence-modal').modal('hide');
+});
+
+document.getElementById('btn-quantize').addEventListener('click', function(event) {
+	const depth = parseInt(document.getElementById('quantize-bit-depth').value);
+	if (depth >= 1 && depth <= 31) {
+		if (selectionStart === selectionEnd) {
+			setSample(sample.bitcrush(depth), false);
+		} else {
+			const range = getRange();
+			setSample(sample.bitcrush(depth, range[0], range[1]), false);
+		}
+	}
+	$('#quantize-modal').modal('hide');
 });
 
 document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
@@ -540,11 +564,11 @@ document.getElementById('btn-reverse-sample').addEventListener('click', function
 
 document.getElementById('btn-ping-pong').addEventListener('click', function(event) {
 	if (sample !== undefined) {
-		setSample(sample.pingPong(), false);
+		setSample(sample.pingPong(), true);
 	}
 });
 
-overlay.addEventListener('mousedown', function (event) {
+overlay.addEventListener('pointerdown', function (event) {
 	if (sample === undefined) {
 		return;
 	}
@@ -584,39 +608,50 @@ overlay.addEventListener('mousedown', function (event) {
 	}
 });
 
-overlay.addEventListener('mousemove', function (event) {
+overlay.addEventListener('pointermove', function (event) {
 	const x = event.offsetX;
 	switch (dragging) {
-	case Drag.RANGE:
+	case Drag.RANGE: {
 		const offsetX = calculateOffset(x);
 		selectionEnd = offsetX;
 		redrawWaveform();
 		break;
+	}
 
-	case Drag.LOOP_START:
-		const loopStart = calculateOffset(x);
-		if (loopStart < sample.loopEnd) {
-			sample.loopStart = loopStart;
-			drawOverlay();
+	case Drag.LOOP_START: {
+		let loopStart = calculateOffset(x);
+		const loopEnd = Math.min(sample.loopEnd, bufferLength - 1);
+		if (loopStart < 0) {
+			loopStart = 0;
+		} else if (loopStart > loopEnd) {
+			loopStart = loopEnd;
 		}
+		sample.loopStart = loopStart;
+		drawOverlay();
 		break;
+	}
 
-	case Drag.LOOP_END:
-		const loopEnd = calculateOffset(x);
-		if (loopEnd > sample.loopStart) {
-			sample.loopEnd = loopEnd;
-			drawOverlay();
+	case Drag.LOOP_END: {
+		const loopStart = sample.loopStart;
+		let loopEnd = calculateOffset(x);
+		if (loopEnd < loopStart) {
+			loopEnd = loopStart;
+		} else if (loopEnd > bufferLength - 1) {
+			loopEnd = Number.MAX_VALUE;
 		}
+		sample.loopEnd = loopEnd;
+		drawOverlay();
 		break;
+	}
 	}
 });
 
-overlay.addEventListener('mouseup', function (event) {
+overlay.addEventListener('pointerup', function (event) {
 	dragging = Drag.NONE;
 });
 
 overlay.addEventListener('mouseenter', function (event) {
-	if (event.buttons !== 1 || event.offsetY >= HEADER_HEIGHT) {
+	if (event.buttons !== 1) {
 		dragging = Drag.NONE;
 	}
 });
@@ -682,6 +717,13 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 		waveOffset = waveWidth - canvas.width * xScale;
 		outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
 		redrawWaveform();
+		break;
+
+	case 'Delete':
+		const range = getRange();
+		selectionStart = range[0];
+		selectionEnd = selectionStart;
+		setSample(sample.remove(range[0], range[1]), true);
 		break;
 
 	case '=':
