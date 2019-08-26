@@ -136,7 +136,6 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	}
 
 	if (x <= endX && x < selectionEndX) {
-		x = selectionStartX;
 		context2d.beginPath();
 		while (x <= endX && x < selectionEndX) {
 			audioY = calculateY(data, x);
@@ -149,7 +148,6 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		context2d.lineTo(selectionEndX, pixelY);
 		context2d.strokeStyle = selectedWaveColor;
 		context2d.stroke();
-		x = selectionEndX;
 		context2d.beginPath();
 	}
 

@@ -1604,10 +1604,8 @@ class Sample {
 		let error = 0;
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			const oldData = oldBuffer.getChannelData(channelNumber);
-			if (from > 0) {
-				const before = oldData.subarray(0, from);
-				newBuffer.copyToChannel(before, channelNumber);
-			}
+			const before = oldData.subarray(0, from);
+			newBuffer.copyToChannel(before, channelNumber);
 			const newData = newBuffer.getChannelData(channelNumber);
 			for (let i = from; i <= to; i++) {
 				// E.g. for 8 bit scale -1 <= oldData[i] <= 1 into the range 0 <= scaled <= 255
@@ -1623,10 +1621,8 @@ class Sample {
 				error = intValue - scaled;
 				newData[i] =  (intValue - midValue + 0.5) / midValue;
 			}
-			if (to < length - 1) {
-				const after = oldData.subarray(to + 1, length);
-				newBuffer.copyToChannel(after, channelNumber, to + 1);
-			}
+			const after = oldData.subarray(to + 1);
+			newBuffer.copyToChannel(after, channelNumber, to + 1);
 		}
 		const newSample = new Sample(newBuffer);
 		newSample.loopStart = this.loopStart;
@@ -2254,7 +2250,7 @@ class SynthSystem {
 				let startOffset = 0;
 				for (let lineTime of beats) {
 					const clipLength = Math.round(lineTime * TIME_STEP * sampleRate);
-					const clip = data.subarray(0, clipLength + 1);
+					const clip = data.subarray(0, clipLength);
 					buffer.copyToChannel(clip, channelNumber, startOffset);
 					startOffset += clipLength;
 				}
