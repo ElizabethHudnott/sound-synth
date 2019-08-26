@@ -562,7 +562,19 @@ document.getElementById('btn-reverse-sample').addEventListener('click', function
 
 document.getElementById('btn-ping-pong').addEventListener('click', function(event) {
 	if (sample !== undefined) {
-		setSample(sample.pingPong(), true);
+		if (selectionStart === selectionEnd) {
+			setSample(sample.pingPong(), true);
+			zoomShowAll();
+		} else {
+			const range = getRange();
+			const endOffset = 2 * range[1] - range[0];
+			setRange(range[0], endOffset);
+			setSample(sample.pingPong(range[0], range[1]))
+			const maxOffset = getMaxOffset();
+			if (endOffset >= maxOffset) {
+				zoomRange(waveOffset, endOffset);
+			}
+		}
 	}
 });
 
@@ -652,6 +664,10 @@ overlay.addEventListener('mouseenter', function (event) {
 	if (event.buttons !== 1) {
 		dragging = Drag.NONE;
 	}
+});
+
+overlay.addEventListener('wheel', function (event) {
+	console.log(event.deltaX + ' ' + event.deltaY);
 });
 
 document.getElementById('sample-editor').addEventListener('keydown', function (event) {

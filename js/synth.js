@@ -842,16 +842,17 @@ class Sample {
 		}
 	}
 
-	pingPong() {
+	pingPong(from, to) {
 		const oldBuffer = this.buffer;
 		const oldLength = oldBuffer.length;
-		const numberOfChannels = oldBuffer.numberOfChannels;
-		const loopStart = this.loopStart;
-		let loopEnd = this.loopEnd;
-		if (loopEnd >= oldLength) {
-			loopEnd = oldLength - 1;
+		if (to === undefined) {
+			to = oldBuffer.length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
 		}
-		const pongLength = loopEnd - loopStart;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const pongLength = to - from;
 		const newBuffer = new AudioBuffer({
 			length: oldLength + pongLength,
 			numberOfChannels: oldBuffer.numberOfChannels,
@@ -861,18 +862,32 @@ class Sample {
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			const oldData = oldBuffer.getChannelData(channelNumber);
 			const newData = newBuffer.getChannelData(channelNumber);
-			const before = oldData.subarray(0, loopEnd + 1);
+			const before = oldData.subarray(0, to + 1);
 			newBuffer.copyToChannel(before, channelNumber);
-			for (let i = loopEnd + 1; i <= loopEnd + pongLength; i++) {
-				newData[i] = before[loopEnd - (i - loopEnd)];
+			for (let i = to + 1; i <= to + pongLength; i++) {
+				newData[i] = before[to - (i - to)];
 			}
-			const after = oldData.subarray(loopEnd + 1);
-			newBuffer.copyToChannel(after, channelNumber, loopEnd + 1);
+			const after = oldData.subarray(to + 1);
+			newBuffer.copyToChannel(after, channelNumber, to + 1);
 		}
 
 		const newSample = new Sample(newBuffer);
+		const loopStart = this.loopStart;
 		newSample.loopStart = loopStart;
-		newSample.loopEnd = loopEnd + pongLength;
+		let loopEnd = this.loopEnd;
+		if (loopEnd >= oldLength) {
+			loopEnd = oldLength - 1;
+		}
+		if (loopStart >= from && loopEnd <= to) {
+			const distance = (to - 1) - loopStart + 1;
+			newSample.loopEnd = to + distance;
+		} else {
+			if (loopEnd > to) {
+				newSample.loopEnd = loopEnd + pongLength;
+			} else {
+				newSample.loopEnd = this.loopEnd;
+			}
+		}
 		newSample.sampledNote = this.sampledNote;
 		newSample.gain = this.gain;
 		return newSample;
