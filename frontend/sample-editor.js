@@ -71,10 +71,10 @@ function redrawWaveform() {
 	const startX = 0;
 	const endX = canvas.width - 1;
 	if (sample.buffer.numberOfChannels === 1) {
-		drawWave(startX, endX, 130, 130, 130, 0);
+		drawWave(startX, endX, 128, 128, 128, 0);
 	} else {
-		drawWave(startX, endX, 62, 62, 62, 0);
-		drawWave(startX, endX, 197, 62, 62, 1);
+		drawWave(startX, endX, 64, 64, 64, 0);
+		drawWave(startX, endX, 194, 64, 64, 1);
 	}
 	drawOverlay();
 }
@@ -403,7 +403,7 @@ document.getElementById('btn-zoom-sample-selection').addEventListener('click', f
 });
 
 
-document.getElementById('btn-cut-sample').addEventListener('click', function(event) {
+function cut() {
 	if (sample !== undefined) {
 		const range = getRange();
 		clipboard = sample.copy(range[0], range[1]);
@@ -411,6 +411,12 @@ document.getElementById('btn-cut-sample').addEventListener('click', function(eve
 		selectionEnd = selectionStart;
 		setSample(sample.remove(range[0], range[1]), true);
 	}
+}
+
+document.getElementById('btn-cut-sample').addEventListener('click', cut);
+document.getElementById('s-editor-menu-cut').addEventListener('click', function (event) {
+	cut();
+	hideContextMenu();
 });
 
 document.getElementById('btn-copy-sample').addEventListener('click', function(event) {
@@ -602,21 +608,24 @@ document.getElementById('btn-ping-pong').addEventListener('click', function(even
 
 overlay.addEventListener('contextmenu', function (event) {
 	event.preventDefault();
-  	const left = event.offsetX - 90;
-	const top = event.offsetY;
+  	const left = event.offsetX - 23;
+	const top = event.offsetY + 8;
   	const menu = document.getElementById('s-editor-context-menu');
   	const style = menu.style;
-  	style.display = 'block';
   	style.left = left + 'px';
   	style.top = top + 'px';
   	menu.classList.add('show');
 });
 
+function hideContextMenu() {
+  	document.getElementById('s-editor-context-menu').classList.remove('show');
+}
+
 overlay.addEventListener('pointerdown', function (event) {
 	if (sample === undefined || event.button !== 0) {
-		dragging = Drag.NONE;
 		return;
 	}
+	hideContextMenu();
 
 	const x = event.offsetX;
 	if (event.offsetY >= HEADER_HEIGHT) {
@@ -721,6 +730,10 @@ overlay.addEventListener('mouseenter', function (event) {
 	if (event.buttons !== 1) {
 		dragging = Drag.NONE;
 	}
+});
+
+overlay.addEventListener('focusout', function (event) {
+	hideContextMenu();
 });
 
 overlay.addEventListener('wheel', function (event) {

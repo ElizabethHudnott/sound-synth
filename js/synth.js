@@ -2312,9 +2312,9 @@ class SynthSystem {
 	}
 
 	set(parameterNumber, value, delay, changeType, channelNumber) {
-		let time;
+		let time = this.nextStep();
 		if (delay !== undefined) {
-			time = this.nextStep() + delay;
+			time += delay;
 		}
 		if (changeType === undefined) {
 			changeType = ChangeType.SET;
@@ -2596,7 +2596,7 @@ class Channel {
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
 			100,	// retrigger volume same as initial volume
-			1,		// broken chord speed
+			2,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
 			0,		// glissando length
 			0,		// no sample offset

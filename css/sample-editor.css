@@ -29,3 +29,15 @@ body {
 .no-focus-outline:focus {
 	outline: none;
 }
+
+.fade:not(.show) {
+	pointer-events: none;
+}
+
+.dropdown-menu.fade {
+	display: block;
+}
+
+.dropdown-menu button {
+	cursor: default;
+}

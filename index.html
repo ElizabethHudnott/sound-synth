@@ -309,14 +309,14 @@
 					♩ = 4 lines
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.TICKS, value); document.getElementById('ticks-readout').innerHTML = value;}" min="1" max="16" value="6">
-					<span id="ticks-readout" class="readout">8</span>
+					<span id="ticks-readout" class="readout">6</span>
 					Ticks /line
 					<br>
 					1<input type="text" id="chord" size="8">
 					Broken Chord <small>(chromatic scale, e.g. 158)</small>
 					<br>
-					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.CHORD_SPEED, value); document.getElementById('chord-speed-readout').innerHTML = value;}" min="1" max="16" value="1">
-					<span id="chord-speed-readout" class="readout">1</span>
+					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.CHORD_SPEED, value); document.getElementById('chord-speed-readout').innerHTML = value;}" min="1" max="16" value="2">
+					<span id="chord-speed-readout" class="readout">2</span>
 					Chord Rotation Time
 					<br>
 					<input type="radio" name="chord-pattern" oninput="set(Synth.Param.CHORD_PATTERN, Synth.Pattern.CYCLE)">Cycle
