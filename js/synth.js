@@ -846,7 +846,7 @@ class Sample {
 		const oldBuffer = this.buffer;
 		const oldLength = oldBuffer.length;
 		if (to === undefined) {
-			to = oldBuffer.length - 1;
+			to = oldLength - 1;
 			if (from === undefined) {
 				from = 0;
 			}
@@ -867,8 +867,10 @@ class Sample {
 			for (let i = to + 1; i <= to + pongLength; i++) {
 				newData[i] = before[to - (i - to)];
 			}
-			const after = oldData.subarray(to + 1);
-			newBuffer.copyToChannel(after, channelNumber, to + pongLength + 1);
+			if (to < oldLength - 1) {
+				const after = oldData.subarray(to + 1);
+				newBuffer.copyToChannel(after, channelNumber, to + pongLength + 1);
+			}
 		}
 
 		const newSample = new Sample(newBuffer);
@@ -1233,7 +1235,8 @@ class Sample {
 		const oldBuffer = this.buffer;
 		const numberOfChannels = oldBuffer.numberOfChannels;
 		const deleteLength = to - from + 1;
-		let newLength = oldBuffer.length - deleteLength;
+		const oldLength = oldBuffer.length;
+		let newLength = oldLength - deleteLength;
 		if (newLength < 1) {
 			newLength = 1;
 		}
@@ -1246,8 +1249,10 @@ class Sample {
 			const data = oldBuffer.getChannelData(channelNumber);
 			const before = data.subarray(0, from);
 			newBuffer.copyToChannel(before, channelNumber);
-			const after = data.subarray(to + 1);
-			newBuffer.copyToChannel(after, channelNumber, from);
+			if (to < oldLength - 1) {
+				const after = data.subarray(to + 1);
+				newBuffer.copyToChannel(after, channelNumber, from);
+			}
 		}
 		const newSample = new Sample(newBuffer);
 		let loopStart = this.loopStart;
@@ -1340,10 +1345,10 @@ class Sample {
 
 	insertSilence(silenceLength, position) {
 		const oldBuffer = this.buffer;
-		const oldBufferLength = oldBuffer.length;
+		const oldLength = oldBuffer.length;
 		const numberOfChannels = oldBuffer.numberOfChannels;
 		const newBuffer = new AudioBuffer({
-			length: oldBufferLength + silenceLength,
+			length: oldLength + silenceLength,
 			numberOfChannels: numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
 		});
@@ -1352,8 +1357,10 @@ class Sample {
 			const oldData = oldBuffer.getChannelData(channelNumber);
 			const before = oldData.subarray(0, position + 1);
 			newBuffer.copyToChannel(before, channelNumber);
-			const after = oldData.subarray(position + 1);
-			newBuffer.copyToChannel(after, channelNumber, afterPosition);
+			if (position < oldLength - 1) {
+				const after = oldData.subarray(position + 1);
+				newBuffer.copyToChannel(after, channelNumber, afterPosition);
+			}
 		}
 		const newSample = new Sample(newBuffer);
 		let loopStart = this.loopStart;
@@ -1640,8 +1647,10 @@ class Sample {
 				error = intValue - scaled;
 				newData[i] =  (intValue - midValue + 0.5) / midValue;
 			}
-			const after = oldData.subarray(to + 1);
-			newBuffer.copyToChannel(after, channelNumber, to + 1);
+			if (to < length - 1) {
+				const after = oldData.subarray(to + 1);
+				newBuffer.copyToChannel(after, channelNumber, to + 1);
+			}
 		}
 		const newSample = new Sample(newBuffer);
 		newSample.loopStart = this.loopStart;
