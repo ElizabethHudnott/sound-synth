@@ -95,10 +95,30 @@
 				</div>
 				<div id="waveform-outer-container" class="my-1">
 					<div id="waveform-container">
-						<div id="waveform-inner-container">
+						<div id="waveform-inner-container" aria-haspopup="true">
 							<canvas id="waveform" height="261"></canvas>
 							<!-- 24px header -->
 							<canvas id="waveform-overlay" height="285" tabindex="0" class="no-focus-outline"></canvas>
+
+							<div class="dropdown-menu pt-0" id="s-editor-context-menu">
+								<button class="dropdown-item btn-sm" id="s-editor-menu-cut">
+									<img src="img/cut.png" class="mr-1" width="16">
+									Cut
+								</button>
+								<button class="dropdown-item btn-sm" id="s-editor-menu-copy">
+									<img src="img/copy.png" class="mr-1" width="16">
+									Copy
+								</button>
+								<button class="dropdown-item btn-sm" id="s-editor-menu-paste">
+									<img src="img/paste.png" class="mr-1" width="16">
+									Paste
+								</button>
+								<button class="dropdown-item btn-sm" id="s-editor-menu-mix">
+									<img src="img/mixer.png" class="mr-1" width="16">
+									Paste mixed
+								</button>
+							</div>
+
 						</div>
 					</div>
 				</div>

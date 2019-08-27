@@ -51,6 +51,9 @@ Sampler
 -------
 UI:
 	pencil tool (with cubic interpolation)
+	Context menu: undo, redo | cut*, copy*, paste, paste mixed, trim* (to selection) | select all | set as loop (or set as loop start + set as loop end)
+		* = not visible when there's no selection
+	Pan without shift key, select with shift key
 	Page up, page down
 	Shift+Home/End
 	Shift+Ctrl+left/right should snap to zero crossing, loop points, start and end + Snap using mouse mode

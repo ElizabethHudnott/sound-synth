@@ -120,7 +120,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	let audioY, pixelY;
 	audioY = calculateY(data, x);
 	pixelY = centre - Math.round(audioY * yScale);
-	context2d.moveTo(0, pixelY);
+	context2d.moveTo(startX, pixelY);
 
 	if (x < selectionStartX) {
 		x = selectionStartX - Math.ceil((selectionStartX - startX) * incX) / incX;
@@ -133,11 +133,11 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		audioY = calculateY(data, selectionStartX);
 		pixelY = centre - Math.round(audioY * yScale);
 		context2d.lineTo(selectionStartX, pixelY);
-		context2d.strokeStyle = waveColor;
-		context2d.stroke();
 	}
 
 	if (x <= endX && x < selectionEndX) {
+		context2d.strokeStyle = waveColor;
+		context2d.stroke();
 		context2d.beginPath();
 		while (x <= endX && x < selectionEndX) {
 			audioY = calculateY(data, x);
@@ -153,20 +153,17 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		context2d.beginPath();
 	}
 
-	if (x < endX) {
-		while (x <= endX) {
-			audioY = calculateY(data, x);
-			pixelY = centre - Math.round(audioY * yScale);
-			context2d.lineTo(x, pixelY);
-			x += incX;
-		}
-		audioY = calculateY(data, endX);
+	while (x <= endX) {
+		audioY = calculateY(data, x);
 		pixelY = centre - Math.round(audioY * yScale);
-		context2d.lineTo(endX, pixelY);
-		context2d.strokeStyle = waveColor;
-		context2d.stroke();
+		context2d.lineTo(x, pixelY);
+		x += incX;
 	}
-
+	audioY = calculateY(data, endX);
+	pixelY = centre - Math.round(audioY * yScale);
+	context2d.lineTo(endX, pixelY);
+	context2d.strokeStyle = waveColor;
+	context2d.stroke();
 	context2d.restore();
 }
 
@@ -329,7 +326,7 @@ function scrollAndRedraw() {
 		waveOffset = maxOffset;
 	}
 	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
-	requestAnimationFrame(redrawWaveform);
+	// Triggers a scroll event & thus redraws automatically.
 }
 
 function allowZoom() {
@@ -603,8 +600,21 @@ document.getElementById('btn-ping-pong').addEventListener('click', function(even
 	}
 });
 
+overlay.addEventListener('contextmenu', function (event) {
+	event.preventDefault();
+  	const left = event.offsetX - 90;
+	const top = event.offsetY;
+  	const menu = document.getElementById('s-editor-context-menu');
+  	const style = menu.style;
+  	style.display = 'block';
+  	style.left = left + 'px';
+  	style.top = top + 'px';
+  	menu.classList.add('show');
+});
+
 overlay.addEventListener('pointerdown', function (event) {
-	if (sample === undefined) {
+	if (sample === undefined || event.button !== 0) {
+		dragging = Drag.NONE;
 		return;
 	}
 
