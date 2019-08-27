@@ -50,14 +50,21 @@ Add touch driven piano (if the app's going to be used on mobile)
 Sampler
 -------
 UI:
+	pencil tool (with cubic interpolation)
+	Page up, page down
+	Shift+Home/End
+	Shift+Ctrl+left/right should snap to zero crossing, loop points, start and end + Snap using mouse mode
 	Change reverse icon
-	Fix zoom out framing
 	Modal dialog should respond to enter key
+	Trim to selection
 	Scroll bar not visible on mobile -> Draw a custom one
-* Allow ping ponging any portion
+	playback separately OR on a track
+	UI for Parameter.OFFSET? ruler and snap
+Check Number.MAX_VALUE is being applied consistently
 * crossFade() should use a sine curve
 * amplify() should support *exponential* fades
 trim silence method
+editing stereo sample channels separately
 Time stretching
 Add custom offset/beat slice positions, stop at next slice
 MOD2Sample (advanced)

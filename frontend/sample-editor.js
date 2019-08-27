@@ -20,12 +20,14 @@ let zoomAmount = 1;
 let waveOffset = 0;
 let bufferLength = 0;
 let instrument, sample;
-let sampleIndex = 0, xScale = 0;
+let sampleIndex = 0;
+let xScale = 0;	// Number of samples per pixel
 let selectionStart = 0, selectionEnd = 0;
 let clipboard;
 
 const Drag = Synth.enumFromArray([
 	'NONE',
+	'LOOP',
 	'LOOP_START',
 	'LOOP_END',
 	'RANGE',
@@ -48,7 +50,7 @@ function fitWidth(event) {
 
 outerContainer.addEventListener('scroll', function (event) {
 	waveOffset = this.scrollLeft / waveWidth * bufferLength;
-	redrawWaveform();
+	requestAnimationFrame(redrawWaveform);
 });
 
 function resizeWaveform() {
@@ -61,15 +63,13 @@ function resizeWaveform() {
 		container.style.width = waveWidth + 'px';
 		xScale = bufferLength / waveWidth;
 		waveOffset = outerContainer.scrollLeft / waveWidth * bufferLength;
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 }
 
-function redrawWaveform(startX, endX) {
-	if (startX === undefined) {
-		startX = 0;
-		endX = canvas.width - 1;
-	}
+function redrawWaveform() {
+	const startX = 0;
+	const endX = canvas.width - 1;
 	if (sample.buffer.numberOfChannels === 1) {
 		drawWave(startX, endX, 130, 130, 130, 0);
 	} else {
@@ -312,18 +312,24 @@ function setSample(newSample, resize) {
 	resizeWaveform();
 }
 
-function zoomIn() {
-	const maxOffset = getMaxOffset();
-	zoomAmount *= zoomMultiplier;
-	waveWidth = Math.round(canvas.width * zoomAmount);
-	container.style.width = waveWidth + 'px';
-	xScale = bufferLength / waveWidth;
+function scrollAndRedraw() {
+	const maxOffset = bufferLength - canvas.width * xScale;
+	if (waveOffset < 0) {
+		waveOffset = 0;
+	} else if (waveOffset > maxOffset) {
+		waveOffset = maxOffset;
+	}
+	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+	requestAnimationFrame(redrawWaveform);
+}
+
+function repositionAfterZoom(zoomChange, maxOffset) {
 	const viewWidth = canvas.width * xScale;
 	const range = getRange();
 	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
-		// centre the cursor
-		waveOffset = selectionStart - viewWidth / 2;
-	} else if (range[0] >= waveOffset && range[0] < maxOffset) {
+		// preserve visual cursor position
+		waveOffset = selectionStart - (selectionStart - waveOffset) / zoomChange;
+	} else if (zoomChange > 1 && range[0] >= waveOffset && range[0] < maxOffset) {
 		if (range[1] < maxOffset) {
 			// centre the selection
 			const zoomTo = (range[0] + range[1]) / 2;
@@ -333,16 +339,22 @@ function zoomIn() {
 		}
 	} else if (!(range[1] >= waveOffset && range[1] < maxOffset)) {
 		// zoom and preserve the centre point
-		waveOffset += viewWidth / 2;
+		waveOffset = waveOffset + (viewWidth * zoomChange) / 2 - viewWidth / 2
 	}
-	if (waveOffset < 0) {
-		waveOffset = 0;
-	}
-	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
-	redrawWaveform();
+	scrollAndRedraw();
+}
+
+function zoomIn() {
+	const maxOffset = getMaxOffset();
+	zoomAmount *= zoomMultiplier;
+	waveWidth = Math.round(canvas.width * zoomAmount);
+	container.style.width = waveWidth + 'px';
+	xScale = bufferLength / waveWidth;
+	repositionAfterZoom(zoomMultiplier, maxOffset);
 }
 
 function zoomOut() {
+	const maxOffset = getMaxOffset();
 	zoomAmount /= zoomMultiplier;
 	if (zoomAmount < 1) {
 		zoomAmount = 1;
@@ -350,8 +362,7 @@ function zoomOut() {
 	waveWidth = Math.round(canvas.width * zoomAmount);
 	container.style.width = waveWidth + 'px';
 	xScale = bufferLength / waveWidth;
-	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
-	redrawWaveform();
+	repositionAfterZoom(1 / zoomMultiplier, maxOffset);
 }
 
 function zoomRange(from, to) {
@@ -361,8 +372,7 @@ function zoomRange(from, to) {
 	container.style.width = waveWidth + 'px';
 	zoomAmount = waveWidth / canvas.width;
 	waveOffset = from;
-	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
-	redrawWaveform();
+	scrollAndRedraw();
 }
 
 function zoomShowAll() {
@@ -450,7 +460,7 @@ document.getElementById('btn-zero-crossing').addEventListener('click', function(
 	if (selectionStart === selectionEnd) {
 		selectionStart = sample.findZero(selectionStart, 0);
 		selectionEnd = selectionStart;
-		drawOverlay();
+		requestAnimationFrame(drawOverlay);
 	} else {
 		const range = getRange();
 		let newSelectionStart = sample.findZero(range[0], 0);
@@ -460,14 +470,14 @@ document.getElementById('btn-zero-crossing').addEventListener('click', function(
 			newSelectionEnd = sample.findZero(range[1], 0, Synth.Direction.UP);
 		}
 		setRange(newSelectionStart, newSelectionEnd);
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 });
 
 document.getElementById('btn-remove-dc').addEventListener('click', function(event) {
 	if (sample !== undefined) {
 		sample.removeOffset();
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 });
 
@@ -479,7 +489,7 @@ document.getElementById('btn-normalize-sample').addEventListener('click', functi
 			const range = getRange();
 			sample.normalize(range[0], range[1]);
 		}
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 });
 
@@ -544,7 +554,7 @@ document.getElementById('btn-flip-sample').addEventListener('click', function(ev
 				sample.polarityFlip(channelNumber, range[0], range[1]);
 			}
 		}
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 });
 
@@ -556,7 +566,7 @@ document.getElementById('btn-reverse-sample').addEventListener('click', function
 			const range = getRange();
 			sample.reverse(range[0], range[1]);
 		}
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 });
 
@@ -589,9 +599,10 @@ overlay.addEventListener('pointerdown', function (event) {
 		selectionStart = calculateOffset(x);
 		selectionEnd = selectionStart;
 		if (needDrawWave) {
-			redrawWaveform();
+			requestAnimationFrame(redrawWaveform);
+		} else {
+			requestAnimationFrame(drawOverlay);
 		}
-		drawOverlay();
 		dragging = Drag.RANGE;
 		return;
 	}
@@ -608,10 +619,12 @@ overlay.addEventListener('pointerdown', function (event) {
 		}
 	}
 	const loopEnd = Math.min(sample.loopEnd, bufferLength - 1);
-	if (loopEnd >= waveOffset && loopEnd < maxOffset) {
+	if (loopEnd - loopStart < xScale) {
+		dragging = Drag.LOOP;
+	} else if (loopEnd >= waveOffset && loopEnd < maxOffset) {
 		const loopEndX = calculateX(loopEnd);
 		const distance = Math.abs(x - loopEndX);
-		if (distance <= 10 && distance < distanceToNearest) {
+		if (distance <= 10 && (distance < distanceToNearest)) {
 			dragging = Drag.LOOP_END;
 			distanceToNearest = distance;
 		}
@@ -624,7 +637,26 @@ overlay.addEventListener('pointermove', function (event) {
 	case Drag.RANGE: {
 		const offsetX = calculateOffset(x);
 		selectionEnd = offsetX;
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
+		break;
+	}
+
+	case Drag.LOOP: {
+		const loopEnd = Math.min(sample.loopEnd, bufferLength - 1);
+		let offset = calculateOffset(x);
+		if (offset < sample.loopStart) {
+			if (sample.loopStart - offset >= xScale) {
+				dragging = Drag.LOOP_START;
+			}
+			sample.loopStart = offset;
+			requestAnimationFrame(drawOverlay);
+		} else if (offset > loopEnd) {
+			if (offset - loopEnd >= xScale) {
+				dragging = Drag.LOOP_END;
+			}
+			sample.loopEnd = offset;
+			requestAnimationFrame(drawOverlay);
+		}
 		break;
 	}
 
@@ -637,7 +669,7 @@ overlay.addEventListener('pointermove', function (event) {
 			loopStart = loopEnd;
 		}
 		sample.loopStart = loopStart;
-		drawOverlay();
+		requestAnimationFrame(drawOverlay);
 		break;
 	}
 
@@ -650,7 +682,7 @@ overlay.addEventListener('pointermove', function (event) {
 			loopEnd = Number.MAX_VALUE;
 		}
 		sample.loopEnd = loopEnd;
-		drawOverlay();
+		requestAnimationFrame(drawOverlay);
 		break;
 	}
 	}
@@ -667,7 +699,43 @@ overlay.addEventListener('mouseenter', function (event) {
 });
 
 overlay.addEventListener('wheel', function (event) {
-	console.log(event.deltaX + ' ' + event.deltaY);
+	let viewWidth = canvas.width * xScale;
+	let scale = 1;
+	switch (event.deltaMode) {
+	case 0: // Pixels
+		scale = xScale;
+		break;
+	case 1: // Lines
+		scale = viewWidth / 80;
+		break;
+	case 2: // Pages
+		scale = viewWidth / delta;
+		break;
+	}
+
+	let delta = event.deltaX;
+	if (delta === 0) {
+		delta = event.deltaY // for standard mice
+		if (event.ctrlKey) { // Ctrl on Mac also
+			event.preventDefault();
+			const maxOffset = getMaxOffset();
+			const amount = delta * scale * 6;
+			viewWidth += 2 * amount;
+			if (viewWidth > bufferLength) {
+				viewWidth = bufferLength;
+			}
+			xScale = viewWidth / canvas.width;
+			waveWidth = Math.round(bufferLength / xScale);
+			container.style.width = waveWidth + 'px';
+			const oldZoomAmount = zoomAmount;
+			zoomAmount = waveWidth / canvas.width;
+			repositionAfterZoom(zoomAmount / oldZoomAmount, maxOffset);
+			return;
+		}
+	}
+
+	waveOffset += scale * delta;
+	scrollAndRedraw();
 });
 
 document.getElementById('sample-editor').addEventListener('keydown', function (event) {
@@ -690,7 +758,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				selectionStart = 0;
 			}
 			selectionEnd = selectionStart;
-			drawOverlay();
+			requestAnimationFrame(drawOverlay);
 		} else {
 			selectionEnd -= incrementSize;
 			if (selectionEnd < 0) {
@@ -698,7 +766,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 			} else if (Math.abs(selectionEnd - selectionStart) < xScale) {
 				selectionEnd = selectionStart;
 			}
-			redrawWaveform();
+			requestAnimationFrame(redrawWaveform);
 		}
 		break;
 
@@ -709,7 +777,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				selectionStart = bufferLength - 1;
 			}
 			selectionEnd = selectionStart;
-			drawOverlay();
+			requestAnimationFrame(drawOverlay);
 		} else {
 			selectionEnd += incrementSize;
 			if (selectionEnd >= bufferLength) {
@@ -717,20 +785,22 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 			} else if (Math.abs(selectionEnd - selectionStart) < xScale) {
 				selectionEnd = selectionStart;
 			}
-			redrawWaveform();
+			requestAnimationFrame(redrawWaveform);
 		}
 		break;
 
 	case 'Home':
 		waveOffset = 0;
-		outerContainer.scrollLeft = 0;
-		redrawWaveform();
+		selectionStart = 0;
+		selectionEnd = 0;
+		scrollAndRedraw();
 		break;
 
 	case 'End':
-		waveOffset = waveWidth - canvas.width * xScale;
-		outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
-		redrawWaveform();
+		waveOffset = bufferLength - canvas.width * xScale;
+		selectionStart = bufferLength - 1;
+		selectionEnd = bufferLength - 1;
+		scrollAndRedraw();
 		break;
 
 	case 'Delete':
@@ -741,19 +811,22 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 		break;
 
 	case '=':
-		if (event.altKey) {
+		if (ctrl) {
+			event.preventDefault();
 			zoomIn();
 		}
 		break;
 
 	case '-':
-		if (event.altKey) {
+		if (ctrl) {
+			event.preventDefault();
 			zoomOut();
 		}
 		break;
 
 	case '0':
-		if (event.altKey) {
+		if (ctrl) {
+			event.preventDefault();
 			zoomShowAll();
 		}
 		break;

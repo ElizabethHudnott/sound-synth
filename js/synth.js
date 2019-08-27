@@ -1233,8 +1233,12 @@ class Sample {
 		const oldBuffer = this.buffer;
 		const numberOfChannels = oldBuffer.numberOfChannels;
 		const deleteLength = to - from + 1;
+		let newLength = oldBuffer.length - deleteLength;
+		if (newLength < 1) {
+			newLength = 1;
+		}
 		const newBuffer = new AudioBuffer({
-			length: oldBuffer.length - deleteLength,
+			length: newLength,
 			numberOfChannels: numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
 		});
