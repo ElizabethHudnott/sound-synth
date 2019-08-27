@@ -1153,7 +1153,10 @@ class Sample {
 					}
 				}
 			}
+		} else {
+			return position;
 		}
+
 		if (position <= 0 || direction === Direction.UP) {
 			return afterPosition;
 		}

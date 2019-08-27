@@ -112,13 +112,15 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 	context2d.beginPath();
 	context2d.lineWidth = 1;
 	context2d.setLineDash([]);
-	context2d.moveTo(0, centre);
 	let incX = 1;
 	if (xScale < 1) {
 		incX = Math.trunc(1 / xScale);
 	}
 	let x = startX;
 	let audioY, pixelY;
+	audioY = calculateY(data, x);
+	pixelY = centre - Math.round(audioY * yScale);
+	context2d.moveTo(0, pixelY);
 
 	if (x < selectionStartX) {
 		x = selectionStartX - Math.ceil((selectionStartX - startX) * incX) / incX;
@@ -158,6 +160,9 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 			context2d.lineTo(x, pixelY);
 			x += incX;
 		}
+		audioY = calculateY(data, endX);
+		pixelY = centre - Math.round(audioY * yScale);
+		context2d.lineTo(endX, pixelY);
 		context2d.strokeStyle = waveColor;
 		context2d.stroke();
 	}
@@ -219,6 +224,10 @@ function calculateY(data, pixelX) {
 	const last = gain * data[lastX];
 	const lastPortion = lastX - waveMaxX;
 	let sum = first * firstPortion + last * lastPortion;
+	if (xScale <= 1) {
+		return sum / (firstPortion + lastPortion);
+	}
+
 	let min = gain * data[firstX];
 	let max = min;
 	if (last < min) {
@@ -323,6 +332,10 @@ function scrollAndRedraw() {
 	requestAnimationFrame(redrawWaveform);
 }
 
+function allowZoom() {
+	return sample !== undefined && (xScale > 1 || canvas.width * xScale / sample.buffer.sampleRate >= 0.0004);
+}
+
 function repositionAfterZoom(zoomChange, maxOffset) {
 	const viewWidth = canvas.width * xScale;
 	const range = getRange();
@@ -345,12 +358,14 @@ function repositionAfterZoom(zoomChange, maxOffset) {
 }
 
 function zoomIn() {
-	const maxOffset = getMaxOffset();
-	zoomAmount *= zoomMultiplier;
-	waveWidth = Math.round(canvas.width * zoomAmount);
-	container.style.width = waveWidth + 'px';
-	xScale = bufferLength / waveWidth;
-	repositionAfterZoom(zoomMultiplier, maxOffset);
+	if (allowZoom()) {
+		const maxOffset = getMaxOffset();
+		zoomAmount *= zoomMultiplier;
+		waveWidth = Math.round(canvas.width * zoomAmount);
+		container.style.width = waveWidth + 'px';
+		xScale = bufferLength / waveWidth;
+		repositionAfterZoom(zoomMultiplier, maxOffset);
+	}
 }
 
 function zoomOut() {
@@ -718,18 +733,21 @@ overlay.addEventListener('wheel', function (event) {
 		delta = event.deltaY // for standard mice
 		if (event.ctrlKey) { // Ctrl on Mac also
 			event.preventDefault();
-			const maxOffset = getMaxOffset();
-			const amount = delta * scale * 6;
-			viewWidth += 2 * amount;
-			if (viewWidth > bufferLength) {
-				viewWidth = bufferLength;
+			// A negative amount means to zoom out
+			if (delta > 0 || allowZoom()) {
+				const maxOffset = getMaxOffset();
+				const amount = delta * scale * 6;
+				viewWidth += 2 * amount;
+				if (viewWidth > bufferLength) {
+					viewWidth = bufferLength;
+				}
+				xScale = viewWidth / canvas.width;
+				waveWidth = Math.round(bufferLength / xScale);
+				container.style.width = waveWidth + 'px';
+				const oldZoomAmount = zoomAmount;
+				zoomAmount = waveWidth / canvas.width;
+				repositionAfterZoom(zoomAmount / oldZoomAmount, maxOffset);
 			}
-			xScale = viewWidth / canvas.width;
-			waveWidth = Math.round(bufferLength / xScale);
-			container.style.width = waveWidth + 'px';
-			const oldZoomAmount = zoomAmount;
-			zoomAmount = waveWidth / canvas.width;
-			repositionAfterZoom(zoomAmount / oldZoomAmount, maxOffset);
 			return;
 		}
 	}
