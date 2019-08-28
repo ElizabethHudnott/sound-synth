@@ -51,6 +51,7 @@ function fitWidth(event) {
 outerContainer.addEventListener('scroll', function (event) {
 	waveOffset = this.scrollLeft / waveWidth * bufferLength;
 	requestAnimationFrame(redrawWaveform);
+	overlay.focus();
 });
 
 function resizeWaveform() {
@@ -555,9 +556,13 @@ $('#insert-silence-modal').on('shown.bs.modal', function (event) {
 	document.getElementById('silence-length').focus();
 });
 
+document.getElementById('insert-silence-modal').addEventListener('keypress', defaultActionOnEnter);
+
 $('#quantize-modal').on('shown.bs.modal', function (event) {
 	document.getElementById('quantize-bit-depth').focus();
 });
+
+document.getElementById('quantize-modal').addEventListener('keypress', defaultActionOnEnter);
 
 // Insert button inside modal
 document.getElementById('btn-insert-silence').addEventListener('click', function(event) {
@@ -769,13 +774,13 @@ overlay.addEventListener('wheel', function (event) {
 	let scale = 1;
 	switch (event.deltaMode) {
 	case 0: // Pixels
-		scale = xScale;
+		scale = xScale * 3;
 		break;
 	case 1: // Lines
-		scale = viewWidth / 80;
+		scale = viewWidth / 44;
 		break;
 	case 2: // Pages
-		scale = viewWidth / delta;
+		scale = viewWidth;
 		break;
 	}
 
@@ -787,7 +792,7 @@ overlay.addEventListener('wheel', function (event) {
 			// A negative amount means to zoom out
 			if (delta > 0 || allowZoom()) {
 				const maxOffset = getMaxOffset();
-				const amount = delta * scale * 9;
+				const amount = delta * scale * 3;
 				viewWidth += 2 * amount;
 				if (viewWidth > bufferLength) {
 					viewWidth = bufferLength;
@@ -803,13 +808,14 @@ overlay.addEventListener('wheel', function (event) {
 		}
 	}
 
-	waveOffset += scale * delta;
+	waveOffset += Math.ceil(scale * delta * xScale) / xScale;
 	scrollAndRedraw();
 });
 
 document.getElementById('sample-editor').addEventListener('keydown', function (event) {
 	const incrementSize = Math.ceil(xScale * (event.repeat ? 6 : 1));
 	const ctrl = event.ctrlKey ^ event.metaKey;
+	let viewWidth;
 
 	switch (event.key) {
 	case 'a':
@@ -866,6 +872,38 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 		}
 		break;
 
+	case 'PageUp':
+		viewWidth = canvas.width * xScale;
+		waveOffset -= viewWidth;
+		if (event.shiftKey) {
+			const newSelectionEnd = Math.ceil(selectionEnd - viewWidth);
+			if (selectionEnd > selectionStart && newSelectionEnd < selectionStart ||
+				selectionEnd < selectionStart && newSelectionEnd > selectionStart
+			) {
+				selectionEnd = selectionStart;
+			} else {
+				selectionEnd = newSelectionEnd;
+			}
+			if (selectionEnd >= selectionStart) {
+				if (selectionEnd > waveOffset + viewWidth - xScale) {
+					waveOffset = selectionEnd - viewWidth + xScale;
+				} else if (selectionEnd < waveOffset + xScale) {
+					waveOffset = selectionEnd - 40 * xScale;
+				}
+			} else {
+				if (selectionEnd > waveOffset + viewWidth - xScale) {
+					waveOffset = selectionEnd;
+				} else if (selectionEnd < waveOffset) {
+					waveOffset = selectionEnd - 40 * xScale;
+				}
+			}
+			if (selectionEnd < 0) {
+				selectionEnd = 0;
+			}
+		}
+		scrollAndRedraw();
+		break;
+
 	case 'Home':
 		if (!event.shiftKey) {
 			selectionStart = 0;
@@ -919,6 +957,12 @@ global.SampleEditor = {
 };
 
 })(window);
+
+function defaultActionOnEnter(event) {
+	if (event.key === 'Enter') {
+		this.querySelector('.btn-primary').click();
+	}
+}
 
 const instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
