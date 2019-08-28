@@ -30,12 +30,13 @@ body {
 	outline: none;
 }
 
-.fade:not(.show) {
+.dropdown-menu.fade:not(.show) {
 	pointer-events: none;
 }
 
 .dropdown-menu.fade {
 	display: block;
+	pointer-events: auto;
 }
 
 .dropdown-menu button {

@@ -325,7 +325,12 @@ function scrollAndRedraw() {
 	} else if (waveOffset > maxOffset) {
 		waveOffset = maxOffset;
 	}
-	outerContainer.scrollLeft = waveOffset / bufferLength * waveWidth;
+	const scrollPosition = waveOffset / bufferLength * waveWidth;
+	if (scrollPosition !== outerContainer.scrollLeft) {
+		outerContainer.scrollLeft = scrollPosition;
+	} else {
+		redrawWaveform();
+	}
 	// Triggers a scroll event & thus redraws automatically.
 }
 
@@ -413,13 +418,7 @@ function cut() {
 	}
 }
 
-document.getElementById('btn-cut-sample').addEventListener('click', cut);
-document.getElementById('s-editor-menu-cut').addEventListener('click', function (event) {
-	cut();
-	hideContextMenu();
-});
-
-document.getElementById('btn-copy-sample').addEventListener('click', function(event) {
+function copy(event) {
 	if (sample !== undefined) {
 		if (selectionStart === selectionEnd) {
 			clipboard = sample.clone();
@@ -428,9 +427,9 @@ document.getElementById('btn-copy-sample').addEventListener('click', function(ev
 			clipboard = sample.copy(range[0], range[1]);
 		}
 	}
-});
+}
 
-document.getElementById('btn-paste-sample').addEventListener('click', function(event) {
+function paste(event) {
 	if (sample !== undefined && clipboard !== undefined) {
 		const range = getRange();
 		if (selectionStart !== selectionEnd) {
@@ -441,22 +440,9 @@ document.getElementById('btn-paste-sample').addEventListener('click', function(e
 			setSample(newSample, true);
 		});
 	}
-});
+}
 
-document.getElementById('btn-swap-sample').addEventListener('click', function(event) {
-	if (sample !== undefined && clipboard !== undefined) {
-		const range = getRange();
-		const cutPart = sample.copy(range[0], range[1]);
-		sample = sample.remove(range[0], range[1]);
-		sample.insert(clipboard, range[0]).then(function ([newSample, insertLength]) {
-			setRange(range[0], range[0] + insertLength - 1);
-			setSample(newSample, true);
-		});
-		clipboard = cutPart;
-	}
-});
-
-document.getElementById('btn-mix-sample').addEventListener('click', function(event) {
+function mix(event) {
 	if (sample !== undefined && clipboard !== undefined) {
 		if (selectionStart === selectionEnd) {
 			sample.mix(clipboard, selectionStart, undefined, false).then(function ([newSample, changedLength]) {
@@ -471,6 +457,44 @@ document.getElementById('btn-mix-sample').addEventListener('click', function(eve
 				setSample(newSample, false);
 			});
 		}
+	}
+}
+
+document.getElementById('btn-cut-sample').addEventListener('click', cut);
+document.getElementById('btn-copy-sample').addEventListener('click', copy);
+document.getElementById('btn-paste-sample').addEventListener('click', paste);
+document.getElementById('btn-mix-sample').addEventListener('click', mix);
+
+document.getElementById('s-editor-menu-cut').addEventListener('click', function (event) {
+	cut();
+	hideContextMenu();
+});
+
+document.getElementById('s-editor-menu-copy').addEventListener('click', function (event) {
+	copy();
+	hideContextMenu();
+});
+
+document.getElementById('s-editor-menu-paste').addEventListener('click', function (event) {
+	paste();
+	hideContextMenu();
+});
+
+document.getElementById('s-editor-menu-mix').addEventListener('click', function (event) {
+	mix();
+	hideContextMenu();
+});
+
+document.getElementById('btn-swap-sample').addEventListener('click', function(event) {
+	if (sample !== undefined && clipboard !== undefined) {
+		const range = getRange();
+		const cutPart = sample.copy(range[0], range[1]);
+		sample = sample.remove(range[0], range[1]);
+		sample.insert(clipboard, range[0]).then(function ([newSample, insertLength]) {
+			setRange(range[0], range[0] + insertLength - 1);
+			setSample(newSample, true);
+		});
+		clipboard = cutPart;
 	}
 });
 
@@ -629,9 +653,13 @@ overlay.addEventListener('pointerdown', function (event) {
 
 	const x = event.offsetX;
 	if (event.offsetY >= HEADER_HEIGHT) {
-		const needDrawWave = selectionStart !== selectionEnd;
-		selectionStart = calculateOffset(x);
-		selectionEnd = selectionStart;
+		const needDrawWave = selectionStart !== selectionEnd || event.shiftKey;
+		if (event.shiftKey) {
+			selectionEnd = calculateOffset(x);
+		} else {
+			selectionStart = calculateOffset(x);
+			selectionEnd = selectionStart;
+		}
 		if (needDrawWave) {
 			requestAnimationFrame(redrawWaveform);
 		} else {
@@ -732,7 +760,7 @@ overlay.addEventListener('mouseenter', function (event) {
 	}
 });
 
-overlay.addEventListener('focusout', function (event) {
+document.getElementById('waveform-inner-container').addEventListener('blur', function (event) {
 	hideContextMenu();
 });
 
@@ -759,7 +787,7 @@ overlay.addEventListener('wheel', function (event) {
 			// A negative amount means to zoom out
 			if (delta > 0 || allowZoom()) {
 				const maxOffset = getMaxOffset();
-				const amount = delta * scale * 6;
+				const amount = delta * scale * 9;
 				viewWidth += 2 * amount;
 				if (viewWidth > bufferLength) {
 					viewWidth = bufferLength;
@@ -793,14 +821,8 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 		break;
 
 	case 'ArrowLeft':
-		if (selectionStart === selectionEnd && !event.shiftKey) {
-			selectionStart -= incrementSize;
-			if (selectionStart < 0) {
-				selectionStart = 0;
-			}
-			selectionEnd = selectionStart;
-			requestAnimationFrame(drawOverlay);
-		} else {
+		if (event.shiftKey) {
+
 			selectionEnd -= incrementSize;
 			if (selectionEnd < 0) {
 				selectionEnd = 0;
@@ -808,18 +830,22 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				selectionEnd = selectionStart;
 			}
 			requestAnimationFrame(redrawWaveform);
+
+		} else if (selectionStart === selectionEnd) {
+
+			selectionStart -= incrementSize;
+			if (selectionStart < 0) {
+				selectionStart = 0;
+			}
+			selectionEnd = selectionStart;
+			requestAnimationFrame(drawOverlay);
+
 		}
 		break;
 
 	case 'ArrowRight':
-		if (selectionStart === selectionEnd && !event.shiftKey) {
-			selectionStart += incrementSize;
-			if (selectionStart >= bufferLength) {
-				selectionStart = bufferLength - 1;
-			}
-			selectionEnd = selectionStart;
-			requestAnimationFrame(drawOverlay);
-		} else {
+		if (event.shiftKey) {
+
 			selectionEnd += incrementSize;
 			if (selectionEnd >= bufferLength) {
 				selectionEnd = bufferLength - 1;
@@ -827,20 +853,34 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				selectionEnd = selectionStart;
 			}
 			requestAnimationFrame(redrawWaveform);
+
+		} else if (selectionStart === selectionEnd) {
+
+			selectionStart += incrementSize;
+			if (selectionStart >= bufferLength) {
+				selectionStart = bufferLength - 1;
+			}
+			selectionEnd = selectionStart;
+			requestAnimationFrame(drawOverlay);
+
 		}
 		break;
 
 	case 'Home':
-		waveOffset = 0;
-		selectionStart = 0;
+		if (!event.shiftKey) {
+			selectionStart = 0;
+		}
 		selectionEnd = 0;
+		waveOffset = 0;
 		scrollAndRedraw();
 		break;
 
 	case 'End':
-		waveOffset = bufferLength - canvas.width * xScale;
-		selectionStart = bufferLength - 1;
+		if (!event.shiftKey) {
+			selectionStart = bufferLength - 1;
+		}
 		selectionEnd = bufferLength - 1;
+		waveOffset = bufferLength - canvas.width * xScale;
 		scrollAndRedraw();
 		break;
 
