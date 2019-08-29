@@ -780,13 +780,33 @@ class Sample {
 	}
 
 	clone() {
-		const newSample = new Sample(Sample.EMPTY_BUFFER);
+		const newSample = new Sample();
 		const oldBuffer = this.buffer;
 		const numberOfChannels = oldBuffer.numberOfChannels;
 		const newBuffer = new AudioBuffer({
 			length: oldBuffer.length,
 			numberOfChannels: numberOfChannels,
 			sampleRate: oldBuffer.sampleRate,
+		});
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber);
+		}
+		newSample.buffer = newBuffer;
+		newSample.loopStart = this.loopStart;
+		newSample.loopEnd = this.loopEnd;
+		newSample.sampledNote = this.sampledNote;
+		newSample.gain = this.gain;
+		return newSample;
+	}
+
+	changeSampleRate(sampleRate) {
+		const newSample = new Sample();
+		const oldBuffer = this.buffer;
+		const numberOfChannels = oldBuffer.numberOfChannels;
+		const newBuffer = new AudioBuffer({
+			length: oldBuffer.length,
+			numberOfChannels: numberOfChannels,
+			sampleRate: sampleRate,
 		});
 		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
 			newBuffer.copyToChannel(oldBuffer.getChannelData(channelNumber), channelNumber);
@@ -1553,7 +1573,7 @@ class Sample {
 		});
 	}
 
-	resample(newSampleRate) {
+	smoothResample(newSampleRate) {
 		const me = this;
 		const oldBuffer = this.buffer;
 		const rateRatio = newSampleRate / oldBuffer.sampleRate;
@@ -1579,9 +1599,7 @@ class Sample {
 		});
 	}
 
-	/**Resamples without any interpolation.
-	 */
-	upsample(newSampleRate) {
+	resample(newSampleRate) {
 		const me = this;
 		const oldBuffer = this.buffer;
 		const rateRatio = newSampleRate / oldBuffer.sampleRate;
@@ -4115,7 +4133,7 @@ function decodeSampleData(arr) {
 		const buffer = new AudioBuffer({
 			length: length,
 			numberOfChannels: 1,
-			sampleRate: 8192,
+			sampleRate: 8363,
 		});
 		buffers[0] = buffer;
 		const channelData = buffer.getChannelData(0);

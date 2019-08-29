@@ -91,6 +91,9 @@
 						<button id="btn-quantize-sample" type="button" class="btn btn-light" title="Quantize">
 							<img src="img/quantize.png">
 						</button>
+						<button id="btn-resample-sample" type="button" class="btn btn-light" title="Resample">
+							<img src="img/resample.png">
+						</button>
 					</div>
 				</div>
 				<div id="waveform-outer-container" class="my-1">
@@ -165,5 +168,26 @@
 		  </div>
 		</div>
 
+		<div id="resample-modal" class="modal fade" tabindex="-1" role="dialog" aria-label="Resample">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content bg-dark text-white">
+		      <div class="modal-header">
+		        <h5 class="modal-title">Resample</h5>
+		        <button type="button" class="close text-white-50" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		      </div>
+		      <div class="modal-body text-center">
+		        <input id="resample-rate" type="number" min="8000" max="96000" list="sample-rates"> Hz
+		        <datalist id="sample-rates"></datalist>
+
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+		        <button id="btn-resample" type="button" class="btn btn-primary">Resample</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
 	</body>
 </html>

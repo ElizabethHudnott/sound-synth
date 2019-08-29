@@ -56,7 +56,6 @@ UI:
 		* = not visible when there's no selection
 	Pan without shift key, select with shift key
 	Page down
-	Shift+Home/End
 	Shift+Ctrl+left/right should snap to zero crossing, loop points, start and end + Snap using mouse mode
 	Change reverse icon
 	Modal dialog should respond to enter key

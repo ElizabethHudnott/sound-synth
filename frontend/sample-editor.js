@@ -552,17 +552,39 @@ document.getElementById('btn-quantize-sample').addEventListener('click', functio
 	}
 });
 
+{
+	const list = document.getElementById('sample-rates');
+	const suggestions = [8363, 11025, 16726, 22050, 32000, 44100, 48000, 88200, 96000];
+	const maxSampleRate = audioContext.sampleRate;
+	for (let i = 0; i < suggestions.length && suggestions[i] <= maxSampleRate; i++) {
+		const option = document.createElement('OPTION');
+		option.value = suggestions[i];
+		list.appendChild(option);
+	}
+}
+
+document.getElementById('btn-resample-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		$('#resample-modal').modal();
+	}
+});
+
 $('#insert-silence-modal').on('shown.bs.modal', function (event) {
 	document.getElementById('silence-length').focus();
 });
 
-document.getElementById('insert-silence-modal').addEventListener('keypress', defaultActionOnEnter);
 
 $('#quantize-modal').on('shown.bs.modal', function (event) {
 	document.getElementById('quantize-bit-depth').focus();
 });
 
+$('#resample-modal').on('shown.bs.modal', function (event) {
+	document.getElementById('resample-rate').focus();
+});
+
+document.getElementById('insert-silence-modal').addEventListener('keypress', defaultActionOnEnter);
 document.getElementById('quantize-modal').addEventListener('keypress', defaultActionOnEnter);
+document.getElementById('resample-modal').addEventListener('keypress', defaultActionOnEnter);
 
 // Insert button inside modal
 document.getElementById('btn-insert-silence').addEventListener('click', function(event) {
@@ -815,7 +837,7 @@ overlay.addEventListener('wheel', function (event) {
 document.getElementById('sample-editor').addEventListener('keydown', function (event) {
 	const incrementSize = Math.ceil(xScale * (event.repeat ? 6 : 1));
 	const ctrl = event.ctrlKey ^ event.metaKey;
-	let viewWidth;
+	let viewWidth, lastPage;
 
 	switch (event.key) {
 	case 'a':
@@ -844,7 +866,17 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				selectionStart = 0;
 			}
 			selectionEnd = selectionStart;
-			requestAnimationFrame(drawOverlay);
+			if (selectionStart < waveOffset) {
+				selectionStart -= 14;
+				if (selectionStart < 0) {
+					selectionStart = 0;
+				}
+				selectionEnd = selectionStart
+				waveOffset = selectionStart;
+				requestAnimationFrame(redrawWaveform);
+			} else {
+				requestAnimationFrame(drawOverlay);
+			}
 
 		}
 		break;
@@ -873,24 +905,30 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 		break;
 
 	case 'PageUp':
+		lastPage = waveOffset === 0;
 		viewWidth = canvas.width * xScale;
 		waveOffset -= viewWidth;
 		if (event.shiftKey) {
+			// Extend or reduce the size of the selection
 			const newSelectionEnd = Math.ceil(selectionEnd - viewWidth);
 			if (selectionEnd > selectionStart && newSelectionEnd < selectionStart ||
 				selectionEnd < selectionStart && newSelectionEnd > selectionStart
 			) {
+				// Collapse selection first, before flipping it's direction
 				selectionEnd = selectionStart;
 			} else {
 				selectionEnd = newSelectionEnd;
 			}
+			// If necessary, relocate the view to match the selection
 			if (selectionEnd >= selectionStart) {
+				// Left to right selection
 				if (selectionEnd > waveOffset + viewWidth - xScale) {
 					waveOffset = selectionEnd - viewWidth + xScale;
 				} else if (selectionEnd < waveOffset + xScale) {
 					waveOffset = selectionEnd - 40 * xScale;
 				}
 			} else {
+				// Right to left selection
 				if (selectionEnd > waveOffset + viewWidth - xScale) {
 					waveOffset = selectionEnd;
 				} else if (selectionEnd < waveOffset) {
@@ -900,6 +938,27 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 			if (selectionEnd < 0) {
 				selectionEnd = 0;
 			}
+
+		} else if (selectionStart === selectionEnd) {
+
+			// Pan without changing the length of the selection
+			if (waveOffset < 0) {
+				waveOffset = 0;
+			}
+
+			if (lastPage) {
+				selectionStart = 0;
+			} else if (selectionStart > waveOffset + viewWidth - xScale) {
+				// Position the cursor on the right hand side
+				selectionStart = waveOffset + viewWidth - xScale;
+			} else if (selectionStart < waveOffset) {
+				// Position the cursor on the left hand side
+				selectionStart = waveOffset;
+			}
+			if (selectionStart < 0) {
+				selectionStart = 0;
+			}
+			selectionEnd = selectionStart;
 		}
 		scrollAndRedraw();
 		break;
