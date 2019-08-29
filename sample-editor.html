@@ -137,8 +137,21 @@
 		          <span aria-hidden="true">&times;</span>
 		        </button>
 		      </div>
-		      <div class="modal-body text-center">
-		        <input id="silence-length" type="number" min="0" step="0.001" value="0.100"> seconds
+		      <div class="modal-body">
+		      	<div class="form-row">
+		      		<div class="col-1"></div>
+		      		<div class="col-3 col-form-label">
+		      			<label for="silence-length">Length</label>
+		      		</div>
+		      		<div class="col-7">
+		      			<div class="input-group flex-nowrap">
+		        			<input id="silence-length" type="number" min="0" step="0.001" placeholder="Number of Seconds">
+		        			<div class="input-group-append">
+		        				<span class="input-group-text">seconds</span>
+		        			</div>
+		        		</div>
+		        	</div>
+		      	</div>
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -157,8 +170,21 @@
 		          <span aria-hidden="true">&times;</span>
 		        </button>
 		      </div>
-		      <div class="modal-body text-center">
-		        <input id="quantize-bit-depth" type="number" min="2" max="24" value="8"> bits
+		      <div class="modal-body">
+		      	<div class="form-row">
+		      		<div class="col-1"></div>
+		      		<div class="col-3 col-form-label">
+		      			<label for="quantize-bit-depth">Bit Depth</label>
+		      		</div>
+		      		<div class="col-6">
+		      			<div class="input-group flex-nowrap">
+				        	<input id="quantize-bit-depth" class="form-control" type="number" min="2" max="24" value="8" placeholder="Bit Depth">
+				        	<div class="input-group-append">
+				        		<span class="input-group-text">bits</span>
+				        	</div>
+				        </div>
+		      		</div>
+		      	</div>
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -177,10 +203,36 @@
 		          <span aria-hidden="true">&times;</span>
 		        </button>
 		      </div>
-		      <div class="modal-body text-center">
-		        <input id="resample-rate" type="number" min="8000" max="96000" list="sample-rates"> Hz
-		        <datalist id="sample-rates"></datalist>
-
+		      <div class="modal-body">
+		      	<div class="form-row form-group">
+		      		<div class="col-1"></div>
+		      		<div class="col-3 col-form-label">
+		      			<label for="resample-rate">Sample Rate</label>
+		      		</div>
+		      		<div class="col-7">
+				        <input id="resample-rate" class="form-control" type="number" min="8000" max="96000" list="sample-rates" placeholder="Sample Rate">
+				        <datalist id="sample-rates"></datalist>
+				    </div>
+				    <div class="col-1"></div>
+			    </div>
+			    <div class="form-row form-group">
+			    	<div class="col-1"></div>
+			    	<div class="col-3">
+			    		Anti-Aliasing
+			    	</div>
+			    	<div class="col-3 text-right">
+			    		<div class="form-check form-check-inline">
+			    			<input class="form-check-input" type="radio" name="resample-aliasing" id="resample-antialias-on" value="1" checked>
+			    			<label class="form-check-label" for="resample-antialias-on">On</label>
+			    		</div>
+			    	</div>
+			    	<div class="col-3 text-center">
+			    		<div class="form-check form-check-inline">
+			    			<input class="form-check-input" type="radio" name="resample-aliasing" id="resample-antialias-off" value="0">
+			    			<label class="form-check-label" for="resample-antialias-on">Off</label>
+			    		</div>
+			    	</div>
+			    </div>
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
