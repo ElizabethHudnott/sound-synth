@@ -569,43 +569,27 @@ document.getElementById('btn-resample-sample').addEventListener('click', functio
 	}
 });
 
-$('#insert-silence-modal').on('shown.bs.modal', function (event) {
-	document.getElementById('silence-length').focus();
-});
+$('#insert-silence-modal').on('shown.bs.modal', focusFirst);
+$('#quantize-modal').on('shown.bs.modal', focusFirst);
+$('#resample-modal').on('shown.bs.modal', focusFirst);
 
-
-$('#quantize-modal').on('shown.bs.modal', function (event) {
-	document.getElementById('quantize-bit-depth').focus();
-});
-
-$('#resample-modal').on('shown.bs.modal', function (event) {
-	document.getElementById('resample-rate').focus();
-});
-
-document.getElementById('insert-silence-modal').addEventListener('keypress', defaultActionOnEnter);
-document.getElementById('quantize-modal').addEventListener('keypress', defaultActionOnEnter);
-document.getElementById('resample-modal').addEventListener('keypress', defaultActionOnEnter);
-
-// Insert button inside modal
-document.getElementById('btn-insert-silence').addEventListener('click', function(event) {
+document.getElementById('insert-silence-form').addEventListener('submit', function(event) {
+	event.preventDefault();
 	const time = parseFloat(document.getElementById('silence-length').value);
-	if (time > 0) {
-		const length = time * sample.buffer.sampleRate;
-		selectionEnd = selectionStart + length - 1;
-		setSample(sample.insertSilence(length, selectionStart), true);
-	}
+	const length = Math.ceil(time * sample.buffer.sampleRate);
+	selectionEnd = selectionStart + length - 1;
+	setSample(sample.insertSilence(length, selectionStart), true);
 	$('#insert-silence-modal').modal('hide');
 });
 
-document.getElementById('btn-quantize').addEventListener('click', function(event) {
+document.getElementById('quantize-form').addEventListener('submit', function(event) {
+	event.preventDefault();
 	const depth = parseInt(document.getElementById('quantize-bit-depth').value);
-	if (depth >= 1 && depth <= 31) {
-		if (selectionStart === selectionEnd) {
-			setSample(sample.bitcrush(depth), false);
-		} else {
-			const range = getRange();
-			setSample(sample.bitcrush(depth, range[0], range[1]), false);
-		}
+	if (selectionStart === selectionEnd) {
+		setSample(sample.bitcrush(depth), false);
+	} else {
+		const range = getRange();
+		setSample(sample.bitcrush(depth, range[0], range[1]), false);
 	}
 	$('#quantize-modal').modal('hide');
 });
@@ -1017,10 +1001,11 @@ global.SampleEditor = {
 
 })(window);
 
-function defaultActionOnEnter(event) {
-	if (event.key === 'Enter') {
-		this.querySelector('.btn-primary').click();
-	}
+function focusFirst() {
+	const element = this.querySelector('input:enabled:read-write:not([display=none])');
+	element.focus();
+	element.select();
+
 }
 
 const instrument = new Synth.SampledInstrument('Instrument 1');

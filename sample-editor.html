@@ -130,7 +130,7 @@
 
 		<div id="insert-silence-modal" class="modal fade" tabindex="-1" role="dialog" aria-label="Insert Silence">
 		  <div class="modal-dialog" role="document">
-		    <div class="modal-content bg-dark text-white">
+		    <form id="insert-silence-form" class="modal-content bg-dark text-white">
 		      <div class="modal-header">
 		        <h5 class="modal-title">Insert Silence</h5>
 		        <button type="button" class="close text-white-50" data-dismiss="modal" aria-label="Close">
@@ -145,7 +145,7 @@
 		      		</div>
 		      		<div class="col-7">
 		      			<div class="input-group flex-nowrap">
-		        			<input id="silence-length" type="number" min="0" step="0.001" placeholder="Number of Seconds">
+		        			<input id="silence-length" type="number" min="0.00002" step="0.00002" placeholder="Number of Seconds">
 		        			<div class="input-group-append">
 		        				<span class="input-group-text">seconds</span>
 		        			</div>
@@ -155,15 +155,15 @@
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-		        <button id="btn-insert-silence" type="button" class="btn btn-primary">Insert</button>
+		        <button type="submit" class="btn btn-primary">Insert</button>
 		      </div>
-		    </div>
+		    </form>
 		  </div>
 		</div>
 
 		<div id="quantize-modal" class="modal fade" tabindex="-1" role="dialog" aria-label="Quantize">
 		  <div class="modal-dialog" role="document">
-		    <div class="modal-content bg-dark text-white">
+		    <form id="quantize-form" class="modal-content bg-dark text-white">
 		      <div class="modal-header">
 		        <h5 class="modal-title">Quantize</h5>
 		        <button type="button" class="close text-white-50" data-dismiss="modal" aria-label="Close">
@@ -178,7 +178,7 @@
 		      		</div>
 		      		<div class="col-6">
 		      			<div class="input-group flex-nowrap">
-				        	<input id="quantize-bit-depth" class="form-control" type="number" min="2" max="24" value="8" placeholder="Bit Depth">
+				        	<input id="quantize-bit-depth" class="form-control" type="number" min="2" max="24" value="8" required placeholder="Bit Depth">
 				        	<div class="input-group-append">
 				        		<span class="input-group-text">bits</span>
 				        	</div>
@@ -188,15 +188,15 @@
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-		        <button id="btn-quantize" type="button" class="btn btn-primary">Quantize</button>
+		        <button type="submit" class="btn btn-primary">Quantize</button>
 		      </div>
-		    </div>
+		    </form>
 		  </div>
 		</div>
 
 		<div id="resample-modal" class="modal fade" tabindex="-1" role="dialog" aria-label="Resample">
 		  <div class="modal-dialog" role="document">
-		    <div class="modal-content bg-dark text-white">
+		    <form id="resample-form" class="modal-content bg-dark text-white">
 		      <div class="modal-header">
 		        <h5 class="modal-title">Resample</h5>
 		        <button type="button" class="close text-white-50" data-dismiss="modal" aria-label="Close">
@@ -210,7 +210,7 @@
 		      			<label for="resample-rate">Sample Rate</label>
 		      		</div>
 		      		<div class="col-7">
-				        <input id="resample-rate" class="form-control" type="number" min="8000" max="96000" list="sample-rates" placeholder="Sample Rate">
+				        <input id="resample-rate" class="form-control" type="number" min="8000" max="96000" list="sample-rates" required placeholder="Sample Rate">
 				        <datalist id="sample-rates"></datalist>
 				    </div>
 				    <div class="col-1"></div>
@@ -236,9 +236,9 @@
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-		        <button id="btn-resample" type="button" class="btn btn-primary">Resample</button>
+		        <button type="submit" class="btn btn-primary">Resample</button>
 		      </div>
-		    </div>
+		    </form>
 		  </div>
 		</div>
 	</body>
