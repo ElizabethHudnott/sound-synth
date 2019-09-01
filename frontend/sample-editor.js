@@ -1098,6 +1098,9 @@ instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav'
 });
 
 MusicInput.keyboard.addEventListener('synthinput', function (event) {
+	if (audioContext.state === 'suspended') {
+		audioContext.resume();
+	}
 	const changes = event.changes;
 	const gateChange = changes.get(Synth.Param.GATE);
 	if (gateChange !== undefined) {
@@ -1105,5 +1108,11 @@ MusicInput.keyboard.addEventListener('synthinput', function (event) {
 		const noteChange = changes.get(Synth.Param.NOTES);
 		const note = noteChange === undefined ? undefined : noteChange.value[0];
 		SampleEditor.gate(gate, note);
+	}
+});
+
+document.getElementById('btn-play-sample').addEventListener('click', function (event) {
+	if (audioContext.state === 'suspended') {
+		audioContext.resume();
 	}
 });
