@@ -1,4 +1,4 @@
-const audioContext = new AudioContext();
+const audioContext = new AudioContext({latencyHint: 0.06});
 
 (function (global) {
 'use strict';
@@ -21,6 +21,7 @@ let waveOffset = 0;
 let bufferLength = 0;
 let instrument, sample;
 let sampleIndex = 0;
+let sampleBufferNode;
 let xScale = 0;	// Number of samples per pixel
 let selectionStart = 0, selectionEnd = 0;
 let clipboard;
@@ -34,6 +35,35 @@ const Drag = Synth.enumFromArray([
 ]);
 
 let dragging = Drag.NONE;
+
+const sampleGain = audioContext.createGain();
+sampleGain.connect(audioContext.destination);
+
+function gate(gate, note) {
+	if (gate === Synth.Gate.CLOSED) {
+		sampleBufferNode.loop = false;
+		return;
+	}
+
+	const now = audioContext.currentTime;
+	const time = now + Synth.TRIGGER_TIME;
+
+	if (sampleBufferNode !== undefined) {
+		sampleGain.gain.setTargetAtTime(0, now, Synth.TRIGGER_TIME / 3);
+		sampleBufferNode.stop(time);
+		sampleBufferNode = undefined;
+	}
+
+	if ((gate & Synth.Gate.OPEN) !== 0) {
+		const samplePlayer = new Synth.SamplePlayer(audioContext, sample);
+		sampleBufferNode = samplePlayer.bufferNode;
+		sampleBufferNode.playbackRate.value = Synth.noteFrequencies[note] * samplePlayer.samplePeriod;
+		sampleBufferNode.loop = (gate & Synth.Gate.TRIGGER) !== Synth.Gate.TRIGGER;
+		sampleBufferNode.connect(sampleGain);
+		sampleGain.gain.setValueAtTime(samplePlayer.gain, time);
+		sampleBufferNode.start(time);
+	}
+}
 
 window.addEventListener('load', fitWidth);
 window.addEventListener('resize', fitWidth);
@@ -294,7 +324,8 @@ function getMaxOffset() {
 function editSample(newInstrument, newSampleIndex) {
 	instrument = newInstrument;
 	sampleIndex = newSampleIndex;
-	setSample(newInstrument.samples[newSampleIndex], true);
+	const newSample = newInstrument.samples[newSampleIndex];
+	setSample(newSample, true);
 }
 
 function setSample(newSample, resize) {
@@ -398,6 +429,12 @@ function zoomShowAll() {
 	waveWidth = canvas.width;
 	resizeWaveform();
 }
+
+document.getElementById('btn-play-sample').addEventListener('click', function (event) {
+	if (sample !== undefined) {
+		gate(Synth.Gate.TRIGGER, sample.sampledNote);
+	}
+});
 
 document.getElementById('btn-zoom-sample-in').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
@@ -1035,6 +1072,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 
 global.SampleEditor = {
 	editSample: editSample,
+	gate: gate,
 };
 
 })(window);
@@ -1054,5 +1092,18 @@ function queryChecked(ancestor, name) {
 const instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
 .then(function (resource) {
+	instrument.guessOctave();
+	MusicInput.keyboardOctave = instrument.defaultOctave;
 	SampleEditor.editSample(instrument, 0);
+});
+
+MusicInput.keyboard.addEventListener('synthinput', function (event) {
+	const changes = event.changes;
+	const gateChange = changes.get(Synth.Param.GATE);
+	if (gateChange !== undefined) {
+		const gate = gateChange.value;
+		const noteChange = changes.get(Synth.Param.NOTES);
+		const note = noteChange === undefined ? undefined : noteChange.value[0];
+		SampleEditor.gate(gate, note);
+	}
 });

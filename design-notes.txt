@@ -63,11 +63,12 @@ UI:
 	Scroll bar not visible on mobile -> Draw a custom one
 	playback separately OR on a track
 	UI for Parameter.OFFSET? ruler and snap
-smooth() method (rectangle window)
-Check Number.MAX_VALUE is being applied consistently
-* crossFade() should use a sine curve
+* crossFadeLoop() should use a sine curve
 * amplify() should support *exponential* fades
+smooth method (rectangle window)
+method to create a sample by crossfading one sample into another
 trim silence method
+Check Number.MAX_VALUE is being applied consistently
 editing stereo sample channels separately
 Time stretching
 Add custom offset/beat slice positions
@@ -76,6 +77,7 @@ MOD2Sample (advanced)
 
 Synth
 -----
+* Don't cut sample playback so harshly
 * Change sample release to play in a new AudioBufferSourceNode instead of using setTimeout (also atm Gate.CLOSED doesn't schedule properly!)
 *	Add option to finish the current loop or not.
 * Remove all setTimeouts

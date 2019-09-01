@@ -9,6 +9,7 @@
 		<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
 		<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 		<script src="js/synth.js" defer></script>
+		<script src="js/input.js" defer></script>
 		<script src="frontend/sample-editor.js" defer></script>
 	</head>
 	<body>
@@ -31,6 +32,11 @@
 			</nav>
 			<div id="sample-editor">
 				<div class="btn-toolbar bg-secondary p-1" role="toolbar" aria-label="Sample editing toolbar">
+					<div class="btn-group mr-2" role="group" aria-label="Playback">
+						<button id="btn-play-sample" type="button" class="btn btn-light" title="Play">
+							<img src="img/play.png">
+						</button>
+					</div>
 					<div class="btn-group mr-2" role="group" aria-label="Zoom">
 						<button id="btn-zoom-sample-in" type="button" class="btn btn-light" title="Zoom in">
 							<img src="img/zoom-in.png">

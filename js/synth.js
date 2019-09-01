@@ -1490,7 +1490,7 @@ class Sample {
 		});
 	}
 
-	crossFade(length, postLength, changeType) {
+	crossFadeLoop(length, postLength, changeType) {
 		if (length >= this.loopStart) {
 			length = this.loopStart;
 		}
@@ -1682,16 +1682,16 @@ class Sample {
 	}
 
 	separateStereo(separation, from, to) {
+		const buffer = this.buffer;
+		const length = buffer.length;
 		if (to === undefined) {
 			to = length - 1;
 			if (from === undefined) {
 				from = 0;
 			}
 		}
-		const buffer = this.buffer;
 		const leftChannel = buffer.getChannelData(0);
 		const rightChannel = buffer.getChannelData(1);
-		const length = buffer.length;
 		const midMultiplier = (1 - Math.abs(separation)) / 2;
 		for (let i = from; i <= to; i++) {
 			const oldLeft = leftChannel[i];
@@ -4223,6 +4223,7 @@ global.Synth = {
 	Resource: Resource,
 	ResourceLoadError: ResourceLoadError,
 	Sample: Sample,
+	SamplePlayer,
 	TempoAutomation: TempoAutomation,
 	Wave: Wave,
 
@@ -4241,8 +4242,12 @@ global.Synth = {
 	fillNoise: fillNoise,
 	gcd: gcd,
 	lcm: lcm,
+	noteFrequencies: noteFrequencies,
 	noteFromFrequency: noteFromFrequency,
 	randomize: randomize,
+
+	// Constants
+	TRIGGER_TIME: TRIGGER_TIME,
 };
 
 })(window);
