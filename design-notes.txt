@@ -70,7 +70,8 @@ Check Number.MAX_VALUE is being applied consistently
 trim silence method
 editing stereo sample channels separately
 Time stretching
-Add custom offset/beat slice positions, stop at next slice
+Add custom offset/beat slice positions
+	(e.g. see https://www.renoise.com/blog/Slice%20Markers%20Explained)
 MOD2Sample (advanced)
 
 Synth

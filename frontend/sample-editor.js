@@ -330,7 +330,7 @@ function scrollAndRedraw() {
 	if (scrollPosition !== outerContainer.scrollLeft) {
 		outerContainer.scrollLeft = scrollPosition;
 	} else {
-		redrawWaveform();
+		requestAnimationFrame(redrawWaveform);
 	}
 	// Triggers a scroll event & thus redraws automatically.
 }
@@ -546,6 +546,12 @@ document.getElementById('btn-silence-sample').addEventListener('click', function
 	}
 });
 
+document.getElementById('btn-stereo-sep-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		$('#stereo-separation-modal').modal();
+	}
+});
+
 document.getElementById('btn-quantize-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {
 		$('#quantize-modal').modal();
@@ -570,16 +576,30 @@ document.getElementById('btn-resample-sample').addEventListener('click', functio
 });
 
 $('#insert-silence-modal').on('shown.bs.modal', focusFirst);
+$('#stereo-separation-modal').on('shown.bs.modal', focusFirst);
 $('#quantize-modal').on('shown.bs.modal', focusFirst);
 $('#resample-modal').on('shown.bs.modal', focusFirst);
 
 document.getElementById('insert-silence-form').addEventListener('submit', function(event) {
 	event.preventDefault();
 	const time = parseFloat(document.getElementById('silence-length').value);
-	const length = Math.ceil(time * sample.buffer.sampleRate);
+	const length = Math.round(time * sample.buffer.sampleRate);
 	selectionEnd = selectionStart + length - 1;
 	setSample(sample.insertSilence(length, selectionStart), true);
 	$('#insert-silence-modal').modal('hide');
+});
+
+document.getElementById('stereo-separation-form').addEventListener('submit', function(event) {
+	event.preventDefault();
+	const separation = parseFloat(document.getElementById('stereo-separation').value);
+	if (selectionStart === selectionEnd) {
+		sample.separateStereo(separation);
+	} else {
+		const range = getRange();
+		sample.separateStereo(separation, range[0], range[1]);
+	}
+	requestAnimationFrame(redrawWaveform);
+	$('#stereo-separation-modal').modal('hide');
 });
 
 document.getElementById('quantize-form').addEventListener('submit', function(event) {
@@ -592,6 +612,24 @@ document.getElementById('quantize-form').addEventListener('submit', function(eve
 		setSample(sample.bitcrush(depth, range[0], range[1]), false);
 	}
 	$('#quantize-modal').modal('hide');
+});
+
+document.getElementById('resample-form').addEventListener('submit', function (event) {
+	event.preventDefault();
+	const newRate = parseInt(document.getElementById('resample-rate').value);
+	const antialias = queryChecked(this, 'resample-antialiasing').value === 'true';
+	const ratio = newRate / sample.buffer.sampleRate;
+	selectionStart = Math.trunc(selectionStart * ratio);
+	selectionEnd = Math.trunc(selectionEnd * ratio);
+	if (antialias) {
+		sample.smoothResample(newRate).then(function (newSample) {
+			setSample(newSample, false);
+			$('#resample-modal').modal('hide');
+		});
+	} else {
+		setSample(sample.resample(newRate, false));
+		$('#resample-modal').modal('hide');
+	}
 });
 
 document.getElementById('btn-flip-sample').addEventListener('click', function(event) {
@@ -1002,10 +1040,15 @@ global.SampleEditor = {
 })(window);
 
 function focusFirst() {
-	const element = this.querySelector('input:enabled:read-write:not([display=none])');
+	const element = this.querySelector('input:enabled:not(:read-only):not([display=none])');
 	element.focus();
-	element.select();
+	if (element.select instanceof Function) {
+		element.select();
+	}
+}
 
+function queryChecked(ancestor, name) {
+	return ancestor.querySelector(`:checked[type=radio][name=${name}]`);
 }
 
 const instrument = new Synth.SampledInstrument('Instrument 1');

@@ -1681,13 +1681,19 @@ class Sample {
 		return newSample;
 	}
 
-	separateStereo(separation) {
+	separateStereo(separation, from, to) {
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
 		const buffer = this.buffer;
 		const leftChannel = buffer.getChannelData(0);
 		const rightChannel = buffer.getChannelData(1);
 		const length = buffer.length;
 		const midMultiplier = (1 - Math.abs(separation)) / 2;
-		for (let i = 0; i < length; i++) {
+		for (let i = from; i <= to; i++) {
 			const oldLeft = leftChannel[i];
 			const oldRight = rightChannel[i];
 			const oldMid = oldLeft + oldRight;
@@ -1739,9 +1745,9 @@ class Sample {
 		return samples;
 	}
 
-	mixToMono(pan) {
-		const rightFraction = (pan + 1) / 2;
-		const leftFraction = 1 - rightFraction;
+	mixToMono(balance) {
+		const rightFraction = 0.5 * Math.sin(Math.PI * balance - Math.PI / 2) + 0.5;
+		const leftFraction = 0.5 * Math.sin(Math.PI * balance + Math.PI / 2) + 0.5;
 		const oldBuffer = this.buffer;
 		const left = oldBuffer.getChannelData(0);
 		const right = oldBuffer.getChannelData(1);
