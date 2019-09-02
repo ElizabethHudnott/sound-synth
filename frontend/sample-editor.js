@@ -69,7 +69,7 @@ window.addEventListener('load', fitWidth);
 window.addEventListener('resize', fitWidth);
 
 function fitWidth(event) {
-	const elementWidth = outerContainer.clientWidth;
+	const elementWidth = Math.trunc(outerContainer.clientWidth);
 	canvas.width = elementWidth;
 	overlay.width = elementWidth;
 	if (waveWidth < elementWidth) {
@@ -79,7 +79,7 @@ function fitWidth(event) {
 }
 
 outerContainer.addEventListener('scroll', function (event) {
-	waveOffset = this.scrollLeft / waveWidth * bufferLength;
+	waveOffset = Math.trunc(this.scrollLeft / waveWidth * bufferLength);
 	requestAnimationFrame(redrawWaveform);
 	overlay.focus();
 });
@@ -93,7 +93,7 @@ function resizeWaveform() {
 	} else {
 		container.style.width = waveWidth + 'px';
 		xScale = bufferLength / waveWidth;
-		waveOffset = outerContainer.scrollLeft / waveWidth * bufferLength;
+		waveOffset = Math.trunc(outerContainer.scrollLeft / waveWidth * bufferLength);
 		requestAnimationFrame(redrawWaveform);
 	}
 }
@@ -245,6 +245,10 @@ function drawOverlay() {
 
 function calculateY(data, pixelX) {
 	const gain = sample.gain;
+	if (xScale <= 1) {
+		return gain * data[Math.round(pixelX * xScale + waveOffset)];
+	}
+
 	const waveMinX = Math.max((pixelX - 0.5) * xScale + waveOffset, 0);
 	const waveMaxX = Math.min((pixelX + 0.5) * xScale + waveOffset, data.length - 1);
 	const firstX = Math.trunc(waveMinX);
@@ -252,9 +256,6 @@ function calculateY(data, pixelX) {
 	const firstPortion = waveMinX - firstX;
 	const lastX = Math.ceil(waveMaxX);
 	const last = gain * data[lastX];
-	if (xScale <= 1) {
-		return first * firstPortion + last * (1 - firstPortion);
-	}
 
 	const lastPortion = 1 - (lastX - waveMaxX);
 	let sum = first * firstPortion + last * lastPortion;
@@ -353,7 +354,8 @@ function setSample(newSample, resize) {
 }
 
 function scrollAndRedraw() {
-	const maxOffset = bufferLength - canvas.width * xScale;
+	waveOffset = Math.trunc(waveOffset);
+	const maxOffset = Math.trunc(bufferLength - canvas.width * xScale);
 	if (waveOffset < 0) {
 		waveOffset = 0;
 	} else if (waveOffset > maxOffset) {
@@ -376,19 +378,25 @@ function repositionAfterZoom(zoomChange, maxOffset) {
 	const viewWidth = canvas.width * xScale;
 	const range = getRange();
 	if (selectionStart === selectionEnd && selectionStart >= waveOffset && selectionStart < maxOffset) {
-		// preserve visual cursor position
+		// Preserve the visual cursor position
 		waveOffset = selectionStart - (selectionStart - waveOffset) / zoomChange;
 	} else if (zoomChange > 1 && range[0] >= waveOffset && range[0] < maxOffset) {
+		// Zooming in, selection starts within the viewport
 		if (range[1] < maxOffset) {
-			// centre the selection
+			// Selection end also within the viewport. Centre the selection.
 			const zoomTo = (range[0] + range[1]) / 2;
 			waveOffset = zoomTo - viewWidth / 2;
 		} else {
 			waveOffset += (maxOffset - waveOffset) / zoomMultiplier;
+			if (range[0] < waveOffset + 0.1 * viewWidth) {
+				waveOffset = range[0] - 0.1 * viewWidth
+			}
 		}
 	} else if (!(range[1] >= waveOffset && range[1] < maxOffset)) {
-		// zoom and preserve the centre point
+		// Selection end not within the viewport. Zoom and preserve the centre point.
 		waveOffset = waveOffset + (viewWidth * zoomChange) / 2 - viewWidth / 2
+	} else if (range[1] > waveOffset + 0.9 * viewWidth) {
+		waveOffset = range[1] - 0.9 * viewWidth;
 	}
 	scrollAndRedraw();
 }
@@ -978,7 +986,7 @@ document.getElementById('sample-editor').addEventListener('keydown', function (e
 				}
 				selectionEnd = selectionStart
 				waveOffset = selectionStart;
-				requestAnimationFrame(redrawWaveform);
+				scrollAndRedraw();
 			} else {
 				requestAnimationFrame(drawOverlay);
 			}
