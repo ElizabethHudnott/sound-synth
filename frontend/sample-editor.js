@@ -559,6 +559,49 @@ document.getElementById('btn-zero-crossing').addEventListener('click', function(
 			newSelectionStart = sample.findZero(range[0], 0, Synth.Direction.DOWN);
 			newSelectionEnd = sample.findZero(range[1], 0, Synth.Direction.UP);
 		}
+		const data = sample.buffer.getChannelData(0);
+		const deltaX = 5;
+		const beginSlope = data[newSelectionStart + deltaX] - data[newSelectionStart];
+		const endSlope = data[newSelectionEnd] - data[newSelectionEnd - deltaX];
+		if ((beginSlope > 0 && endSlope < 0) || (beginSlope < 0 && endSlope > 0)) {
+			// Try to prevent an audible click by selecting a whole number of cycles.
+			let beforeBegin, afterBegin, beforeEnd, afterEnd;
+			const slopeChanges = [Infinity, Infinity, Infinity, Infinity];
+			if (newSelectionStart > 0) {
+				beforeBegin = sample.findZero(newSelectionStart - 1, 0, Synth.Direction.DOWN);
+				slopeChanges[0] = Math.abs(endSlope - (data[beforeBegin + deltaX] - data[beforeBegin]));
+			}
+			afterBegin = sample.findZero(newSelectionStart + 1, 0, Synth.Direction.UP);
+			if (afterBegin < newSelectionEnd) {
+				slopeChanges[1] = Math.abs(endSlope - (data[afterBegin + deltaX] - data[afterBegin]));
+			}
+			beforeEnd = sample.findZero(newSelectionEnd - 1, 0, Synth.Direction.DOWN);
+			if (beforeEnd > newSelectionStart) {
+				slopeChanges[2] = Math.abs(data[beforeEnd] - data[beforeEnd - deltaX] - beginSlope);
+			}
+			if (newSelectionEnd < bufferLength - 1) {
+				afterEnd = sample.findZero(newSelectionEnd + 1, 0, Synth.Direction.UP);
+				slopeChanges[3] = Math.abs(data[afterEnd] - data[afterEnd - deltaX] - beginSlope);
+			}
+			const minValue = Math.min(...slopeChanges);
+			if (minValue !== Infinity) {
+				const minIndex = slopeChanges.indexOf(minValue);
+				switch (minIndex) {
+				case 0:
+					newSelectionStart = beforeBegin;
+					break;
+				case 1:
+					newSelectionStart = afterBegin;
+					break;
+				case 2:
+					newSelectionEnd = beforeEnd;
+					break;
+				case 3:
+					newSelectionEnd = afterEnd;
+					break;
+				}
+			}
+		}
 		setRange(newSelectionStart, newSelectionEnd);
 		requestAnimationFrame(redrawWaveform);
 	}
