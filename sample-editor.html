@@ -33,7 +33,7 @@
 			<div id="sample-editor">
 				<div class="btn-toolbar bg-secondary p-1" role="toolbar" aria-label="Sample editing toolbar">
 					<div class="btn-group mr-2" role="group" aria-label="Playback">
-						<button id="btn-play-sample" type="button" class="btn btn-light" title="Play">
+						<button id="btn-play-sample" type="button" class="btn btn-light" title="Play sample">
 							<img src="img/play.png">
 						</button>
 					</div>
@@ -97,7 +97,7 @@
 						<button id="btn-stereo-sep-sample" type="button" class="btn btn-light" title="Adjust stereo separation">
 							<img src="img/boombox.svg">
 						</button>
-						<button id="btn-mono-sample" type="button" class="btn btn-light" title="Convert to mono">
+						<button id="btn-mono-sample" type="button" class="btn btn-light" title="Reduce to mono">
 							<img src="img/radio.png">
 						</button>
 					</div>
@@ -200,8 +200,8 @@
 		      	<div class="form-row">
 		      		<div class="col-1"></div>
 		      		<div class="col-10 px-0">
-	        			<input id="stereo-separation" type="range" min="-1" max="1" value="1" step="any" list="plus-minus-one" class="form-control-range">
-	        			<datalist id="plus-minus-one">
+	        			<input id="stereo-separation" type="range" min="-1" max="1" value="1" step="any" list="plus-minus-one-ticks" class="form-control-range">
+	        			<datalist id="plus-minus-one-ticks">
 	        				<option value="-1">
 	        				<option value="-0.75">
 	        				<option value="-0.5">
@@ -217,7 +217,51 @@
 		      </div>
 		      <div class="modal-footer">
 		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-		        <button type="submit" class="btn btn-primary">OK</button>
+		        <button type="submit" class="btn btn-primary">Adjust</button>
+		      </div>
+		    </form>
+		  </div>
+		</div>
+
+		<div id="reduce-to-mono-modal" class="modal fade" tabindex="-1" role="dialog" aria-label="Reduce to Mono">
+		  <div class="modal-dialog" role="document">
+		    <form id="reduce-to-mono-form" class="modal-content bg-dark text-white">
+		      <div class="modal-header">
+		        <h5 class="modal-title">Reduce to Mono</h5>
+		        <button type="button" class="close text-white-50" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		      </div>
+		      <div class="modal-body">
+		      	<div class="form-row">
+		      		<div class="col-4"></div>
+		      		<div class="col-7">
+		      			<div class="form-check pb-2">
+			      			<input class="form-check-input" type="radio" name="mono-reduce-type" id="mono-reduce-left" value="left">
+			      			<label class="form-check-label" for="mono-reduce-left">Keep left</label>
+			      		</div>
+		      			<div class="form-check pb-2">
+			      			<input class="form-check-input" type="radio" name="mono-reduce-type" id="mono-reduce-right" value="right">
+			      			<label class="form-check-label" for="mono-reduce-right">Keep right</label>
+		      			</div>
+		      			<div class="d-flex pb-2 align-items-center">
+		      				<div class="form-check mr-3">
+				      			<input class="form-check-input" type="radio" name="mono-reduce-type" id="mono-reduce-mix" value="mix" checked>
+				      			<label class="form-check-label" for="mono-reduce-mix">Mix channels</label>
+				      		</div>
+				      		<div class="flex-grow-1">
+								<input id="mono-reduce-balance" type="range" min="0" max="1" step="any" class="form-control-range" aria-label="Balance" list="centre-half-tick">
+								<datalist id="centre-half-tick">
+									<option value="0.5">
+								</datalist>
+				      		</div>
+		      			</div>
+		        	</div>
+		      	</div>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+		        <button type="submit" class="btn btn-primary">Reduce</button>
 		      </div>
 		    </form>
 		  </div>
@@ -284,14 +328,14 @@
 			    	</div>
 			    	<div class="col-3 text-right">
 			    		<div class="form-check form-check-inline">
-			    			<input class="form-check-input" type="radio" name="resample-antialiasing" value="1" checked>
+			    			<input class="form-check-input" type="radio" name="resample-antialiasing" id="resample-antialias-on" value="1" checked>
 			    			<label class="form-check-label" for="resample-antialias-on">On</label>
 			    		</div>
 			    	</div>
 			    	<div class="col-3 text-center">
 			    		<div class="form-check form-check-inline">
-			    			<input class="form-check-input" type="radio" name="resample-antialiasing" value="0">
-			    			<label class="form-check-label" for="resample-antialias-on">Off</label>
+			    			<input class="form-check-input" type="radio" name="resample-antialiasing" id="resample-antialias-off" value="0">
+			    			<label class="form-check-label" for="resample-antialias-off">Off</label>
 			    		</div>
 			    	</div>
 			    </div>

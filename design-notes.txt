@@ -37,6 +37,7 @@ Groove value of 0 should skip playing note
 
 MIDI/Input
 ----------
+Ability to change the locked on note
 New modes:
 	unison
 	combinations with phrase trigger+transpose in lower 2 octaves
@@ -50,6 +51,7 @@ Add touch driven piano (if the app's going to be used on mobile)
 Sampler
 -------
 UI:
+	allow inserting exact number of samples of silence
 	draw clipping
 	pencil tool (with cubic interpolation)
 	Context menu: undo, redo | cut*, copy*, paste, paste mixed, trim* (to selection) | select all | set as loop (or set as loop start + set as loop end)
@@ -57,8 +59,6 @@ UI:
 	Pan without shift key, select with shift key
 	Page down
 	Shift+Ctrl+left/right should snap to zero crossing, loop points, start and end + Snap using mouse mode
-	Change reverse icon
-	Modal dialog should respond to enter key
 	Trim to selection
 	Scroll bar not visible on mobile -> Draw a custom one
 	playback separately OR on a track

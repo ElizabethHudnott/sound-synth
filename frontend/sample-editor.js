@@ -589,6 +589,12 @@ document.getElementById('btn-stereo-sep-sample').addEventListener('click', funct
 	}
 });
 
+document.getElementById('btn-mono-sample').addEventListener('click', function(event) {
+	if (sample !== undefined) {
+		$('#reduce-to-mono-modal').modal();
+	}
+});
+
 document.getElementById('btn-quantize-sample').addEventListener('click', function(event) {
 	if (sample !== undefined) {
 		$('#quantize-modal').modal();
@@ -614,6 +620,7 @@ document.getElementById('btn-resample-sample').addEventListener('click', functio
 
 $('#insert-silence-modal').on('shown.bs.modal', focusFirst);
 $('#stereo-separation-modal').on('shown.bs.modal', focusFirst);
+$('#reduce-to-mono-modal').on('shown.bs.modal', focusFirst);
 $('#quantize-modal').on('shown.bs.modal', focusFirst);
 $('#resample-modal').on('shown.bs.modal', focusFirst);
 
@@ -637,6 +644,11 @@ document.getElementById('stereo-separation-form').addEventListener('submit', fun
 	}
 	requestAnimationFrame(redrawWaveform);
 	$('#stereo-separation-modal').modal('hide');
+});
+
+document.getElementById('reduce-to-mono-form').addEventListener('submit', function(event) {
+	event.preventDefault();
+
 });
 
 document.getElementById('quantize-form').addEventListener('submit', function(event) {
@@ -1079,9 +1091,18 @@ global.SampleEditor = {
 
 function focusFirst() {
 	const element = this.querySelector('input:enabled:not(:read-only):not([display=none])');
-	element.focus();
-	if (element.select instanceof Function) {
-		element.select();
+	if (element.type === 'radio') {
+		const selected = queryChecked(this, element.name);
+		if (selected === null) {
+			element.focus();
+		} else {
+			selected.focus();
+		}
+	} else {
+		element.focus();
+		if (element.select instanceof Function) {
+			element.select();
+		}
 	}
 }
 
