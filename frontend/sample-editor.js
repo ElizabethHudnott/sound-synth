@@ -170,6 +170,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		context2d.strokeStyle = waveColor;
 		context2d.stroke();
 		context2d.beginPath();
+		context2d.moveTo(selectionStartX, pixelY);
 		while (x <= endX && x < selectionEndX) {
 			audioY = calculateY(data, x);
 			pixelY = centre - Math.round(audioY * yScale);
@@ -182,6 +183,7 @@ function drawWave(startX, endX, centre, yScale, halfHeight, channelNumber) {
 		context2d.strokeStyle = selectedWaveColor;
 		context2d.stroke();
 		context2d.beginPath();
+		context2d.moveTo(selectionEndX, pixelY);
 	}
 
 	while (x <= endX) {
@@ -250,12 +252,12 @@ function calculateY(data, pixelX) {
 	const firstPortion = waveMinX - firstX;
 	const lastX = Math.ceil(waveMaxX);
 	const last = gain * data[lastX];
-	const lastPortion = lastX - waveMaxX;
-	let sum = first * firstPortion + last * lastPortion;
 	if (xScale <= 1) {
-		return sum / (firstPortion + lastPortion);
+		return first * firstPortion + last * (1 - firstPortion);
 	}
 
+	const lastPortion = 1 - (lastX - waveMaxX);
+	let sum = first * firstPortion + last * lastPortion;
 	let min = gain * data[firstX];
 	let max = min;
 	if (last < min) {
@@ -648,7 +650,39 @@ document.getElementById('stereo-separation-form').addEventListener('submit', fun
 
 document.getElementById('reduce-to-mono-form').addEventListener('submit', function(event) {
 	event.preventDefault();
+	const option = queryChecked(this, 'mono-reduce-type').value;
 
+	if (selectionStart === selectionEnd) {
+		switch (option) {
+		case 'left':
+			setSample(sample.channel(0), false);
+			break;
+		case 'right':
+			setSample(sample.channel(1), false);
+			break;
+		case 'mix':
+			const balance = parseFloat(document.getElementById('mono-reduce-balance').value);
+			setSample(sample.mixToMono(balance), false);
+			break;
+		}
+	} else {
+		const range = getRange();
+		let balance;
+		switch (option) {
+		case 'left':
+			balance = 0;
+			break;
+		case 'right':
+			balance = 1;
+			break;
+		case 'mix':
+			balance = parseFloat(document.getElementById('mono-reduce-balance').value);
+			break;
+		}
+		sample.duplicateChannel(balance, range[0], range[1]);
+		requestAnimationFrame(redrawWaveform);
+	}
+	$('#reduce-to-mono-modal').modal('hide');
 });
 
 document.getElementById('quantize-form').addEventListener('submit', function(event) {

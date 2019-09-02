@@ -12,19 +12,23 @@
 		<script src="frontend/app.js" defer></script>
 	</head>
 	<body>
-		<nav>
-			<a href="sample-editor.html">Sample Editor</a>
-			<a href="https://github.com/elizabethhudnott/sound-synth/issues" target="_blank">Bugs</a>
-			<iframe src="https://www.facebook.com/plugins/like.php?href=https%3A%2F%2Fwww.facebook.com%2FOrssum&width=122&layout=button&action=like&size=large&show_faces=false&share=true&height=65&appId" width="122" height="29" style="border:none;overflow:hidden;display:inline-block;vertical-align: middle;" scrolling="no" frameborder="0" allowTransparency="true" allow="encrypted-media"></iframe>
-			<div style="display: inline-block; vertical-align: middle;">
-				<a href="https://www.patreon.com/bePatron?u=23440273" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
-			</div>
-		</nav>
 		<div id="intro">
 			<button onclick="begin()">Initialize</button>
 		</div>
 		<div id="controls">
 			<div id="main-controls">
+			<nav>
+				<div>
+					<iframe src="https://www.facebook.com/plugins/like.php?href=https%3A%2F%2Fwww.facebook.com%2FOrssum&width=122&layout=button&action=like&size=large&show_faces=false&share=true&height=65&appId" width="122" height="29" style="border:none;overflow:hidden;display:inline-block;vertical-align: middle;" scrolling="no" frameborder="0" allowTransparency="true" allow="encrypted-media"></iframe>
+					<div id="patreon" style="display: inline-block; vertical-align: middle;">
+						<a href="https://www.patreon.com/bePatron?u=23440273" data-patreon-widget-type="become-patron-button">Become a Patron!</a>
+					</div>
+				</div>
+				<div>
+					<a href="sample-editor.html">Sample Editor</a>
+					<a href="https://github.com/elizabethhudnott/sound-synth/issues" target="_blank">Bugs</a>
+				</div>
+			</nav>
 				<fieldset>
 					<legend>Activation</legend>
 					<button onclick="playNote()">Play Once</button>

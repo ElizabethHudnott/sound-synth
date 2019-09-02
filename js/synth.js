@@ -1769,6 +1769,26 @@ class Sample {
 		return newSample;
 	}
 
+	duplicateChannel(balance, from, to) {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+		const rightFraction = 0.5 * Math.sin(Math.PI * balance - Math.PI / 2) + 0.5;
+		const leftFraction = 0.5 * Math.sin(Math.PI * balance + Math.PI / 2) + 0.5;
+		const left = buffer.getChannelData(0);
+		const right = buffer.getChannelData(1);
+		for (let i = from; i <= to; i++) {
+			left[i] = left[i] * leftFraction + right[i] * rightFraction;
+		}
+		const mixed = left.subarray(from, to + 1);
+		buffer.copyToChannel(mixed, 1, from);
+	}
+
 	offsetAtTime(time, snapToZero) {
 		const buffer = this.buffer;
 		let offset;

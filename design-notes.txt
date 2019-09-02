@@ -63,6 +63,7 @@ UI:
 	Scroll bar not visible on mobile -> Draw a custom one
 	playback separately OR on a track
 	UI for Parameter.OFFSET? ruler and snap
+* findZero applied to a range needs to match the direction of transition +/-
 * crossFadeLoop() should use a sine curve
 * amplify() should support *exponential* fades
 smooth method (rectangle window)
