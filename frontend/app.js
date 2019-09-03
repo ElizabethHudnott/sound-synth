@@ -90,7 +90,7 @@ function applyGateSetting() {
 		gate = gate + Synth.Gate.LEGATO;
 	}
 
-	if (!MusicInput.keyboardSplit) {
+	if (!keyboard.split) {
 		keyboard.gate[0] = gate;
 	} else {
 		keyboard.gate[0] = gate & Synth.Gate.REOPEN;
@@ -116,7 +116,7 @@ document.getElementById('input-channel').addEventListener('input', function (eve
 });
 
 document.getElementById('input-mode-mono').addEventListener('input', function (event) {
-	MusicInput.keyboardSplit = false;
+	keyboard.split = false;
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -128,7 +128,7 @@ document.getElementById('input-mode-mono').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-poly').addEventListener('input', function (event) {
-	MusicInput.keyboardSplit = false;
+	keyboard.split = false;
 	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -140,7 +140,7 @@ document.getElementById('input-mode-poly').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-arp').addEventListener('input', function (event) {
-	MusicInput.keyboardSplit = false;
+	keyboard.split = false;
 	keyboard.enableArpeggio(0, true);
 	if (inputPort !== undefined) {
 		inputPort.enableArpeggio(inputChannel, true);
@@ -148,7 +148,7 @@ document.getElementById('input-mode-arp').addEventListener('input', function (ev
 });
 
 document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
-	MusicInput.keyboardSplit = true;
+	keyboard.split = true;
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = chord;

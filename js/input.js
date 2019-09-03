@@ -466,6 +466,9 @@ if (window.parent !== window || window.opener !== null) {
 
 const keyboard = new Input('Computer Keyboard', 2);
 inputs.set('ComputerKeyboard', keyboard);
+keyboard.octave = 4;
+keyboard.split = false;
+keyboard.velocity = 127;
 
 let access;
 
@@ -553,7 +556,7 @@ function trapKeyboardEvent(event) {
 }
 
 function keyboardChannel(note) {
-	if (MusicInput.keyboardSplit && note >= 60) {
+	if (keyboard.split && note >= 60) {
 		return 1;
 	} else {
 		return 0;
@@ -571,10 +574,10 @@ window.addEventListener('keydown', function (event) {
 		keyboard.allSoundOff();
 		event.preventDefault();
 	} else if (code === 'NumpadDivide') {
-		MusicInput.keyboardOctave = Math.max(MusicInput.keyboardOctave - 1, 0);
+		keyboard.octave = Math.max(keyboard.octave - 1, 0);
 		event.preventDefault();
 	} else if (code === 'NumpadMultiply') {
-		MusicInput.keyboardOctave = Math.min(MusicInput.keyboardOctave + 1, 7);
+		keyboard.octave = Math.min(keyboard.octave + 1, 7);
 		event.preventDefault();
 	} else {
 		let note = keymap.get(code);
@@ -583,14 +586,14 @@ window.addEventListener('keydown', function (event) {
 		}
 		event.preventDefault();
 		const channel = keyboardChannel(note);
-		note = note + (MusicInput.keyboardOctave - 4) * 12;
+		note = note + (keyboard.octave - 4) * 12;
 		if (note < 0) {
 			return;
 		}
 		if (keyboard.notes[channel].includes(note)) {
 			return;
 		}
-		keyboard.noteOn(channel, note, MusicInput.keyboardVelocity);
+		keyboard.noteOn(channel, note, keyboard.velocity);
 	}
 });
 
@@ -604,7 +607,7 @@ window.addEventListener('keyup', function (event) {
 	}
 	event.preventDefault();
 	const channel = keyboardChannel(note);
-	note = note + (MusicInput.keyboardOctave - 4) * 12;
+	note = note + (keyboard.octave - 4) * 12;
 	if (note < 0) {
 		return;
 	}
@@ -664,9 +667,6 @@ global.MusicInput = {
 	open: open,
 	close: close,
 	keyboard: keyboard,
-	keyboardOctave: 4,
-	keyboardSplit: false,
-	keyboardVelocity: 127,
 	port: port,
 	ports: select,
 	addPort: addCustomPort,

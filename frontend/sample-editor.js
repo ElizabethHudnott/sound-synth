@@ -1199,7 +1199,7 @@ const instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
 .then(function (resource) {
 	instrument.guessOctave();
-	MusicInput.keyboardOctave = instrument.defaultOctave;
+	MusicInput.keyboard.octave = instrument.defaultOctave;
 	SampleEditor.editSample(instrument, 0);
 });
 
