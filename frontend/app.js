@@ -72,7 +72,7 @@ function applyInputMode() {
 		inputPort.chord[inputChannel] = [0];
 	} else if (document.getElementById('input-mode-arp').checked) {
 		inputPort.enableArpeggio(inputChannel, true);
-	} else {
+	} else { // Transposed chord split mode
 		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = chord;
@@ -90,7 +90,13 @@ function applyGateSetting() {
 		gate = gate + Synth.Gate.LEGATO;
 	}
 
-	keyboard.gate[0] = gate;
+	if (!MusicInput.keyboardSplit) {
+		keyboard.gate[0] = gate;
+	} else {
+		keyboard.gate[0] = gate & Synth.Gate.REOPEN;
+	}
+	keyboard.gate[1] = gate;
+
 	if (inputPort !== undefined) {
 		inputPort.gate[inputChannel] = gate;
 	}
@@ -110,6 +116,7 @@ document.getElementById('input-channel').addEventListener('input', function (eve
 });
 
 document.getElementById('input-mode-mono').addEventListener('input', function (event) {
+	MusicInput.keyboardSplit = false;
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -121,6 +128,7 @@ document.getElementById('input-mode-mono').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-poly').addEventListener('input', function (event) {
+	MusicInput.keyboardSplit = false;
 	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -132,6 +140,7 @@ document.getElementById('input-mode-poly').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-arp').addEventListener('input', function (event) {
+	MusicInput.keyboardSplit = false;
 	keyboard.enableArpeggio(0, true);
 	if (inputPort !== undefined) {
 		inputPort.enableArpeggio(inputChannel, true);
@@ -139,7 +148,8 @@ document.getElementById('input-mode-arp').addEventListener('input', function (ev
 });
 
 document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
-	keyboard.toChannel[0] = channels.length - 1;
+	MusicInput.keyboardSplit = true;
+	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = chord;
 	if (inputPort !== undefined) {
@@ -232,7 +242,9 @@ function initialize() {
 	MusicInput.open().then(initializeInput, initializeInput);
 	keyboard.addEventListener('synthinput', processInput);
 	keyboard.toChannel[0] = channels.length - 1;
+	keyboard.fromChannel[1] = 1;
 	keyboard.legato[0] = false;
+	keyboard.legato[1] = false;
 
 	const parameterMap = new Map();
 	parameterMap.set(Synth.Param.GLIDE, new Synth.Change(Synth.ChangeType.SET, 0));

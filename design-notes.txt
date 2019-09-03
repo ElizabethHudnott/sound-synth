@@ -39,7 +39,9 @@ MIDI/Input
 Ability to change the locked on note
 New modes:
 	unison
-	combinations with phrase trigger+transpose or chord transpose in lower 2 octaves
+	combinations with phrase trigger+transpose in lower octaves
+	chord transpose mode should lock the notes down
+	change keyboardOctave, etc. to keyboard.octave, etc.
 Metronome UI
 
 UI
@@ -62,7 +64,6 @@ UI:
 	Scroll bar not visible on mobile -> Draw a custom one
 	playback separately OR on a track
 	UI for Parameter.OFFSET? ruler and snap
-* findZero applied to a range needs to match the direction of transition +/-
 * crossFadeLoop() should use a sine curve
 * amplify() should support *exponential* fades
 smooth method (rectangle window)

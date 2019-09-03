@@ -16,8 +16,8 @@ class Input extends EventTarget {
 		super();
 		this.name = name;
 		let numberOfChannels;
-		if (midiPortOrChCount <= 16) {
-			numberOfChannels = midiPortOrChCount;
+		if (midiPortOrChCount > 0) {
+			numberOfChannels = Math.trunc(midiPortOrChCount);
 			this.midiPort = undefined;
 		} else {
 			numberOfChannels = 16;
@@ -464,7 +464,7 @@ if (window.parent !== window || window.opener !== null) {
 	}
 }
 
-const keyboard = new Input('Computer Keyboard');
+const keyboard = new Input('Computer Keyboard', 2);
 inputs.set('ComputerKeyboard', keyboard);
 
 let access;
@@ -552,6 +552,14 @@ function trapKeyboardEvent(event) {
 	}
 }
 
+function keyboardChannel(note) {
+	if (MusicInput.keyboardSplit && note >= 60) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 window.addEventListener('keydown', function (event) {
 	if (!trapKeyboardEvent(event)) {
 		return;
@@ -574,14 +582,15 @@ window.addEventListener('keydown', function (event) {
 			return;
 		}
 		event.preventDefault();
+		const channel = keyboardChannel(note);
 		note = note + (MusicInput.keyboardOctave - 4) * 12;
 		if (note < 0) {
 			return;
 		}
-		if (keyboard.notes[0].includes(note)) {
+		if (keyboard.notes[channel].includes(note)) {
 			return;
 		}
-		keyboard.noteOn(0, note, MusicInput.keyboardVelocity);
+		keyboard.noteOn(channel, note, MusicInput.keyboardVelocity);
 	}
 });
 
@@ -594,11 +603,12 @@ window.addEventListener('keyup', function (event) {
 		return;
 	}
 	event.preventDefault();
+	const channel = keyboardChannel(note);
 	note = note + (MusicInput.keyboardOctave - 4) * 12;
 	if (note < 0) {
 		return;
 	}
-	keyboard.noteOff(0, note);
+	keyboard.noteOff(channel, note);
 });
 
 
@@ -655,12 +665,14 @@ global.MusicInput = {
 	close: close,
 	keyboard: keyboard,
 	keyboardOctave: 4,
+	keyboardSplit: false,
 	keyboardVelocity: 127,
 	port: port,
 	ports: select,
 	addPort: addCustomPort,
 	removePort: removeCustomPort,
 	chord: calculateChord,
+	trapKeyboardEvent: trapKeyboardEvent,
 };
 
 })(window);
