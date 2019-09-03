@@ -55,6 +55,9 @@ class RhythmGenerator {
 
 		// Turns semi-quavers into quavers, triplets into dotted quavers, etc.
 		this.longNoteProbability = 0.5;
+
+		// Distribution of rests, assuming a 16 beat length
+		this.restTimeDist = uniformCDF(0, 8);
 	}
 
 	generate(timeSignatureType) {
@@ -124,7 +127,42 @@ class RhythmGenerator {
 				noteValues[i] = beats;
 			}
 		}
-		console.log(noteValues.flat());
+
+		// Use negative "beat lengths" to indicate rests.
+		let restsToAllocate = Math.round(cdfLookup(this.restTimeDist) * length / 16);
+		let attempts = 0;
+		while (restsToAllocate > 0 && attempts < 100) {
+			const index = Math.trunc(Math.random() * length);
+			let currentIndex = 0;
+			for (let i = 0; i < numBlocks; i++) {
+				const blockLength = lengths[i];
+				if (index < currentIndex + blockLength) {
+					let indexWithinBlock = index - currentIndex;
+					const beats = noteValues[i];
+					const beatLength = beats[indexWithinBlock];
+					if ((indexWithinBlock !== 0 || (beats.length === 1 && i !== 0)) && beatLength > 0) {
+						beats[indexWithinBlock] = -beatLength;
+						restsToAllocate -= beatLength;
+					}
+					break;
+				}
+				currentIndex += blockLength;
+			}
+			attempts++;
+		}
+		for (let i = 0; i < numBlocks && restsToAllocate < 0; i++) {
+			const beatGroup = noteValues[i];
+			for (let j = 0; j < beatGroup.length && restsToAllocate < 0; j++) {
+				const beat = beatGroup[j];
+				if (beat < 0 && -beat <= -restsToAllocate) {
+					beatGroup[j] = -beat;
+					restsToAllocate += -beat;
+				}
+			}
+		}
+
+		console.log('Blocks: ' + lengths);
+		console.log('Rhythm: ' + noteValues.flat());
 
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
 		const parameterMaps = new Array(3);
@@ -140,10 +178,19 @@ class RhythmGenerator {
 			const beatGroup = noteValues[i];
 			for (let j = 0; j < beatGroup.length; j++) {
 				const beatLength = beatGroup[j];
-				phrase.rows[rowNum] = parameterMaps[beatLength - 1];
-				rowNum += beatLength * 2;
+				if (beatLength > 0) {
+					phrase.rows[rowNum] = parameterMaps[beatLength - 1];
+				}
+				rowNum += Math.abs(beatLength) * 2;
 			}
 		}
+		const lastParams = new Map();
+		let numLoops = Math.round(64 / length);
+		if (numLoops < 2) {
+			numLoops = 2;
+		}
+		lastParams.set(Synth.Param.LOOP, new Synth.Change(Synth.ChangeType.SET, numLoops));
+		phrase.rows[length * 2 - 1] = lastParams;
 		return phrase;
 	}
 
