@@ -33,14 +33,13 @@ Song Loop From
 Easy
 -----
 Document find-replace
-Groove value of 0 should skip playing note
 
 MIDI/Input
 ----------
 Ability to change the locked on note
 New modes:
 	unison
-	combinations with phrase trigger+transpose in lower 2 octaves
+	combinations with phrase trigger+transpose or chord transpose in lower 2 octaves
 Metronome UI
 
 UI
@@ -81,7 +80,7 @@ Synth
 * Don't cut sample playback so harshly
 * Change sample release to play in a new AudioBufferSourceNode instead of using setTimeout (also atm Gate.CLOSED doesn't schedule properly!)
 *	Add option to finish the current loop or not.
-* Remove all setTimeouts
+* Remove as many setTimeouts as possible
 
 Reverb
 UI Rewrite

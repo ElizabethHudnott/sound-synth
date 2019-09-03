@@ -190,6 +190,7 @@ class ResourceLoadError extends Error {
 const Parameter = enumFromArray([
 	'LINE_TIME',	// in steps
 	'GROOVE',		// an array of line times
+	'GROOVE_SPEED',	// how many lines each step of the groove applies for
 	'MACRO',
 	'INSTRUMENT',	// array index of the instrument to play.
 	// Parameters above this line are calculated before the main loop
@@ -2556,6 +2557,7 @@ class Channel {
 		this.parameters = [
 			system.lineTime, // line time (125bpm, allegro)
 			[],		// groove
+			4,		// increment groove step every 4 lines
 			undefined, // actual macro values are held in macroValues property
 			0,		// no instrument set
 			[69],	// MIDI note numbers
@@ -2654,6 +2656,7 @@ class Channel {
 		this.sustain = expCurve(70, 1); // combined sustain and velocity
 		this.release = 0.3;
 		this.calcEnvelope();
+		this.grooveLineCount = 0;
 		this.macroValues = new Map();
 		this.timeouts = new Set();
 
@@ -3259,7 +3262,7 @@ class Channel {
 			gate = gate.value;
 		}
 
-		let groove, grooveIndex, numTempos, lineTime;
+		let groove, grooveIndex, numTempos, grooveLineCount, lineTime;
 		const grooveChange = parameterMap.get(Parameter.GROOVE);
 		if (grooveChange === undefined) {
 			groove = parameters[Parameter.GROOVE];
@@ -3268,11 +3271,24 @@ class Channel {
 			if (grooveIndex >= numTempos) {
 				grooveIndex = 0;
 			}
+			grooveLineCount = this.grooveLineCount;
 		} else {
 			groove = calculateParameterValue(grooveChange, parameters[Parameter.GROOVE], true)[1];
 			parameters[Parameter.GROOVE] = groove;
 			grooveIndex = 0;
 			numTempos = groove.length;
+			grooveLineCount = 0;
+		}
+		const grooveSpeedChange = parameterMap.get(Parameter.GROOVE_SPEED);
+		let grooveSpeed = parameters[Parameter.GROOVE_SPEED];
+		if (grooveSpeedChange !== undefined) {
+			grooveSpeed = calculateParameterValue(grooveSpeedChange, grooveSpeed, false)[1];
+			parameters[Parameter.GROOVE_SPEED] = grooveSpeed;
+			if (grooveLineCount >= grooveSpeed && grooveChange === undefined && numTempos > 0) {
+				grooveLineCount = 0;
+				grooveIndex = (grooveIndex + 1) % numTempos;
+				this.grooveIndex = grooveIndex;
+			}
 		}
 
 		const lineTimeChange = parameterMap.get(Parameter.LINE_TIME);
@@ -3290,9 +3306,13 @@ class Channel {
 		} else {
 			lineTime = groove[grooveIndex];
 			if (newLine) {
-				this.grooveIndex = (grooveIndex + 1) % numTempos;
+				grooveLineCount = (grooveLineCount + 1) % grooveSpeed;
+				if (grooveLineCount === 0) {
+					this.grooveIndex = (grooveIndex + 1) % numTempos;
+				}
 			}
 		}
+		this.grooveLineCount = grooveLineCount;
 
 		let instrument;
 		const instrumentChange = parameterMap.get(Parameter.INSTRUMENT);
