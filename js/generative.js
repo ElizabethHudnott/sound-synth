@@ -39,8 +39,8 @@ function uniformCDF(from, to) {
 
 const TimeSignatureType = Object.freeze({
 	SIMPLE: 1,
+	COMPLEX: 2,
 	COMPOUND: 3,
-	ANY: 0,
 });
 
 class RhythmGenerator {
@@ -55,7 +55,7 @@ class RhythmGenerator {
 
 		/* Distribution of eighth notes (1), half notes (4), etc. */
 		this.beatDist = makeCDF(new Map([
-			[1, 12], [2, 6], [3, 4], [4, 3], [6, 2],
+			[1, 12], [2, 6], [3, 4], [4, 3], [6, 2], [8, 1.5],
 		]));
 
 		// Distribution of rests, assuming a 16 beat length
@@ -63,30 +63,48 @@ class RhythmGenerator {
 	}
 
 	generate(timeSignatureType, isFirstBar) {
-		// 1 = quavers as the basic note (x/8 time), 2 = crotchet (x/4 time), etc.
-		const mainBeatLength = 2 ** Math.trunc(Math.random() * 3);
 		let length = cdfLookup(this.lengthDist);
-		let lengths;
+		let mainBeatLength, lengths;
 		switch (timeSignatureType) {
 		case TimeSignatureType.SIMPLE:
+			// 1 = quavers as the basic note (x/8 time), 2 = crotchet (x/4 time), etc.
+			mainBeatLength = 2 ** Math.trunc(Math.random() * 3);
 			length = Math.max(Math.round(length / mainBeatLength), 2) * mainBeatLength;
 			lengths = new Array(length);
 			lengths.fill(1);
 			break;
 
 		case TimeSignatureType.COMPOUND:
+			mainBeatLength = 3;
 			length = (Math.trunc(length / 3) + 1) * 3;
 			lengths = new Array(length / 3);
 			lengths.fill(3);
 			break;
 
-		case TimeSignatureType.ANY:
+		case TimeSignatureType.COMPLEX:
+			mainBeatLength = 1;
 			lengths = [];
 			let lengthSoFar = 0;
-			while (lengthSoFar < length - 1) {
+			while (lengthSoFar < length - 1 || lengths.length < 2) {
 				const subdivision = cdfLookup(this.subdivisionDist);
 				lengths.push(subdivision);
 				lengthSoFar += subdivision;
+			}
+			let allTheSame = true;
+			for (let i = 1; i < lengths.length; i++) {
+				if (lengths[i] !== lengths[0]) {
+					allTheSame = false;
+					break;
+				}
+			}
+			if (allTheSame) {
+				const subdivisions = this.subdivisionDist[1];
+				lengthSoFar -= lengths[1];
+				lengths[1] = subdivisions[0];
+				if (lengths[0] === lengths[1]) {
+					lengths[1] = subdivisions[1];
+				}
+				lengthSoFar += lengths[1];
 			}
 			length = lengthSoFar;
 			break;
@@ -96,10 +114,13 @@ class RhythmGenerator {
 		let noteValues = [];
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
 			console.log('Beat length: ' + mainBeatLength);
-			let i = 0, offset = 0;
-			let beatLength, owed;
+			let i = 0, offset = 0, owed = 0;
+			let beatLength;
 			while (i < numBlocks) {
-				if (owed === undefined) {
+				if (owed > numBlocks - i) {
+					owed = 0;
+				}
+				if (owed === 0) {
 					beatLength = cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1;
 				} else {
 					beatLength = owed;
@@ -107,7 +128,7 @@ class RhythmGenerator {
 				if ((offset + beatLength > mainBeatLength && offset !== 0) ||
 					beatLength > numBlocks - i || beatLength > numBlocks - 1
 				) {
-					if (owed === undefined) {
+					if (owed === 0) {
 						owed = beatLength;
 					}
 					do {
@@ -115,7 +136,7 @@ class RhythmGenerator {
 					} while ((offset + beatLength > mainBeatLength && offset !== 0) || beatLength > numBlocks - i || beatLength > numBlocks - 1)
 				}
 				if (beatLength === owed) {
-					owed = undefined;
+					owed = 0;
 				}
 
 				if (beatLength > 1) {
@@ -131,15 +152,15 @@ class RhythmGenerator {
 			beats.fill(1);
 			noteValues[0] = beats;
 		} else {
-			let i = 0, beatLength, owed;
+			let i = 0, owed = 0, beatLength;
 			while (i < numBlocks) {
 				const subdivision = lengths[i];
-				if (owed === undefined) {
+				if (owed === 0) {
 					beatLength = cdfLookup(this.beatDist);
 				} else {
 					beatLength = owed;
 				}
-				while (beatLength % 3 === 0 ||
+				while ((beatLength > 2 && beatLength !== 4) ||
 					(beatLength === 4 && (numBlocks === 2 || subdivision !== lengths[i + 1]))
 				) {
 					if (beatLength === 4) {
@@ -148,7 +169,7 @@ class RhythmGenerator {
 					beatLength = cdfLookup(this.beatDist);
 				}
 				if (beatLength === owed) {
-					owed = undefined;
+					owed = 0;
 				}
 
 				let beats;
