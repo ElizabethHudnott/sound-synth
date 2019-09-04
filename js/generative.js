@@ -45,7 +45,7 @@ const TimeSignatureType = Object.freeze({
 
 class RhythmGenerator {
 	constructor() {
-		// Approximate length in semiquavers.
+		// Approximate length in quavers.
 		this.lengthDist = uniformCDF(2, 12);
 
 		/* Frequency distribution of duplets and triplets for complex time signatures
@@ -53,17 +53,21 @@ class RhythmGenerator {
 		 */
 		this.subdivisionDist = makeCDF(new Map([[2, 2], [3, 1]]));
 
-		this.beatDist = makeCDF(new Map([[1, 4], [2, 2], [4, 1]]));
+		/* Distribution of eighth notes (1), half notes (4), etc. */
+		this.beatDist = makeCDF(new Map([[1, 4], [2, 2], [3, 1.5], [4, 1]]));
 
 		// Distribution of rests, assuming a 16 beat length
 		this.restTimeDist = uniformCDF(0, 8);
 	}
 
-	generate(timeSignatureType) {
+	generate(timeSignatureType, isFirstBar) {
+		// 1 = quavers as the basic note (x/8 time), 2 = crotchet (x/4 time), etc.
+		const mainBeatLength = 2 ** Math.trunc(Math.random() * 3);
 		let length = cdfLookup(this.lengthDist);
 		let lengths;
 		switch (timeSignatureType) {
 		case TimeSignatureType.SIMPLE:
+			length = Math.max(Math.round(length / mainBeatLength), 2) * mainBeatLength;
 			lengths = new Array(length);
 			lengths.fill(1);
 			break;
@@ -89,14 +93,33 @@ class RhythmGenerator {
 		let numBlocks = lengths.length;
 		let noteValues = [];
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
-			let i = 0;
+			console.log('Beat length: ' + mainBeatLength);
+			let i = 0, offset = 0;
+			let beatLength, owed;
 			while (i < numBlocks) {
-				let beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+				if (owed === undefined) {
+					beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+				} else {
+					beatLength = owed;
+				}
+				if (offset + beatLength > mainBeatLength && offset !== 0) {
+					if (owed === undefined) {
+						owed = beatLength;
+					}
+					do {
+						beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+					} while (offset + beatLength > mainBeatLength && offset !== 0)
+				}
+				if (beatLength === owed) {
+					owed = undefined;
+				}
+
 				if (beatLength > 1) {
 					lengths.splice(i, beatLength, beatLength);
 					numBlocks -= beatLength - 1;
 				}
 				noteValues[i] = [beatLength];
+				offset = (offset + beatLength) % mainBeatLength;
 				i++;
 			}
 		} else if (numBlocks === 1) {
@@ -104,14 +127,24 @@ class RhythmGenerator {
 			beats.fill(1);
 			noteValues[0] = beats;
 		} else {
-			let i = 0;
+			let i = 0, beatLength, owed;
 			while (i < numBlocks) {
 				const subdivision = lengths[i];
-				let beatLength = cdfLookup(this.beatDist);
-				if (beatLength === 4 &&
-					(numBlocks === 2 || subdivision !== lengths[i + 1])
+				if (owed === undefined) {
+					beatLength = cdfLookup(this.beatDist);
+				} else {
+					beatLength = owed;
+				}
+				while (beatLength === 3 ||
+					(beatLength === 4 && (numBlocks === 2 || subdivision !== lengths[i + 1]))
 				) {
-					beatLength = 2;
+					if (beatLength === 4) {
+						owed = 4;
+					}
+					beatLength = cdfLookup(this.beatDist);
+				}
+				if (beatLength === owed) {
+					owed = undefined;
 				}
 
 				let beats;
@@ -148,7 +181,7 @@ class RhythmGenerator {
 					let indexWithinBlock = index - currentIndex;
 					const beats = noteValues[i];
 					const beatLength = beats[indexWithinBlock];
-					if ((indexWithinBlock !== 0 || (beats.length === 1 && i !== 0)) && beatLength > 0) {
+					if ((indexWithinBlock !== 0 || i !== 0 || !isFirstBar) && beatLength > 0) {
 						beats[indexWithinBlock] = -beatLength;
 						restsToAllocate -= beatLength;
 					}
@@ -173,21 +206,15 @@ class RhythmGenerator {
 		console.log('Rhythm: ' + noteValues.flat());
 
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
-		const parameterMaps = new Map();
-
 		let rowNum = 0;
 		for (let i = 0; i < numBlocks; i++) {
 			const beatGroup = noteValues[i];
 			for (let j = 0; j < beatGroup.length; j++) {
 				const beatLength = beatGroup[j];
 				if (beatLength > 0) {
-					let parameterMap = parameterMaps.get(beatLength - 1);
-					if (parameterMap === undefined) {
-						parameterMap = new Map();
-						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
-						parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
-						parameterMaps.set(beatLength, parameterMap);
-					}
+					const parameterMap = new Map();
+					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
+					parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
 					phrase.rows[rowNum] = parameterMap;
 				}
 				rowNum += Math.abs(beatLength) * 2;
