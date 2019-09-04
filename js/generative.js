@@ -46,7 +46,7 @@ const TimeSignatureType = Object.freeze({
 class RhythmGenerator {
 	constructor() {
 		// Approximate length in quavers.
-		this.lengthDist = uniformCDF(2, 12);
+		this.lengthDist = uniformCDF(3, 12);
 
 		/* Frequency distribution of duplets and triplets for complex time signatures
 		 * (and maybe quintuplets or septuplets).
@@ -54,10 +54,12 @@ class RhythmGenerator {
 		this.subdivisionDist = makeCDF(new Map([[2, 2], [3, 1]]));
 
 		/* Distribution of eighth notes (1), half notes (4), etc. */
-		this.beatDist = makeCDF(new Map([[1, 4], [2, 2], [3, 1.5], [4, 1]]));
+		this.beatDist = makeCDF(new Map([
+			[1, 12], [2, 6], [3, 4], [4, 3], [6, 2],
+		]));
 
 		// Distribution of rests, assuming a 16 beat length
-		this.restTimeDist = uniformCDF(0, 8);
+		this.restTimeDist = uniformCDF(0, 6);
 	}
 
 	generate(timeSignatureType, isFirstBar) {
@@ -73,7 +75,7 @@ class RhythmGenerator {
 			break;
 
 		case TimeSignatureType.COMPOUND:
-			length = Math.round(Math.max(length, 3) / 3) * 3;
+			length = (Math.trunc(length / 3) + 1) * 3;
 			lengths = new Array(length / 3);
 			lengths.fill(3);
 			break;
@@ -98,17 +100,19 @@ class RhythmGenerator {
 			let beatLength, owed;
 			while (i < numBlocks) {
 				if (owed === undefined) {
-					beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+					beatLength = cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1;
 				} else {
 					beatLength = owed;
 				}
-				if (offset + beatLength > mainBeatLength && offset !== 0) {
+				if ((offset + beatLength > mainBeatLength && offset !== 0) ||
+					beatLength > numBlocks - i || beatLength > numBlocks - 1
+				) {
 					if (owed === undefined) {
 						owed = beatLength;
 					}
 					do {
 						beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
-					} while (offset + beatLength > mainBeatLength && offset !== 0)
+					} while ((offset + beatLength > mainBeatLength && offset !== 0) || beatLength > numBlocks - i || beatLength > numBlocks - 1)
 				}
 				if (beatLength === owed) {
 					owed = undefined;
@@ -135,7 +139,7 @@ class RhythmGenerator {
 				} else {
 					beatLength = owed;
 				}
-				while (beatLength === 3 ||
+				while (beatLength % 3 === 0 ||
 					(beatLength === 4 && (numBlocks === 2 || subdivision !== lengths[i + 1]))
 				) {
 					if (beatLength === 4) {
