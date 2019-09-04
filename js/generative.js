@@ -48,13 +48,12 @@ class RhythmGenerator {
 		// Approximate length in semiquavers.
 		this.lengthDist = uniformCDF(2, 12);
 
-		/* Frequency distribution of initial duplets and triplets for complex time signatures
+		/* Frequency distribution of duplets and triplets for complex time signatures
 		 * (and maybe quintuplets or septuplets).
 		 */
 		this.subdivisionDist = makeCDF(new Map([[2, 2], [3, 1]]));
 
-		// Turns semi-quavers into quavers, triplets into dotted quavers, etc.
-		this.longNoteProbability = 0.5;
+		this.beatDist = makeCDF(new Map([[1, 4], [2, 2], [4, 1]]));
 
 		// Distribution of rests, assuming a 16 beat length
 		this.restTimeDist = uniformCDF(0, 8);
@@ -88,43 +87,52 @@ class RhythmGenerator {
 		}
 
 		let numBlocks = lengths.length;
-		const longProbability = this.longNoteProbability;
 		let noteValues = [];
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
-			if (numBlocks === 2) {
-				noteValues = [[1], [1]];
-			} else {
-				let i = 0;
-				while (i < numBlocks - 1) {
-					if (Math.random() < longProbability) {
-						// Replace two 1s with one 2.
-						lengths.splice(i, 2, 2);
-						numBlocks--;
-						noteValues[i] = [2];
-					} else {
-						noteValues[i] = [1];
-					}
-					i++;
+			let i = 0;
+			while (i < numBlocks) {
+				let beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+				if (beatLength > 1) {
+					lengths.splice(i, beatLength, beatLength);
+					numBlocks -= beatLength - 1;
 				}
-				if (noteValues.length < numBlocks) {
-					noteValues.push([1]);
-				}
+				noteValues[i] = [beatLength];
+				i++;
 			}
 		} else if (numBlocks === 1) {
 			const beats = new Array(lengths[0]);
 			beats.fill(1);
 			noteValues[0] = beats;
 		} else {
-			for (let i = 0; i < numBlocks; i++) {
+			let i = 0;
+			while (i < numBlocks) {
 				const subdivision = lengths[i];
+				let beatLength = cdfLookup(this.beatDist);
+				if (beatLength === 4 &&
+					(numBlocks === 2 || subdivision !== lengths[i + 1])
+				) {
+					beatLength = 2;
+				}
+
 				let beats;
-				if (Math.random() < longProbability) {
-					beats = [subdivision];
-				} else {
+				switch (beatLength) {
+				case 1:
 					beats = new Array(subdivision);
 					beats.fill(1);
+					break;
+
+				case 2:
+					beats = [subdivision];
+					break;
+
+				case 4:
+					beats = [2 * subdivision];
+					lengths.splice(i, 2, 2 * subdivision);
+					numBlocks--;
+					break;
 				}
 				noteValues[i] = beats;
+				i++;
 			}
 		}
 
@@ -165,13 +173,7 @@ class RhythmGenerator {
 		console.log('Rhythm: ' + noteValues.flat());
 
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
-		const parameterMaps = new Array(3);
-		for (let i = 0; i < 3; i++) {
-			const parameterMap = new Map();
-			parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
-			parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, (i + 1) * 1.5));
-			parameterMaps[i] = parameterMap;
-		}
+		const parameterMaps = new Map();
 
 		let rowNum = 0;
 		for (let i = 0; i < numBlocks; i++) {
@@ -179,7 +181,14 @@ class RhythmGenerator {
 			for (let j = 0; j < beatGroup.length; j++) {
 				const beatLength = beatGroup[j];
 				if (beatLength > 0) {
-					phrase.rows[rowNum] = parameterMaps[beatLength - 1];
+					let parameterMap = parameterMaps.get(beatLength - 1);
+					if (parameterMap === undefined) {
+						parameterMap = new Map();
+						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
+						parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
+						parameterMaps.set(beatLength, parameterMap);
+					}
+					phrase.rows[rowNum] = parameterMap;
 				}
 				rowNum += Math.abs(beatLength) * 2;
 			}
