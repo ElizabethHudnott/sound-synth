@@ -156,7 +156,7 @@ class PhraseGenerator {
 						owed = beatLength;
 					}
 					do {
-						beatLength = Math.min(cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1);
+						beatLength = cdfLookup(this.beatDist);
 					} while ((offset + beatLength > mainBeatLength && offset !== 0) || beatLength > numBlocks - i || beatLength > numBlocks - 1)
 				}
 				if (beatLength === owed) {
