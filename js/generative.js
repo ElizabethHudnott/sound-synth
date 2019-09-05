@@ -69,7 +69,9 @@ class RhythmGenerator {
 		case TimeSignatureType.SIMPLE:
 			// 1 = quavers as the basic note (x/8 time), 2 = crotchet (x/4 time), etc.
 			mainBeatLength = 2 ** Math.trunc(Math.random() * 3);
-			length = Math.max(Math.round(length / mainBeatLength), 2) * mainBeatLength;
+			while (length % mainBeatLength !== 0) {
+				mainBeatLength /= 2;
+			}
 			lengths = new Array(length);
 			lengths.fill(1);
 			break;
