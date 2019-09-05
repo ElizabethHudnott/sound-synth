@@ -1,3 +1,5 @@
+'use strict';
+
 function makeCDF(map) {
 	const keys = [];
 	const cumulativeProbabilities = [];
@@ -19,7 +21,7 @@ function cdfLookup(distribution) {
 	const probabilities = distribution[0];
 	const values = distribution[1];
 	const length = probabilities.length;
-	i = 0;
+	let i = 0;
 	while (i < length - 1 && probabilities[i] < probability) {
 		i++
 	}
@@ -43,7 +45,16 @@ const TimeSignatureType = Object.freeze({
 	COMPOUND: 3,
 });
 
-class RhythmGenerator {
+class TimeSigature {
+	constructor(type, length, beatLength, groupings) {
+		this.type = type;
+		this.length = length;
+		this.beatLength = beatLength;
+		this.groupings = groupings;
+	}
+}
+
+class PhraseGenerator {
 	constructor() {
 		// Approximate length in quavers.
 		this.lengthDist = uniformCDF(3, 12);
@@ -62,29 +73,32 @@ class RhythmGenerator {
 		this.restTimeDist = uniformCDF(0, 6);
 	}
 
-	generate(timeSignatureType, isFirstBar) {
+	generateTimeSignature(type) {
 		let length = cdfLookup(this.lengthDist);
-		let mainBeatLength, lengths;
-		switch (timeSignatureType) {
+		let beatLength, lengths;
+		if (type === undefined) {
+			type = Math.trunc(Math.random() * 3) + 1;
+		}
+		switch (type) {
 		case TimeSignatureType.SIMPLE:
 			// 1 = quavers as the basic note (x/8 time), 2 = crotchet (x/4 time), etc.
-			mainBeatLength = 2 ** Math.trunc(Math.random() * 3);
-			while (length % mainBeatLength !== 0) {
-				mainBeatLength /= 2;
+			beatLength = 2 ** Math.trunc(Math.random() * 3);
+			while (length % beatLength !== 0) {
+				beatLength /= 2;
 			}
 			lengths = new Array(length);
 			lengths.fill(1);
 			break;
 
 		case TimeSignatureType.COMPOUND:
-			mainBeatLength = 3;
+			beatLength = 3;
 			length = (Math.trunc(length / 3) + 1) * 3;
 			lengths = new Array(length / 3);
 			lengths.fill(3);
 			break;
 
 		case TimeSignatureType.COMPLEX:
-			mainBeatLength = 1;
+			beatLength = 1;
 			lengths = [];
 			let lengthSoFar = 0;
 			while (lengthSoFar < length - 1 || lengths.length < 2) {
@@ -111,9 +125,17 @@ class RhythmGenerator {
 			length = lengthSoFar;
 			break;
 		}
+		return new TimeSigature(type, length, beatLength, lengths);
+	}
 
+	generateRhythm(timeSignature, isFirstBar) {
+		const timeSignatureType = timeSignature.type;
+		const length = timeSignature.length;
+		const mainBeatLength = timeSignature.beatLength;
+		const lengths = timeSignature.groupings.slice();
 		let numBlocks = lengths.length;
-		let noteValues = [];
+		const noteValues = [];
+
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
 			console.log('Beat length: ' + mainBeatLength);
 			let i = 0, offset = 0, owed = 0;
@@ -149,11 +171,16 @@ class RhythmGenerator {
 				offset = (offset + beatLength) % mainBeatLength;
 				i++;
 			}
+
 		} else if (numBlocks === 1) {
+
 			const beats = new Array(lengths[0]);
 			beats.fill(1);
 			noteValues[0] = beats;
+
 		} else {
+
+			// Compound and complex signatures
 			let i = 0, owed = 0, beatLength;
 			while (i < numBlocks) {
 				const subdivision = lengths[i];
@@ -232,7 +259,12 @@ class RhythmGenerator {
 		console.log('Blocks: ' + lengths);
 		console.log('Rhythm: ' + noteValues.flat());
 
+		return noteValues;
+	}
+
+	generateOutput(noteValues, length) {
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
+		const numBlocks = noteValues.length;
 		let rowNum = 0;
 		for (let i = 0; i < numBlocks; i++) {
 			const beatGroup = noteValues[i];
@@ -254,6 +286,13 @@ class RhythmGenerator {
 		}
 		lastParams.set(Synth.Param.LOOP, new Synth.Change(Synth.ChangeType.SET, numLoops));
 		phrase.rows[length * 2 - 1] = lastParams;
+		return phrase;
+	}
+
+	generatePhrase(timeSignatureType) {
+		const timeSignature = this.generateTimeSignature(timeSignatureType);
+		const noteValues = this.generateRhythm(timeSignature, true);
+		const phrase = this.generateOutput(noteValues, timeSignature.length);
 		return phrase;
 	}
 
