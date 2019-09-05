@@ -39,6 +39,52 @@ function uniformCDF(from, to) {
 	return [cumulativeProbabilities, values];
 }
 
+function expectedValue(distribution) {
+	const probabilities = distribution[0];
+	const values = distribution[1];
+	const numValues = values.length;
+	let previousProbability = 0;
+	let sum = 0;
+	for (let i = 0; i < numValues; i++) {
+		const probability = probabilities[i];
+		sum += values[i] * (probability - previousProbability);
+		previousProbability = probability;
+	}
+	return sum;
+}
+
+const scales = new Map();
+scales.set('major', [2, 2, 1, 2, 2, 2, 1]);
+scales.set('minor', [2, 1, 2, 2, 1, 2, 2]);
+
+function generatePitchSpace(scale, baseNote, minNote, maxNote) {
+	const scaleLength = scale.length;
+	const highPitches = [];
+	const lowPitches = [];
+	let index = 0;
+	let note = baseNote;
+	while (note <= maxNote) {
+		if (note >= minNote) {
+			highPitches.push(note);
+		}
+		note = note + scale[index];
+		index = (index + 1) % scaleLength;
+	}
+	index = scaleLength - 1;
+	note = baseNote - scale[index];
+	while (note >= minNote) {
+		if (note <= maxNote) {
+			lowPitches.push(note);
+		}
+		index--;
+		if (index === -1) {
+			index = scaleLength - 1;
+		}
+		note = note - scale[index];
+	}
+	return lowPitches.reverse().concat(highPitches);
+}
+
 const TimeSignatureType = Object.freeze({
 	SIMPLE: 1,
 	COMPLEX: 2,
@@ -71,6 +117,22 @@ class PhraseGenerator {
 
 		// Distribution of rests, assuming a 16 beat length
 		this.restTimeDist = uniformCDF(0, 6);
+
+		this.minNote = 47; // B2
+		this.maxNote = 70; // A#4
+		this.scaleDist = [[0.5, 1], ['major', 'minor']];
+
+		this.contourDist = makeCDF(new Map([
+			['=', 10], ['+', 30], ['-', 30], ['+-', 15], ['-+', 15],
+		]));
+		this.contourLength = uniformCDF(2, 5);
+		this.conjunctIntervals = makeCDF(new Map([
+			[1, 18], [2, 64], [3, 18],
+		]));
+		this.disjunctIntervals = makeCDF(new Map([
+			[3, 3], [4, 3], [5, 3], [6, 3], [8, 1],
+		]));
+		this.wobbleContour = 0.2;
 	}
 
 	generateTimeSignature(type) {
@@ -262,6 +324,96 @@ class PhraseGenerator {
 		return noteValues;
 	}
 
+	generateContourLength(conjunctive) {
+		if (conjunctive) {
+			return cdfLookup(this.contourLength);
+		} else {
+			// Two disjunctive contours take the place of one conjunctive contour
+			return Math.max(Math.ceil(cdfLookup(this.contourLength) / 2), 2);
+		}
+	}
+
+	generateContour(conjunctive) {
+		const type = cdfLookup(this.contourDist);
+		let length = this.generateContourLength(conjunctive);
+		const intervalDist = conjunctive ? this.conjunctIntervals : this.disjunctIntervals;
+		const intervals = [0];
+		let position = 0;
+		switch (type) {
+		case '=':
+			if (conjunctive) {
+				for (let i = 1; i < length; i++) {
+					if (Math.random() < this.wobbleContour) {
+						const sign = Math.random() < 0.5 ? -1 : 1;
+						intervals.push(position + 1);
+						if (i === length - 1) {
+							break;
+						}
+						i++;
+					}
+					intervals.push(position);
+				}
+			} else {
+				for (let i = 1; i < length; i++) {
+					const sign = Math.random() < 0.5 ? -1 : 1;
+					const interval = cdfLookup(intervalDist) - 1;
+					position += sign * interval;
+					intervals.push(position);
+				}
+			}
+			break;
+
+		case '+':
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position += interval;
+				intervals.push(position);
+			}
+			break;
+
+		case '-':
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position -= interval;
+				intervals.push(position);
+			}
+			break;
+
+		case '+-':
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position += interval;
+				intervals.push(position);
+			}
+			length = this.generateContourLength(conjunctive);
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position -= interval;
+				intervals.push(position);
+			}
+			break;
+
+		case '-+':
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position -= interval;
+				intervals.push(position);
+			}
+			length = this.generateContourLength(conjunctive);
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position += interval;
+				intervals.push(position);
+			}
+			break;
+		}
+		return intervals;
+	}
+
+	static putContourInPitchSpace(contour, pitches) {
+
+	}
+
 	generateOutput(noteValues, length) {
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
 		const numBlocks = noteValues.length;
@@ -292,6 +444,11 @@ class PhraseGenerator {
 	generatePhrase(timeSignatureType) {
 		const timeSignature = this.generateTimeSignature(timeSignatureType);
 		const noteValues = this.generateRhythm(timeSignature, true);
+
+		const scaleType = cdfLookup(this.scaleDist);
+		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
+		const pitchSpace = generatePitchSpace(scales.get(scaleType), rootNote, this.minNote, this.maxNote);
+
 		const phrase = this.generateOutput(noteValues, timeSignature.length);
 		return phrase;
 	}

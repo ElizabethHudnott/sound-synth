@@ -20,6 +20,7 @@ Phrase:
 	* loop start point
 	- "free running" on/off
 
+Changes that alternate/randomize between a fixed range of options on each pass
 Add PHRASE_VELOCITY parameter
 Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
 Loop start and end position incrementing (how to counter messing up fades?)
