@@ -53,9 +53,7 @@ function expectedValue(distribution) {
 	return sum;
 }
 
-const scales = new Map();
-scales.set('major', [2, 2, 1, 2, 2, 2, 1]);
-scales.set('minor', [2, 1, 2, 2, 1, 2, 2]);
+const DIATONIC_SCALE = [2, 2, 1, 2, 2, 2, 1];
 
 function generatePitchSpace(scale, baseNote, minNote, maxNote) {
 	const scaleLength = scale.length;
@@ -120,19 +118,27 @@ class PhraseGenerator {
 
 		this.minNote = 47; // B2
 		this.maxNote = 70; // A#4
-		this.scaleDist = [[0.5, 1], ['major', 'minor']];
+		this.modeDist = uniformCDF(1, 7); // The scale degree, 1 = major, 2 = dorian, 6 = minor, etc.
 
 		this.contourDist = makeCDF(new Map([
 			['=', 10], ['+', 30], ['-', 30], ['+-', 15], ['-+', 15],
 		]));
-		this.contourLength = uniformCDF(2, 5);
+
+		this.conjunctLength = uniformCDF(2, 5);
 		this.conjunctIntervals = makeCDF(new Map([
 			[1, 18], [2, 64], [3, 18],
 		]));
+		this.wobbleContour = 0.2;
+
+		this.disjunctLength = uniformCDF(2, 3);
 		this.disjunctIntervals = makeCDF(new Map([
 			[3, 3], [4, 3], [5, 3], [6, 3], [8, 1],
 		]));
-		this.wobbleContour = 0.2;
+
+		this.numConjunctContours = 3;
+		this.numDisjunctContours = 3;
+
+		this.conjunctDistance = 2;
 	}
 
 	generateTimeSignature(type) {
@@ -324,19 +330,20 @@ class PhraseGenerator {
 		return noteValues;
 	}
 
-	generateContourLength(conjunctive) {
-		if (conjunctive) {
-			return cdfLookup(this.contourLength);
-		} else {
-			// Two disjunctive contours take the place of one conjunctive contour
-			return Math.max(Math.ceil(cdfLookup(this.contourLength) / 2), 2);
+	generateScale() {
+		const mode = cdfLookup(this.modeDist) - 1;
+		const scale = new Array(7);
+		for (let i = 0; i < 7; i++) {
+			scale[i] = DIATONIC_SCALE[(i + mode) % 7];
 		}
+		return scale;
 	}
 
 	generateContour(conjunctive) {
 		const type = cdfLookup(this.contourDist);
-		let length = this.generateContourLength(conjunctive);
+		const lengthDist = conjunctive ? this.conjunctLength : this.disjunctLength;
 		const intervalDist = conjunctive ? this.conjunctIntervals : this.disjunctIntervals;
+		let length = cdfLookup(lengthDist);
 		const intervals = [0];
 		let position = 0;
 		switch (type) {
@@ -385,7 +392,7 @@ class PhraseGenerator {
 				position += interval;
 				intervals.push(position);
 			}
-			length = this.generateContourLength(conjunctive);
+			length = cdfLookup(lengthDist);
 			for (let i = 1; i < length; i++) {
 				const interval = cdfLookup(intervalDist) - 1;
 				position -= interval;
@@ -399,7 +406,7 @@ class PhraseGenerator {
 				position -= interval;
 				intervals.push(position);
 			}
-			length = this.generateContourLength(conjunctive);
+			length = cdfLookup(lengthDist);
 			for (let i = 1; i < length; i++) {
 				const interval = cdfLookup(intervalDist) - 1;
 				position += interval;
@@ -411,33 +418,88 @@ class PhraseGenerator {
 	}
 
 	static putContourInPitchSpace(contour, pitches) {
+		const length = contour.length;
+		const numPitches = pitches.length;
+		let min = contour[0];
+		let max = contour[0];
+		for (let i = 1; i < length; i++) {
+			const offset = contour[i];
+			if (offset < min) {
+				min = offset;
+			} else if (offset > max) {
+				max = offset;
+			}
+		}
 
+		const output = [];
+		for (let i = -min; i < numPitches - max; i++) {
+			const run = [];
+			for (let j = 0; j < length; j++) {
+				run.push(pitches[i + contour[j]]);
+			}
+			output.push(run);
+		}
+		return output;
 	}
 
-	generateOutput(noteValues, length) {
+	generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, type, lastPitch, length) {
+		const conjunctDistance = this.conjunctDistance;
+		const notes = [];
+		let patterns, numCandidates;
+		while (notes.length < length) {
+			patterns = conjunctPatterns;
+			const dupCandidates = [], noDupCandidates = [];
+			for (let pattern of patterns) {
+				const distance = Math.abs(pattern[0] - lastPitch);
+				if (distance === 0) {
+					dupCandidates.push(pattern);
+				} else if (distance <= conjunctDistance) {
+					noDupCandidates.push(pattern);
+				}
+			}
+			let candidate;
+			numCandidates = noDupCandidates.length;
+			if (numCandidates > 0) {
+				candidate = noDupCandidates[Math.trunc(Math.random() * numCandidates)];
+			}
+			if (candidate === undefined) {
+				numCandidates = dupCandidates.length;
+				if (numCandidates > 0) {
+					candidate = dupCandidates[Math.trunc(Math.random() * numCandidates)];
+				}
+			}
+			if (candidate === undefined) {
+				numCandidates = patterns.length;
+				candidate = patterns[Math.trunc(Math.random() * numCandidates)];
+			}
+			notes.splice(notes.length, 0, ...candidate);
+		}
+		return notes.slice(0, length);
+	}
+
+	generateOutput(noteValues, melody, length) {
 		const phrase = new Sequencer.Phrase('Generated', length * 2);
 		const numBlocks = noteValues.length;
 		let rowNum = 0;
-		for (let i = 0; i < numBlocks; i++) {
-			const beatGroup = noteValues[i];
-			for (let j = 0; j < beatGroup.length; j++) {
-				const beatLength = beatGroup[j];
-				if (beatLength > 0) {
-					const parameterMap = new Map();
-					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
-					parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
-					phrase.rows[rowNum] = parameterMap;
+		let melodyIndex = 0;
+		while (rowNum < length) {
+			for (let i = 0; i < numBlocks; i++) {
+				const beatGroup = noteValues[i];
+				for (let j = 0; j < beatGroup.length; j++) {
+					const beatLength = beatGroup[j];
+					if (beatLength > 0) {
+						const parameterMap = new Map();
+						const note = melody[melodyIndex];
+						parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [note]));
+						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
+						parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
+						phrase.rows[rowNum] = parameterMap;
+						melodyIndex++;
+					}
+					rowNum += Math.abs(beatLength) * 2;
 				}
-				rowNum += Math.abs(beatLength) * 2;
 			}
 		}
-		const lastParams = new Map();
-		let numLoops = Math.round(64 / length);
-		if (numLoops < 2) {
-			numLoops = 2;
-		}
-		lastParams.set(Synth.Param.LOOP, new Synth.Change(Synth.ChangeType.SET, numLoops));
-		phrase.rows[length * 2 - 1] = lastParams;
 		return phrase;
 	}
 
@@ -445,11 +507,42 @@ class PhraseGenerator {
 		const timeSignature = this.generateTimeSignature(timeSignatureType);
 		const noteValues = this.generateRhythm(timeSignature, true);
 
-		const scaleType = cdfLookup(this.scaleDist);
-		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
-		const pitchSpace = generatePitchSpace(scales.get(scaleType), rootNote, this.minNote, this.maxNote);
+		const numBlocks = noteValues.length;
+		let numNotes = 0;
+		for (let i = 0; i < numBlocks; i++) {
+			const beatGroup = noteValues[i];
+			for (let j = 0; j < beatGroup.length; j++) {
+				const beatLength = beatGroup[j];
+				if (beatLength > 0) {
+					numNotes++;
+				}
+			}
+		}
+		numNotes *= 4; // Generate 4 bars
 
-		const phrase = this.generateOutput(noteValues, timeSignature.length);
+		const scale = this.generateScale()
+		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
+		const pitchSpace = generatePitchSpace(scale, rootNote, this.minNote, this.maxNote);
+
+		const conjunctPatterns = [];
+		for (let i = 0; i < this.numConjunctContours; i++) {
+			const contour = this.generateContour(true);
+			const newPatterns = PhraseGenerator.putContourInPitchSpace(contour, pitchSpace);
+			conjunctPatterns.splice(conjunctPatterns.length, 0, ...newPatterns);
+		}
+
+		const disjunctPatterns = [];
+		for (let i = 0; i < this.numConjunctContours; i++) {
+			const contour = this.generateContour(false);
+			const newPatterns = PhraseGenerator.putContourInPitchSpace(contour, pitchSpace);
+			disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
+		}
+
+		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 0, rootNote, numNotes - 1);
+		melody.unshift(rootNote);
+		console.log('Melody: ' + melody);
+
+		const phrase = this.generateOutput(noteValues, melody, timeSignature.length * 8);
 		return phrase;
 	}
 
