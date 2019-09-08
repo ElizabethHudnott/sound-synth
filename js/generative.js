@@ -132,13 +132,17 @@ class PhraseGenerator {
 
 		this.disjunctLength = uniformCDF(2, 3);
 		this.disjunctIntervals = makeCDF(new Map([
-			[3, 3], [4, 3], [5, 3], [6, 3], [8, 1],
+			[3, 3], [4, 3], [5, 3], [6, 3],
 		]));
 
 		this.numConjunctContours = 3;
 		this.numDisjunctContours = 3;
-
 		this.conjunctDistance = 2;
+
+		this.patternDist = makeCDF(new Map([
+			['conjunct', 1], ['disjunct', 1], ['mixed', 1],
+		]));
+		this.conjunctProbability = 0.8; // within mixed phrases
 	}
 
 	generateTimeSignature(type) {
@@ -444,35 +448,70 @@ class PhraseGenerator {
 
 	generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, type, lastPitch, length) {
 		const conjunctDistance = this.conjunctDistance;
+		const minPitch = pitchSpace[0], maxPitch = pitchSpace[pitchSpace.length - 1];
+		const midPitch = (minPitch + maxPitch) / 2;
 		const notes = [];
-		let patterns, numCandidates;
+		let conjunctive = type === 'conjunct';
+		let patterns, numCandidates, candidate;
 		while (notes.length < length) {
-			patterns = conjunctPatterns;
-			const dupCandidates = [], noDupCandidates = [];
-			for (let pattern of patterns) {
-				const distance = Math.abs(pattern[0] - lastPitch);
-				if (distance === 0) {
-					dupCandidates.push(pattern);
-				} else if (distance <= conjunctDistance) {
-					noDupCandidates.push(pattern);
+			if (type === 'mixed') {
+				conjunctive = Math.random() < this.conjunctProbability;
+			}
+
+			patterns = conjunctive ? conjunctPatterns : disjunctPatterns;
+			candidate = undefined;
+
+			if (conjunctive) {
+				const dupCandidates = [], noDupCandidates = [];
+				for (let pattern of patterns) {
+					const distance = Math.abs(pattern[0] - lastPitch);
+					if (distance === 0) {
+						dupCandidates.push(pattern);
+					} else if (distance <= conjunctDistance) {
+						noDupCandidates.push(pattern);
+					}
 				}
-			}
-			let candidate;
-			numCandidates = noDupCandidates.length;
-			if (numCandidates > 0) {
-				candidate = noDupCandidates[Math.trunc(Math.random() * numCandidates)];
-			}
-			if (candidate === undefined) {
-				numCandidates = dupCandidates.length;
+				numCandidates = noDupCandidates.length;
 				if (numCandidates > 0) {
-					candidate = dupCandidates[Math.trunc(Math.random() * numCandidates)];
+					candidate = noDupCandidates[Math.trunc(Math.random() * numCandidates)];
+				}
+				if (candidate === undefined) {
+					numCandidates = dupCandidates.length;
+					if (numCandidates > 0) {
+						candidate = dupCandidates[Math.trunc(Math.random() * numCandidates)];
+					}
+				}
+			} else {
+				const distance = cdfLookup(this.disjunctIntervals);
+				let startPitch;
+				if (lastPitch > midPitch) {
+					startPitch = lastPitch - distance;
+				} else {
+					startPitch = lastPitch + distance;
+				}
+				if (startPitch < minPitch) {
+					startPitch = minPitch;
+				} else if (startPitch > maxPitch) {
+					startPitch = maxPitch;
+				}
+				const candidates = [];
+				for (let pattern of patterns) {
+					if (pattern[0] === startPitch) {
+						candidates.push(pattern);
+					}
+				}
+				numCandidates = candidates.length;
+				if (numCandidates > 0) {
+					candidate = patterns[Math.trunc(Math.random() * numCandidates)];
 				}
 			}
+
 			if (candidate === undefined) {
 				numCandidates = patterns.length;
 				candidate = patterns[Math.trunc(Math.random() * numCandidates)];
 			}
 			notes.splice(notes.length, 0, ...candidate);
+			lastPitch = candidate[candidate.length - 1];
 		}
 		return notes.slice(0, length);
 	}
@@ -538,7 +577,7 @@ class PhraseGenerator {
 			disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
 		}
 
-		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 0, rootNote, numNotes - 1);
+		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 'mixed', rootNote, numNotes - 1);
 		melody.unshift(rootNote);
 		console.log('Melody: ' + melody);
 
