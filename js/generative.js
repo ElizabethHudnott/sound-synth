@@ -164,7 +164,7 @@ class PhraseGenerator {
 
 		case TimeSignatureType.COMPOUND:
 			beatLength = 3;
-			length = (Math.trunc(length / 3) + 1) * 3;
+			length = Math.min(Math.round(length / 3) * 3, 3);
 			lengths = new Array(length / 3);
 			lengths.fill(3);
 			break;
@@ -200,13 +200,13 @@ class PhraseGenerator {
 		return new TimeSigature(type, length, beatLength, lengths);
 	}
 
-	generateRhythm(timeSignature, isFirstBar) {
+	generateRhythm(timeSignature) {
 		const timeSignatureType = timeSignature.type;
 		const length = timeSignature.length;
 		const mainBeatLength = timeSignature.beatLength;
-		const lengths = timeSignature.groupings.slice();
+		let lengths = timeSignature.groupings.slice();
 		let numBlocks = lengths.length;
-		const noteValues = [];
+		let noteValues = [];
 
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
 			console.log('Beat length: ' + mainBeatLength);
@@ -243,6 +243,25 @@ class PhraseGenerator {
 				offset = (offset + beatLength) % mainBeatLength;
 				i++;
 			}
+			lengths = [];
+			const newValues = [];
+			let currentBlock = noteValues[0];
+			let numEighths = noteValues[0][0];
+			for (let i = 1; i < numBlocks; i++) {
+				if (numEighths % mainBeatLength === 0) {
+					newValues.push(currentBlock);
+					lengths.push(numEighths);
+					currentBlock = [];
+					numEighths = 0;
+				}
+				const value = noteValues[i][0];
+				currentBlock.push(value);
+				numEighths += value;
+			}
+			newValues.push(currentBlock);
+			lengths.push(numEighths);
+			noteValues = newValues;
+			numBlocks = lengths.length;
 
 		} else if (numBlocks === 1) {
 
@@ -307,7 +326,7 @@ class PhraseGenerator {
 					let indexWithinBlock = index - currentIndex;
 					const beats = noteValues[i];
 					const beatLength = beats[indexWithinBlock];
-					if ((indexWithinBlock !== 0 || i !== 0 || !isFirstBar) && beatLength > 0) {
+					if ((indexWithinBlock !== 0 || beats.length === 1) && beatLength > 0) {
 						beats[indexWithinBlock] = -beatLength;
 						restsToAllocate -= beatLength;
 					}
@@ -544,7 +563,7 @@ class PhraseGenerator {
 
 	generatePhrase(timeSignatureType) {
 		const timeSignature = this.generateTimeSignature(timeSignatureType);
-		const noteValues = this.generateRhythm(timeSignature, true);
+		const noteValues = this.generateRhythm(timeSignature);
 
 		const numBlocks = noteValues.length;
 		let numNotes = 0;
