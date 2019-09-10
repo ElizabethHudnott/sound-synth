@@ -121,7 +121,7 @@ class SongGenerator {
 		this.modeDist = uniformCDF(1, 7); // The scale degree, 1 = major, 2 = dorian, 6 = minor, etc.
 
 		this.contourDist = makeCDF(new Map([
-			['=', 10], ['+', 30], ['-', 30], ['+-', 15], ['-+', 15],
+			['=', 10], ['+', 30], ['-', 21], ['--', 9], ['+-', 15], ['-+', 15],
 		]));
 
 		this.conjunctLength = uniformCDF(2, 5);
@@ -148,7 +148,7 @@ class SongGenerator {
 			[[0, 1]			/* AB binary form */	, 2],
 			[[0, 1, 0]		/* ABA ternary form */	, 2],
 			[[0, 1, 0, 1]	/* ABAB */				, 1],
-			[[0, 1, 2]		/* ABC */				, 1],
+			[[0, 1, 0, 2]	/* ABAC */				, 1],
 		]));
 
 		// Probability of repetition in the song structure
@@ -420,6 +420,22 @@ class SongGenerator {
 			}
 			break;
 
+		case '--':
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position -= interval;
+				intervals.push(position);
+			}
+			position = Math.trunc(Math.random() * (position + 1)) - 1
+			intervals.push(position);
+			length = cdfLookup(lengthDist);
+			for (let i = 1; i < length; i++) {
+				const interval = cdfLookup(intervalDist) - 1;
+				position -= interval;
+				intervals.push(position);
+			}
+			break;
+
 		case '+-':
 			for (let i = 1; i < length; i++) {
 				const interval = cdfLookup(intervalDist) - 1;
@@ -481,25 +497,31 @@ class SongGenerator {
 		const minPitch = pitchSpace[0], maxPitch = pitchSpace[pitchSpace.length - 1];
 		const midPitch = (minPitch + maxPitch) / 2;
 		const notes = [];
+		let currentLength = 0;
 		let conjunctive = type === 'conjunct';
-		let patterns, numCandidates, candidate;
+		let patterns, numCandidates, oversizeCandidates, candidate;
 		let logStr = 'Melody: ';
-		while (notes.length < length) {
+		while (currentLength < length - 1) {
 			if (type === 'mixed') {
 				conjunctive = Math.random() < this.conjunctProbability;
 			}
 
 			patterns = conjunctive ? conjunctPatterns : disjunctPatterns;
+			oversizeCandidates = [];
 			candidate = undefined;
 
 			if (conjunctive) {
 				const dupCandidates = [], noDupCandidates = [];
 				for (let pattern of patterns) {
-					const distance = Math.abs(pattern[0] - lastPitch);
-					if (distance === 0) {
-						dupCandidates.push(pattern);
-					} else if (distance <= conjunctDistance) {
-						noDupCandidates.push(pattern);
+					if (currentLength + pattern.length > length) {
+						oversizeCandidates.push(pattern);
+					} else {
+						const distance = Math.abs(pattern[0] - lastPitch);
+						if (distance === 0) {
+							dupCandidates.push(pattern);
+						} else if (distance <= conjunctDistance) {
+							noDupCandidates.push(pattern);
+						}
 					}
 				}
 				numCandidates = noDupCandidates.length;
@@ -528,25 +550,50 @@ class SongGenerator {
 				const candidates = [];
 				for (let pattern of patterns) {
 					if (pattern[0] === startPitch) {
-						candidates.push(pattern);
+						if (currentLength + pattern.length > length) {
+							oversizeCandidates.push(pattern);
+						} else {
+							candidates.push(pattern);
+						}
 					}
 				}
 				numCandidates = candidates.length;
 				if (numCandidates > 0) {
-					candidate = patterns[Math.trunc(Math.random() * numCandidates)];
+					candidate = candidates[Math.trunc(Math.random() * numCandidates)];
 				}
 			}
 
 			if (candidate === undefined) {
-				numCandidates = patterns.length;
-				candidate = patterns[Math.trunc(Math.random() * numCandidates)];
+				numCandidates = oversizeCandidates.length;
+				if (numCandidates > 0) {
+					candidate = oversizeCandidates[Math.trunc(Math.random() * numCandidates)];
+				} else {
+					numCandidates = patterns.length;
+					candidate = patterns[Math.trunc(Math.random() * numCandidates)];
+				}
 			}
-			notes.splice(notes.length, 0, ...candidate);
+			notes.splice(currentLength, 0, ...candidate);
+			currentLength += candidate.length;
 			lastPitch = candidate[candidate.length - 1];
 			logStr += candidate + '|';
 		}
+		if (currentLength < length) {
+			let finalPitch = 2 * notes[currentLength - 1] - notes[currentLength - 2];
+			if (finalPitch < minPitch) {
+				finalPitch = minPitch;
+			} else if (finalPitch > maxPitch) {
+				finalPitch = maxPitch;
+			}
+			if (finalPitch - notes[currentLength - 1] === 0 && finalPitch !== minPitch && finalPitch !== maxPitch) {
+				finalPitch--;
+			}
+			notes.push(finalPitch);
+			logStr += finalPitch;
+		} else {
+			notes.splice(length, currentLength - length);
+		}
 		console.log(logStr);
-		return notes.slice(0, length);
+		return notes;
 	}
 
 	generateSongStructure() {
