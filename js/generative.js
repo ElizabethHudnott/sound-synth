@@ -98,7 +98,7 @@ class TimeSigature {
 	}
 }
 
-class PhraseGenerator {
+class SongGenerator {
 	constructor() {
 		// Approximate length in quavers.
 		this.lengthDist = uniformCDF(3, 12);
@@ -110,7 +110,7 @@ class PhraseGenerator {
 
 		/* Distribution of eighth notes (1), half notes (4), etc. */
 		this.beatDist = makeCDF(new Map([
-			[1, 12], [2, 6], [3, 4], [4, 3], [6, 2], [8, 1.5],
+			[1, 12], [2, 6], [3, 4], [4, 3], [6, 2]
 		]));
 
 		// Distribution of rests, assuming a 16 beat length
@@ -128,7 +128,6 @@ class PhraseGenerator {
 		this.conjunctIntervals = makeCDF(new Map([
 			[1, 18], [2, 64], [3, 18],
 		]));
-		this.wobbleContour = 0.2;
 
 		this.disjunctLength = uniformCDF(2, 3);
 		this.disjunctIntervals = makeCDF(new Map([
@@ -143,6 +142,25 @@ class PhraseGenerator {
 			['conjunct', 1], ['disjunct', 1], ['mixed', 1],
 		]));
 		this.conjunctProbability = 0.8; // within mixed phrases
+
+		this.structureDist = makeCDF(new Map([
+			[[0]									, 6],
+			[[0, 1]			/* AB binary form */	, 2],
+			[[0, 1, 0]		/* ABA ternary form */	, 2],
+			[[0, 1, 0, 1]	/* ABAB */				, 1],
+			[[0, 1, 2]		/* ABC */				, 1],
+		]));
+
+		// Probability of repetition in the song structure
+		this.repeatProbability = 0.5;
+
+		// Probability of using strophic form at the super structure level
+		this.variationsProbability = 1/7;
+
+		// Probability of generating a rondo
+		this.rondoProbability = 0.2;
+
+		this.variationProbability = 0.5;
 	}
 
 	generateTimeSignature(type) {
@@ -371,24 +389,17 @@ class PhraseGenerator {
 		let position = 0;
 		switch (type) {
 		case '=':
-			if (conjunctive) {
-				for (let i = 1; i < length; i++) {
-					if (Math.random() < this.wobbleContour) {
-						const sign = Math.random() < 0.5 ? -1 : 1;
-						intervals.push(position + 1);
-						if (i === length - 1) {
-							break;
-						}
-						i++;
-					}
-					intervals.push(position);
-				}
+			if (conjunctive && length === 2) {
+				intervals.push(0);
 			} else {
+				let sign = Math.random() < 0.5 ? -1 : 1;
 				for (let i = 1; i < length; i++) {
-					const sign = Math.random() < 0.5 ? -1 : 1;
 					const interval = cdfLookup(intervalDist) - 1;
 					position += sign * interval;
 					intervals.push(position);
+					if (interval !== 0) {
+						sign = -sign;
+					}
 				}
 			}
 			break;
@@ -472,6 +483,7 @@ class PhraseGenerator {
 		const notes = [];
 		let conjunctive = type === 'conjunct';
 		let patterns, numCandidates, candidate;
+		let logStr = 'Melody: ';
 		while (notes.length < length) {
 			if (type === 'mixed') {
 				conjunctive = Math.random() < this.conjunctProbability;
@@ -531,8 +543,91 @@ class PhraseGenerator {
 			}
 			notes.splice(notes.length, 0, ...candidate);
 			lastPitch = candidate[candidate.length - 1];
+			logStr += candidate + '|';
 		}
+		console.log(logStr);
 		return notes.slice(0, length);
+	}
+
+	generateSongStructure() {
+		let superStructure, superLength
+		const isVariations = Math.random() < this.variationsProbability;
+		if (isVariations) {
+			superLength = Math.trunc(Math.random() * 3 + 2);
+			superStructure = new Array(superLength);
+			superStructure.fill(0);
+		} else {
+			do {
+				superStructure = cdfLookup(this.structureDist);
+				superLength = superStructure.length;
+			} while (superStructure.length === 1);
+		}
+
+		const rondo = Math.random() < this.rondoProbability;
+		const inner = cdfLookup(this.structureDist);
+		const structure = [];
+		const variants = [];
+		const structures = [];
+		let offset = rondo ? 1 : 0;
+		const currentVariants = rondo ? [-1] : [];
+		console.log('Super structure: ' + superStructure);
+
+		for (let i = 0; i < superLength; i++) {
+			if (rondo) {
+				structure.push(0);
+				currentVariants[0]++;
+				variants.push(currentVariants[0]);
+			}
+			const superValue = superStructure[i];
+			let form = structures[superValue];
+			if (form === undefined) {
+				form = inner.slice();
+				for (let j = 0; j < form.length; j++) {
+					form[j] += offset;
+				}
+				offset = Math.max(...form) + 1;
+				if (Math.random() < this.repeatProbability) {
+					const withRepeats = [];
+					for (let value of form) {
+						withRepeats.push(value);
+						withRepeats.push(value);
+					}
+					form = withRepeats;
+				}
+				structures[superValue] = form;
+				console.log(superValue + ' -> ' + form);
+			}
+			structure.splice(structure.length, 0, ...form);
+			// TODO implement variation at the super structure level
+			for (let value of form) {
+				if (currentVariants[value] === undefined) {
+					currentVariants[value] = 0;
+				} else if (Math.random() < this.variationProbability) {
+					currentVariants[value]++;
+				}
+				variants.push(currentVariants[value]);
+			}
+		}
+		if (rondo) {
+			structure.push(0);
+			currentVariants[0]++;
+			variants.push(currentVariants[0]);
+		} else {
+			const length = structure.length;
+			const lastValue = structure[length - 1];
+			if (inner.length > 1 ||
+				(lastValue === structure[length - 2] && variants[length - 1] === variants[length - 2]) ||
+				structure.length < 3
+			) {
+				// Add a more final ending
+				structure.push(lastValue);
+				currentVariants[lastValue]++;
+				variants.push(currentVariants[lastValue]);
+			}
+		}
+
+		console.log('Structure:  ' + structure);
+		console.log('Variations: ' + variants);
 	}
 
 	generateOutput(noteValues, melody, length) {
@@ -585,20 +680,18 @@ class PhraseGenerator {
 		const conjunctPatterns = [];
 		for (let i = 0; i < this.numConjunctContours; i++) {
 			const contour = this.generateContour(true);
-			const newPatterns = PhraseGenerator.putContourInPitchSpace(contour, pitchSpace);
+			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
 			conjunctPatterns.splice(conjunctPatterns.length, 0, ...newPatterns);
 		}
 
 		const disjunctPatterns = [];
 		for (let i = 0; i < this.numConjunctContours; i++) {
 			const contour = this.generateContour(false);
-			const newPatterns = PhraseGenerator.putContourInPitchSpace(contour, pitchSpace);
+			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
 			disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
 		}
 
-		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 'mixed', rootNote, numNotes - 1);
-		melody.unshift(rootNote);
-		console.log('Melody: ' + melody);
+		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 'mixed', rootNote, numNotes);
 
 		const phrase = this.generateOutput(noteValues, melody, timeSignature.length * 8);
 		return phrase;
