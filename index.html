@@ -8,10 +8,9 @@
 		<script src="js/synth.js" defer></script>
 		<script src="js/input.js" defer></script>
 		<script src="js/sampler.js" defer></script>
-		<script src="frontend/app.js" defer></script>
-
 		<script src="js/sequencer.js" defer></script>
 		<script src="js/generative.js" defer></script>
+		<script src="frontend/app.js" defer></script>
 	</head>
 	<body>
 		<div id="intro">
@@ -35,6 +34,7 @@
 					<legend>Activation</legend>
 					<button onclick="playNote()">Play Once</button>
 					<button onclick="if (keyboard.lockedOn) keyboard.allSoundOff(); else keyboard.setLockedOn()">Sound On/Off</button>
+					<button id="btn-fill-in">Fill-In</button>
 					<br>
 					<small>You can also play notes using the computer keyboard or MIDI.</small>
 					<div id="input-config">

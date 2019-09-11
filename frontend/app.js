@@ -4,6 +4,7 @@ let debug = {input: false};
 const system = new Synth.System(audioContext, initialize);
 const channels = system.channels;
 const keyboard = MusicInput.keyboard;
+const generator = new SongGenerator();
 let gateTemporarilyOpen = false;
 let inputPort, inputChannel = 0, chord = [0];
 let numRecordings = 0;
@@ -26,6 +27,12 @@ document.getElementById('recording-device').prepend(Sampler.devices);
 		applyGateSetting();
 	});
 }
+
+document.getElementById('btn-fill-in').addEventListener('click', function (event) {
+	const phrase = generator.generatePhrase();
+	system.stop();
+	phrase.play(system);
+});
 
 document.getElementById('chord').addEventListener('input', function (event) {
 	chord = [0];

@@ -48,7 +48,6 @@ Metronome UI
 UI
 --
 Bug: when MAX_WAVEFORM is changed while noise is active (fix during the rewrite)
-Add touch driven piano (if the app's going to be used on mobile)
 
 Sampler
 -------
@@ -81,12 +80,11 @@ Synth
 -----
 * Don't cut sample playback so harshly
 * Change sample release to play in a new AudioBufferSourceNode instead of using setTimeout (also atm Gate.CLOSED doesn't schedule properly!)
-*	Add option to finish the current loop or not.
+* Choice of sample release action (fade or end loop)
 * Remove as many setTimeouts as possible
 
 Reverb
 UI Rewrite
-Choice of sample release action (fade or end loop)
 Choice of New Note Action
 	(release, cut, continue until gate closed or cut, duplicate notes of the same instrument always cut)
 Probability
