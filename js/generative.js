@@ -143,6 +143,15 @@ class SongGenerator {
 		]));
 		this.conjunctProbability = 0.8; // within mixed phrases
 
+		/* 0 = staccato
+		 * 1 = legato
+		 * 0.5 < x < 1 represent intermediate qualities
+		 * 0 < x <= 0.5 probably aren't musically valid?
+		 */
+		this.articulation = 0.75;
+
+		this.offbeatVelocity = 80;
+
 		this.structureDist = makeCDF(new Map([
 			[[0]									, 6],
 			[[0, 1]			/* AB binary form */	, 2],
@@ -362,6 +371,18 @@ class SongGenerator {
 					beatGroup[j] = -beat;
 					restsToAllocate += -beat;
 				}
+			}
+		}
+
+		// Make the longest note be on the beat (no syncopation for now)
+		for (let i = 0; i < numBlocks; i++) {
+			const block = noteValues[i];
+			const first = block[0];
+			const max = Math.max(...block);
+			if (first !== max) {
+				const index = block.indexOf(max);
+				block[index] = first;
+				block[0] = max;
 			}
 		}
 
@@ -690,9 +711,12 @@ class SongGenerator {
 					if (beatLength > 0) {
 						const parameterMap = new Map();
 						const note = melody[melodyIndex];
+						const duration = beatLength * 2 * this.articulation;
+						const velocity = j === 0 ? 127 : this.offbeatVelocity;
 						parameterMap.set(Synth.Param.NOTES, new Synth.Change(Synth.ChangeType.SET, [note]));
 						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.TRIGGER));
-						parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, beatLength * 1.5));
+						parameterMap.set(Synth.Param.DURATION, new Synth.Change(Synth.ChangeType.SET, duration));
+						parameterMap.set(Synth.Param.VELOCITY, new Synth.Change(Synth.ChangeType.SET, velocity));
 						phrase.rows[rowNum] = parameterMap;
 						melodyIndex++;
 					}
