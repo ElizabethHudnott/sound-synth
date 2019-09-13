@@ -2651,7 +2651,7 @@ class Channel {
 		this.usingOscillator = true;
 		this.instrument = undefined;
 		this.samplePlayer = undefined;
-		this.sampleLooping = false;
+		this.sampleLoopEndTime = undefined;
 		this.velocity = 1;
 		this.sustain = expCurve(70, 1); // combined sustain and velocity
 		this.release = 0.3;
@@ -2972,6 +2972,43 @@ class Channel {
 		sampleBufferNode.start(time, offset);
 		this.sampleBufferNode = sampleBufferNode;
 		this.samplePlayer = samplePlayer;
+		const loopEndTime = time + (sampleBufferNode.loopEnd - offset) / (samplePlayer.samplePeriod * this.noteFrequencies[note]);
+		if (loopEndTime > time) {
+			sampleBufferNode.loop = true;
+			this.sampleLoopEndTime = loopEndTime;
+		} else {
+			this.sampleLoopEndTime = 0;
+		}
+	}
+
+	stopSample(note, time) {
+		const bufferNode = this.sampleBufferNode;
+		if (bufferNode === undefined) {
+			return;
+		}
+		if (!bufferNode.loop) {
+			return;
+		}
+		if (time <= this.sampleLoopEndTime) {
+			bufferNode.loop = false;
+			return;
+		}
+
+		const playbackRate = this.samplePlayer.samplePeriod * this.noteFrequencies[note];
+		const loopTime = (bufferNode.loopEnd - bufferNode.loopStart) / playbackRate;
+		const loopingTime = time - this.sampleLoopEndTime;
+		const loops = Math.ceil(loopingTime / loopTime);
+		const stopTime = this.sampleLoopEndTime + loops * loopTime;
+		if (bufferNode.loopEnd < bufferNode.buffer.duration) {
+			const releaseNode = this.system.audioContext.createBufferSource();
+			releaseNode.buffer = bufferNode.buffer;
+			releaseNode.playbackRate.value = 0;
+			this.playRateMultiplier.connect(releaseNode.playbackRate);
+			releaseNode.connect(this.sampleGain);
+			releaseNode.start(stopTime, bufferNode.loopEnd);
+			this.sampleBufferNode = releaseNode;
+		}
+		bufferNode.stop(stopTime);
 	}
 
 	triggerLFOs(when) {
@@ -3075,8 +3112,6 @@ class Channel {
 			case Gate.REOPEN:
 				this.triggerLFOs(start);
 				this.playSample(note, start);
-				this.sampleBufferNode.loop = true;
-				this.sampleLooping = true;
 				if (parameters[Parameter.SAMPLE_DECAY]) {
 					gain.setValueAtTime(volume, endHold);
 					gain[decayShape](sustainLevel, endDecay);
@@ -3084,43 +3119,25 @@ class Channel {
 				break;
 
 			case Gate.CLOSED:
-				if (this.sampleBufferNode !== undefined) {
-					this.sampleBufferNode.loop = false;
-					this.sampleLooping = false;
-				}
+				this.stopSample(note, start);
 				break;
 
 			case Gate.TRIGGER:
 			case Gate.LEGATO_TRIGGER:
 				this.triggerLFOs(start);
 				this.playSample(note, start);
-				const sampleBufferNode = this.sampleBufferNode;
 				if (parameters[Parameter.SAMPLE_DECAY]) {
 					gain.setValueAtTime(volume, endHold);
 					gain[decayShape](sustainLevel, endDecay);
 				}
-				const loopPoint = sampleBufferNode.loopEnd * this.samplePlayer.samplePeriod / this.noteFrequencies[note];
-				if (duration > loopPoint) {
-					sampleBufferNode.loop = true;
-					this.sampleLooping = true;
-					beginRelease = start + duration;
-					const timer = this.setTimeout(function () {
-						if (me.sampleBufferNode === sampleBufferNode) {
-							sampleBufferNode.loop = false;
-							me.sampleLooping = false;
-						}
-						me.timeoutComplete(timer);
-					}, beginRelease, this.system.audioContext.currentTime);
-				} else {
-					this.sampleLooping = false;
-				}
+				beginRelease = start + duration;
+				this.stopSample(note, beginRelease);
 				break;
 
 			case Gate.CUT:
 				if (this.sampleBufferNode !== undefined) {
 					this.sampleBufferNode.stop(start);
 					this.sampleBufferNode = undefined;
-					this.sampleLooping = false;
 				}
 				break;
 			}
@@ -3182,7 +3199,6 @@ class Channel {
 			if (this.sampleBufferNode !== undefined) {
 				this.sampleBufferNode.stop(start);
 				this.sampleBufferNode = undefined;
-				this.sampleLooping = false;
 			}
 			break;
 		}
@@ -3314,47 +3330,6 @@ class Channel {
 		}
 		this.grooveLineCount = grooveLineCount;
 
-		let instrument;
-		const instrumentChange = parameterMap.get(Parameter.INSTRUMENT);
-		if (instrumentChange !== undefined) {
-			const instrumentNumber = calculateParameterValue(instrumentChange, parameters[Parameter.INSTRUMENT], false)[1];
-			parameters[Parameter.INSTRUMENT] = instrumentNumber;
-			instrument = this.system.instruments[instrumentNumber - 1];
-			this.instrument = instrument;
-			if (!instrument || !instrument.sampled) {
-				// Switch to oscillator
-				if (this.sampleLooping) {
-					// Stop sample from looping
-					callbacks.push(function () {
-						me.sampleBufferNode.loop = false;
-					});
-					this.sampleLooping = false;
-				}
-			}
-			const currentGate = parameters[Parameter.GATE];
-			if (gate === undefined && (currentGate & Gate.TRIGGER) === Gate.OPEN) {
-				gate = currentGate;
-			}
-			if (instrument) {
-				for (let automation of instrument.tempoAutomations.values()) {
-					automation.initialize();
-				}
-			}
-		} else {
-			instrument = this.instrument;
-		}
-
-		if (instrument) {
-			const newLineTime = lineTime !== this.prevLineTime || instrumentChange;
-			for (let [paramNumber, automation] of instrument.tempoAutomations) {
-				const change = parameterMap.get(paramNumber);
-				if (newLineTime || change !== undefined) {
-					const scaledChange = automation.getValue(change, lineTime);
-					parameterMap.set(paramNumber, scaledChange);
-				}
-			}
-		}
-
 		let numTicks = calculateParameterValue(parameterMap.get(Parameter.TICKS), parameters[Parameter.TICKS], false)[1];
 		if (numTicks < 1) {
 			numTicks = 1;
@@ -3380,6 +3355,41 @@ class Channel {
 			delay = calculateParameterValue(parameterMap.get(Parameter.DELAY_TICKS), parameters[Parameter.DELAY_TICKS], false)[1];
 		}
 		const time = this.system.startTime + step * TIME_STEP + delay * tickTime;
+
+		let instrument;
+		const instrumentChange = parameterMap.get(Parameter.INSTRUMENT);
+		if (instrumentChange !== undefined) {
+			const instrumentNumber = calculateParameterValue(instrumentChange, parameters[Parameter.INSTRUMENT], false)[1];
+			parameters[Parameter.INSTRUMENT] = instrumentNumber;
+			instrument = this.system.instruments[instrumentNumber - 1];
+			this.instrument = instrument;
+			if (!instrument || !instrument.sampled) {
+				// Switch to oscillator
+				this.stopSample(parameters[Parameter.NOTES][0], time);
+			}
+			const currentGate = parameters[Parameter.GATE];
+			if (gate === undefined && (currentGate & Gate.TRIGGER) === Gate.OPEN) {
+				gate = currentGate;
+			}
+			if (instrument) {
+				for (let automation of instrument.tempoAutomations.values()) {
+					automation.initialize();
+				}
+			}
+		} else {
+			instrument = this.instrument;
+		}
+
+		if (instrument) {
+			const newLineTime = lineTime !== this.prevLineTime || instrumentChange;
+			for (let [paramNumber, automation] of instrument.tempoAutomations) {
+				const change = parameterMap.get(paramNumber);
+				if (newLineTime || change !== undefined) {
+					const scaledChange = automation.getValue(change, lineTime);
+					parameterMap.set(paramNumber, scaledChange);
+				}
+			}
+		}
 
 		// Each of these holds a change type (or undefined for no change)
 		let dirtyWavetable, dirtyPWM, dirtyFilterFrequency, dirtyFilterQ;

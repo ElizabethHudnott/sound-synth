@@ -78,11 +78,9 @@ MOD2Sample (advanced)
 
 Synth
 -----
-* Don't cut sample playback so harshly
-* Change sample release to play in a new AudioBufferSourceNode instead of using setTimeout (also atm Gate.CLOSED doesn't schedule properly!)
-* Choice of sample release action (fade or end loop)
 * Remove as many setTimeouts as possible
 
+Choice of sample release action (fade or end loop)
 Reverb
 UI Rewrite
 Choice of New Note Action
