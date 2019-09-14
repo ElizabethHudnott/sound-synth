@@ -31,9 +31,9 @@ Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messi
 Initial song parameters for Channel 1,... Channel N
 Song Loop From
 
-Easy
------
-Document find-replace
+Documentation
+-------------
+Make Wiki complete and up to date
 
 MIDI/Input
 ----------
@@ -78,8 +78,6 @@ MOD2Sample (advanced)
 
 Synth
 -----
-* Remove as many setTimeouts as possible
-
 Choice of sample release action (fade or end loop)
 Reverb
 UI Rewrite

@@ -723,7 +723,9 @@ class Modulator {
 			range.connect(carrier);
 			this.centre = carrier.value;
 		}
-		this.setController(controller);
+		// Maps each controller to its gain control
+		this.controllers = new Map();
+		this.setController(controller, system.audioContext.currentTime);
 	}
 
 	setMinMax(changeType, min, max, time, now) {
@@ -750,13 +752,21 @@ class Modulator {
 		}
 	}
 
-	setController(controller) {
-		controller.connect(this.range);
-		this.controller = controller;
-	}
-
-	disconnect() {
-		this.controller.disconnect(this.range);
+	setController(controller, time) {
+		let gain = this.controllers.get(controller);
+		if (gain === undefined) {
+			gain = this.system.audioContext.createGain();
+			gain.gain.value = 0;
+			controller.connect(gain);
+			gain.connect(this.range);
+			this.controllers.set(controller, gain);
+		}
+		this.system.makeChange(gain.gain, ChangeType.SET, 1, time);
+		for (let otherGain of this.controllers.values()) {
+			if (otherGain !== gain) {
+				this.system.makeChange(otherGain.gain, ChangeType.SET, 0, time);
+			}
+		}
 	}
 
 	cancelAndHoldAtTime(when) {
@@ -3514,37 +3524,25 @@ class Channel {
 			case Parameter.WAVEFORM_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.WAVEFORM_LFO] = value;
-				callbacks.push(function () {
-					me.wavetableMod.disconnect();
-					me.wavetableMod.setController(me.lfos[value - 1]);
-				});
+				this.wavetableMod.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.VIBRATO_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.VIBRATO_LFO] = value;
-				callbacks.push(function () {
-					me.vibrato.disconnect();
-					me.vibrato.setController(me.lfos[value - 1]);
-				});
+				this.vibrato.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.TREMOLO_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.TREMOLO_LFO] = value;
-				callbacks.push(function () {
-					me.tremolo.disconnect();
-					me.tremolo.setController(me.lfos[value - 1]);
-				});
+				this.tremolo.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.PWM_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.PWM_LFO] = value;
-				callbacks.push(function () {
-					me.pwm.disconnect();
-					me.pwm.setController(me.lfos[value - 1]);
-				});
+				this.pwm.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.FILTER_LFO:
@@ -3552,48 +3550,32 @@ class Channel {
 				parameters[Parameter.FILTER_LFO] = value;
 				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
 				parameters[Parameter.Q_LFO] = value;
-				callbacks.push(function () {
-					me.filterFrequencyMod.disconnect();
-					me.filterQMod.disconnect()
-					me.filterFrequencyMod.setController(me.lfos[value - 1]);
-					me.filterQMod.setController(me.lfos[value - 1]);
-				});
+				this.filterFrequencyMod.setController(this.lfos[value - 1], time);
+				this.filterQMod.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.FILTER_FREQUENCY_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
-				callbacks.push(function () {
-					me.filterFrequencyMod.disconnect();
-					me.filterFrequencyMod.setController(me.lfos[value - 1]);
-				});
+				this.filterFrequencyMod.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.Q_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.Q_LFO] = value;
-				callbacks.push(function () {
-					me.filterQMod.disconnect()
-					me.filterQMod.setController(me.lfos[value - 1]);
-				});
+				this.filterQMod.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.DELAY_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.DELAY_LFO] = value;
-				callbacks.push(function () {
-					me.flanger.disconnect();
-					me.flanger.setController(me.lfos[value - 1]);
-				});
+				this.flanger.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.PAN_LFO:
 				value = ((value + numLFOs - 1) % numLFOs) + 1;
 				parameters[Parameter.PAN_LFO] = value;
-				callbacks.push(function () {
-					me.panMod.disconnect();
-					me.panMod.setController(me.lfos[value - 1]);
-				});
+				this.panMod.setController(this.lfos[value - 1], time);
 				break;
 
 			case Parameter.FREQUENCY:
