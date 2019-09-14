@@ -114,8 +114,9 @@
 							</tr>
 						</table>
 						<hr>
-						<input type="radio" name="waveform-lfo" oninput="set(Synth.Param.WAVEFORM_LFO, 1)" checked>LFO 1
-						<input type="radio" name="waveform-lfo" oninput="set(Synth.Param.WAVEFORM_LFO, 2)">LFO 2
+						<span class="control-value">LFO 1</span>
+						<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.WAVEFORM_LFO, parseFloat(this.value))">
+						<span class="control-value">LFO 2</span>
 					</fieldset>
 					<fieldset>
 						<legend>Oscillator Detuning</legend>
@@ -201,11 +202,11 @@
 				</fieldset>
 				<fieldset>
 					<legend>Vibrato</legend>
-					Oscillator:
-					<input type="radio" name="vibrato-lfo" oninput="set(Synth.Param.VIBRATO_LFO, 1)" checked>LFO 1
-					<input type="radio" name="vibrato-lfo" oninput="set(Synth.Param.VIBRATO_LFO, 2)">LFO 2
+					<input type="range" oninput="set(Synth.Param.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0">Extent
 					<br>
-					<input type="range" oninput="set(Synth.Param.VIBRATO_EXTENT, parseFloat(this.value))" min="0" max="200" value="0">Extent<br>
+					<span class="control-value">LFO 1</span>
+					<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.VIBRATO_LFO, parseFloat(this.value))">
+					<span class="control-value">LFO 2</span>
 				</fieldset>
 				<fieldset>
 					<legend>Siren</legend>
@@ -213,12 +214,11 @@
 				</fieldset>
 				<fieldset>
 					<legend>Pulse Width Modulation</legend>
-					Oscillator:
-					<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 1)" checked>LFO 1
-					<input type="radio" name="pwm-lfo" oninput="set(Synth.Param.PWM_LFO, 2)">LFO 2
-					<br>
 					<input type="range" oninput="set(Synth.Param.MIN_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50">Min Pulse Width<br>
 					<input type="range" oninput="set(Synth.Param.MAX_PULSE_WIDTH, parseFloat(this.value))" min="1" max="50" value="50">Max Pulse Width<br>
+					<span class="control-value">LFO 1</span>
+					<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.PWM_LFO, parseFloat(this.value))">
+					<span class="control-value">LFO 2</span>
 				</fieldset>
 				<fieldset>
 					<legend>Filter</legend>
@@ -249,19 +249,17 @@
 						<tr>
 							<td>Frequency:</td>
 							<td>
-								<input type="radio" name="filter-freq-lfo" oninput="set(Synth.Param.FILTER_FREQUENCY_LFO, 1)" checked>LFO 1
-							</td>
-							<td>
-								<input type="radio" name="filter-freq-lfo" oninput="set(Synth.Param.FILTER_FREQUENCY_LFO, 2)">LFO 2
+								<span class="control-value">LFO 1</span>
+								<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.FILTER_FREQUENCY_LFO, parseFloat(this.value))">
+								<span class="control-value">LFO 2</span>
 							</td>
 						</tr>
 						<tr>
 							<td>Resonance:</td>
 							<td>
-								<input type="radio" name="filter-q-lfo" oninput="set(Synth.Param.Q_LFO, 1)" checked>LFO 1
-							</td>
-							<td>
-								<input type="radio" name="filter-q-lfo" oninput="set(Synth.Param.Q_LFO, 2)">LFO 2
+								<span class="control-value">LFO 1</span>
+								<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.Q_LFO, parseFloat(this.value))">
+								<span class="control-value">LFO 2</span>
 							</td>
 						</tr>
 					</table>
@@ -283,18 +281,14 @@
 				</fieldset>
 				<fieldset>
 					<legend>Tremolo</legend>
-					Oscillator:
-					<input type="radio" name="tremolo-lfo" oninput="set(Synth.Param.TREMOLO_LFO, 1)" checked>LFO 1
-					<input type="radio" name="tremolo-lfo" oninput="set(Synth.Param.TREMOLO_LFO, 2)">LFO 2
+					<input type="range" oninput="set(Synth.Param.TREMOLO_DEPTH, parseFloat(this.value))" min="0" max="100" value="0">Depth
 					<br>
-					<input type="range" oninput="set(Synth.Param.TREMOLO_DEPTH, parseFloat(this.value))" min="0" max="100" value="0">Depth<br>
+					<span class="control-value">LFO 1</span>
+					<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.TREMOLO_LFO, parseFloat(this.value))">
+					<span class="control-value">LFO 2</span>
 				</fieldset>
 				<fieldset>
 					<legend>Delay</legend>
-					Oscillator:
-					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 1)" checked>LFO 1
-					<input type="radio" name="delay-lfo" oninput="set(Synth.Param.DELAY_LFO, 2)">LFO 2
-					<br>
 					<input type="range" oninput="set(document.getElementById('single-delay').checked ? Synth.Param.DELAY : Synth.Param.MIN_DELAY, 10 ** parseFloat(this.value))" min="0" max="2" value="0" step="0.01">Min Delay
 					<input id="single-delay" type="checkbox" oninput="{let maxControl = document.getElementById('max-delay'); maxControl.parentElement.classList.toggle('hidden'); set(Synth.Param.MAX_DELAY, this.checked ? channels[0].parameters[Synth.Param.MIN_DELAY] : 10 ** parseFloat(maxControl.value))}" checked>Max = Min<br>
 					<div class="hidden">
@@ -304,6 +298,10 @@
 					<input id="feedback" type="range" oninput="set(Synth.Param.FEEDBACK, parseFloat(this.value))" min="-99" max="99" value="0">
 					Feedback
 					<button onclick="set(Synth.Param.FEEDBACK, 0); document.getElementById('feedback').value = 0">Reset</button>
+					<br>
+					<span class="control-value">LFO 1</span>
+					<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.DELAY_LFO, parseFloat(this.value))">
+					<span class="control-value">LFO 2</span>
 				</fieldset>
 				<fieldset>
 					<legend>Sequencing</legend>
@@ -344,12 +342,11 @@
 				</fieldset>
 				<fieldset>
 					<legend>Pan</legend>
-					Oscillator:
-					<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 1)" checked>LFO 1
-					<input type="radio" name="pan-lfo" oninput="set(Synth.Param.PAN_LFO, 2)">LFO 2
-					<br>
 					<input type="range" oninput="set(Synth.Param.LEFTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0">Leftmost Point<br>
 					<input type="range" oninput="set(Synth.Param.RIGHTMOST_PAN, parseFloat(this.value))" min="-100" max="100" value="0">Rightmost Point<br>
+					<span class="control-value">LFO 1</span>
+					<input type="range" min="0" max="1" value="0" step="0.2" oninput="set(Synth.Param.PAN_LFO, parseFloat(this.value))">
+					<span class="control-value">LFO 2</span>
 				</fieldset>
 				<fieldset>
 					<legend>Output</legend>

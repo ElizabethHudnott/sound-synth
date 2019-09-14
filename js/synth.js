@@ -710,11 +710,22 @@ class LFO {
 }
 
 class Modulator {
-	constructor(system, controller, carrier) {
+	constructor(system, lfo1, lfo2, carrier) {
 		this.system = system;
 		const range = system.audioContext.createGain();
-		this.range = range;
 		range.gain.value = 0;
+		this.range = range;
+
+		const lfo1Gain = system.audioContext.createGain();
+		lfo1.connect(lfo1Gain);
+		lfo1Gain.connect(range);
+		this.lfo1Gain = lfo1Gain;
+		const lfo2Gain = system.audioContext.createGain();
+		lfo2Gain.gain.value = 0;
+		lfo2.connect(lfo2Gain);
+		lfo2Gain.connect(range);
+		this.lfo2Gain = lfo2Gain;
+
 		if (carrier === undefined) {
 			this.carriers = [];
 			this.centre = undefined;
@@ -723,9 +734,6 @@ class Modulator {
 			range.connect(carrier);
 			this.centre = carrier.value;
 		}
-		// Maps each controller to its gain control
-		this.controllers = new Map();
-		this.setController(controller, system.audioContext.currentTime);
 	}
 
 	setMinMax(changeType, min, max, time, now) {
@@ -752,21 +760,10 @@ class Modulator {
 		}
 	}
 
-	setController(controller, time) {
-		let gain = this.controllers.get(controller);
-		if (gain === undefined) {
-			gain = this.system.audioContext.createGain();
-			gain.gain.value = 0;
-			controller.connect(gain);
-			gain.connect(this.range);
-			this.controllers.set(controller, gain);
-		}
-		this.system.makeChange(gain.gain, ChangeType.SET, 1, time);
-		for (let otherGain of this.controllers.values()) {
-			if (otherGain !== gain) {
-				this.system.makeChange(otherGain.gain, ChangeType.SET, 0, time);
-			}
-		}
+	setBalance(changeType, balance, time, now) {
+		const amplitude = expCurve(balance * 100, 1);
+		this.system.makeChange(this.lfo2Gain.gain, changeType, amplitude, time, now);
+		this.system.makeChange(this.lfo1Gain.gain, changeType, 1 - amplitude, time, now);
 	}
 
 	cancelAndHoldAtTime(when) {
@@ -2589,7 +2586,7 @@ class Channel {
 			Wave.TRIANGLE,	// waveform
 			Wave.TRIANGLE,	// minimum wavetable position
 			Wave.TRIANGLE,	// maximum wavetable position
-			1,		// wavetable position uses LFO 1
+			0,		// wavetable position uses LFO 1
 			0,		// oscillator tuning separation
 			440,	// frequency
 			0,		// detune
@@ -2613,37 +2610,37 @@ class Channel {
 			1,		// LFO 2 at a constant frequency
 			Direction.UP, // LFO 2 fades up (when an attack is set)
 			0,		// LFO 2 doesn't retrigger
-			1,		// vibrato uses LFO 1
+			0,		// vibrato uses LFO 1
 			0,		// vibrato extent
 			0,		// siren extent
 			100,	//	volume
-			1,		// tremolo uses LFO 1
+			0,		// tremolo uses LFO 1
 			0,		// tremolo amount
 			0,		// pan
 			0,		// leftmost pan change
 			0,		// rightmost pan change
-			1,		// pan LFO
+			0,		// pan LFO
 			50,		// pulse width
 			50,		// min pulse width
 			50,		// max pulse width
-			1,		// PWM uses LFO 1
+			0,		// PWM uses LFO 1
 			'lowpass', // filter type
 			4400,	// filter frequency
 			4400,	// minimum filter frequency
 			4400,	// maximum filter frequency
-			1,		// filter frequency uses LFO 1
+			0,		// filter frequency uses LFO 1
 			1,		// filter Q
 			1,		// min filter Q
 			1,		// max filter Q
-			1,		// Q uses LFO 1
-			1,		// Cutoff frequency and Q both use LFO 1
+			0,		// Q uses LFO 1
+			0,		// Cutoff frequency and Q both use LFO 1
 			0,		// filter gain
 			100,	// filter fully enabled
 			0,		// filter fully enabled
 			0, 		// no delay
 			0,		// no delay
 			0,		// no delay
-			1,		// delay uses LFO 1
+			0,		// delay uses LFO 1
 			100,	// delay mix
 			0,		// feedback
 			0,		// ring modulation
@@ -2690,7 +2687,6 @@ class Channel {
 		this.lfo1 = lfo1;
 		const lfo2 = new LFO(system);
 		this.lfo2 = lfo2;
-		this.lfos = [lfo1, lfo2];
 
 		// Oscillator and oscillator/sample switch
 		const sine = audioContext.createOscillator();
@@ -2718,7 +2714,7 @@ class Channel {
 		const oscillatorGain = audioContext.createGain();
 		this.oscillatorGain = oscillatorGain;
 		wavetable.connect(oscillatorGain);
-		const wavetableMod = new Modulator(system, lfo1, wavetable.position);
+		const wavetableMod = new Modulator(system, lfo1, lfo2, wavetable.position);
 		this.wavetableMod = wavetableMod;
 		wavetableMod.setMinMax(ChangeType.SET, Wave.TRIANGLE, Wave.TRIANGLE, now, now);
 		triangleGain.gain.value = 0.7;
@@ -2731,7 +2727,7 @@ class Channel {
 		pwmDetune.connect(reciprocal);
 		const dutyCycle = audioContext.createGain();
 		reciprocal.connect(dutyCycle);
-		const pwm = new Modulator(system, lfo1, dutyCycle.gain);
+		const pwm = new Modulator(system, lfo1, lfo2, dutyCycle.gain);
 		this.pwm = pwm;
 		pwm.setMinMax(ChangeType.SET, 0.5, 0.5, now, now);
 		const sawDelay = audioContext.createDelay(0.05);
@@ -2774,7 +2770,7 @@ class Channel {
 		sampleAndHoldRateMultiplier.connect(sampleAndHold.sampleRate);
 
 		// Vibrato
-		const vibrato = new Modulator(system, lfo1);
+		const vibrato = new Modulator(system, lfo1, lfo2);
 		this.vibrato = vibrato;
 		vibrato.connect(sine.frequency);
 		vibrato.connect(triangle.frequency);
@@ -2782,7 +2778,8 @@ class Channel {
 		vibrato.connect(frequencyNode.offset);
 
 		// Siren
-		const siren = new Modulator(system, lfo2);
+		const siren = new Modulator(system, lfo1, lfo2);
+		siren.setBalance(ChangeType.SET, 1, audioContext.currentTime);
 		this.siren = siren;
 		siren.connect(sine.frequency);
 		siren.connect(triangle.frequency);
@@ -2798,9 +2795,9 @@ class Channel {
 		sampleGain.connect(filter);
 
 		// Filter modulation
-		const filterFrequencyMod = new Modulator(system, lfo1, filter.frequency);
+		const filterFrequencyMod = new Modulator(system, lfo1, lfo2, filter.frequency);
 		this.filterFrequencyMod = filterFrequencyMod;
-		const filterQMod = new Modulator(system, lfo1, filter.Q);
+		const filterQMod = new Modulator(system, lfo1, lfo2, filter.Q);
 		this.filterQMod = filterQMod;
 
 		// Filter output
@@ -2835,7 +2832,7 @@ class Channel {
 
 		// Tremolo
 		const tremoloGain = audioContext.createGain();
-		const tremoloModulator = new Modulator(system, lfo1, tremoloGain.gain);
+		const tremoloModulator = new Modulator(system, lfo1, lfo2, tremoloGain.gain);
 		this.tremolo = tremoloModulator;
 		envelope.connect(tremoloGain);
 
@@ -2861,14 +2858,14 @@ class Channel {
 		this.delayOutput = delayOutput;
 		delayedPath.connect(delayOutput);
 		undelayedPath.connect(delayOutput);
-		const flanger = new Modulator(system, lfo1, delay.delayTime);
+		const flanger = new Modulator(system, lfo1, lfo2, delay.delayTime);
 		this.flanger = flanger;
 
 		// Panning
 		const panner = audioContext.createStereoPanner();
 		this.panner = panner;
 		delayOutput.connect(panner);
-		const panMod = new Modulator(system, lfo1, panner.pan);
+		const panMod = new Modulator(system, lfo1, lfo2, panner.pan);
 		this.panMod = panMod;
 
 		// Volume
@@ -2914,9 +2911,8 @@ class Channel {
 		 * envelope.gain
 		 */
 		const now = this.system.audioContext.currentTime;
-		for (let lfo of this.lfos) {
-			lfo.stopChanges();
-		}
+		this.lfo1.stopChanges();
+		this.lfo2.stopChanges();
 		this.playRateMultiplier.gain.cancelScheduledValues(0);
 		this.sampleGain.gain.cancelScheduledValues(0);
 		this.sampleGain.gain.value = 0;
@@ -3260,7 +3256,6 @@ class Channel {
 		const me = this;
 		parameterMap = new Map(parameterMap);
 		const parameters = this.parameters;
-		const numLFOs = this.lfos.length;
 		const callbacks = [];
 
 		const macroChanges = parameterMap.get(Parameter.MACRO);
@@ -3522,60 +3517,42 @@ class Channel {
 				break;
 
 			case Parameter.WAVEFORM_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.WAVEFORM_LFO] = value;
-				this.wavetableMod.setController(this.lfos[value - 1], time);
+				this.wavetableMod.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.VIBRATO_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.VIBRATO_LFO] = value;
-				this.vibrato.setController(this.lfos[value - 1], time);
+				this.vibrato.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.TREMOLO_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.TREMOLO_LFO] = value;
-				this.tremolo.setController(this.lfos[value - 1], time);
+				this.tremolo.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.PWM_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.PWM_LFO] = value;
-				this.pwm.setController(this.lfos[value - 1], time);
+				this.pwm.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.FILTER_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.FILTER_LFO] = value;
 				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
 				parameters[Parameter.Q_LFO] = value;
-				this.filterFrequencyMod.setController(this.lfos[value - 1], time);
-				this.filterQMod.setController(this.lfos[value - 1], time);
+				this.filterFrequencyMod.setBalance(changeType, value, time, now);
+				this.filterQMod.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.FILTER_FREQUENCY_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.FILTER_FRQUENCY_LFO] = value;
-				this.filterFrequencyMod.setController(this.lfos[value - 1], time);
+				this.filterFrequencyMod.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.Q_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.Q_LFO] = value;
-				this.filterQMod.setController(this.lfos[value - 1], time);
+				this.filterQMod.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.DELAY_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.DELAY_LFO] = value;
-				this.flanger.setController(this.lfos[value - 1], time);
+				this.flanger.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.PAN_LFO:
-				value = ((value + numLFOs - 1) % numLFOs) + 1;
-				parameters[Parameter.PAN_LFO] = value;
-				this.panMod.setController(this.lfos[value - 1], time);
+				this.panMod.setBalance(changeType, value, time, now);
 				break;
 
 			case Parameter.FREQUENCY:
