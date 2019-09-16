@@ -67,22 +67,30 @@ document.getElementById('chord').addEventListener('input', function (event) {
 });
 
 function applyInputMode() {
+	if (inputPort === undefined) {
+		return;
+	}
+
 	inputPort.legato[inputChannel] = false;
 
 	if (document.getElementById('input-mode-mono').checked) {
 		inputPort.toChannel[inputChannel] = 0;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = [0];
+		inputPort.setLockDown(inputChannel, false);
 	} else if (document.getElementById('input-mode-poly').checked) {
 		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = [0];
+		inputPort.setLockDown(inputChannel, false);
 	} else if (document.getElementById('input-mode-arp').checked) {
 		inputPort.enableArpeggio(inputChannel, true);
-	} else { // Transposed chord split mode
+		inputPort.setLockDown(inputChannel, false);
+	} else { // Transposed chord mode
 		inputPort.toChannel[inputChannel] = channels.length - 1;
 		inputPort.enableArpeggio(inputChannel, false);
 		inputPort.chord[inputChannel] = chord;
+		inputPort.lockDown[inputChannel] = true;
 	}
 }
 
@@ -127,11 +135,8 @@ document.getElementById('input-mode-mono').addEventListener('input', function (e
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
-	if (inputPort !== undefined) {
-		inputPort.toChannel[inputChannel] = 0;
-		inputPort.enableArpeggio(inputChannel, false);
-		inputPort.chord[inputChannel] = [0];
-	}
+	keyboard.setLockDown(0, false);
+	applyInputMode();
 });
 
 document.getElementById('input-mode-poly').addEventListener('input', function (event) {
@@ -139,19 +144,15 @@ document.getElementById('input-mode-poly').addEventListener('input', function (e
 	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
-	if (inputPort !== undefined) {
-		inputPort.toChannel[inputChannel] = channels.length - 1;
-		inputPort.enableArpeggio(inputChannel, false);
-		inputPort.chord[inputChannel] = [0];
-	}
+	keyboard.setLockDown(0, false);
+	applyInputMode();
 });
 
 document.getElementById('input-mode-arp').addEventListener('input', function (event) {
 	keyboard.split = false;
 	keyboard.enableArpeggio(0, true);
-	if (inputPort !== undefined) {
-		inputPort.enableArpeggio(inputChannel, true);
-	}
+	keyboard.setLockDown(0, false);
+	applyInputMode();
 });
 
 document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
@@ -159,12 +160,33 @@ document.getElementById('input-mode-transpose-chord').addEventListener('input', 
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = chord;
-	if (inputPort !== undefined) {
-		inputPort.toChannel[inputChannel] = channels.length - 1;
-		inputPort.enableArpeggio(inputChannel, false);
-		inputPort.chord[inputChannel] = chord;
-	}
+	keyboard.lockDown[0] = true;
+	applyInputMode();
 });
+
+function toggleSound() {
+	const transposeMode = document.getElementById('input-mode-transpose-chord').checked;
+	if (keyboard.isLockedDown[0]) {
+		if (transposeMode) {
+			keyboard.allSoundOff();
+		} else {
+			keyboard.setLockDown(0, false);
+		}
+	} else {
+		keyboard.setLockDown(0, true);
+	}
+	if (inputPort !== undefined) {
+		if (inputPort.isLockedDown[inputChannel]) {
+			if (transposeMode) {
+				inputPort.allSoundOff();
+			} else {
+				inputPort.setLockDown(inputChannel, false);
+			}
+		} else {
+			inputPort.setLockDown(inputChannel, true);
+		}
+	}
+}
 
 system.ondatarecorded = function (blob) {
 	const mediaElement = document.getElementById('recording');

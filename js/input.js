@@ -68,7 +68,14 @@ class Input extends EventTarget {
 		// The gating option used to trigger new notes sent by each input channel.
 		this.gate = new Array(numberOfChannels);
 		this.gate.fill(Synth.Gate.OPEN);
-		this.lockedOn = false;
+
+		/* If a channel is locked down then releasing all keys pressed doesn't stop
+		 * the last released note from playing. It continues playing until a new key is pressed.
+		 */
+		this.lockDown = new Array(numberOfChannels);
+		this.lockDown.fill(false);
+		this.isLockedDown = new Array(numberOfChannels);
+		this.isLockedDown.fill(false);
 
 		// For each input channel, whether or not to retrigger revived notes.
 		this.retrigger = new Array(numberOfChannels);
@@ -113,10 +120,16 @@ class Input extends EventTarget {
 		this.arpeggio[channel] = enabled;
 	}
 
-	setLockedOn() {
-		this.lockedOn = true;
-		if (this.notes[0].length === 0) {
-			this.noteOn(0, 60);
+	setLockDown(channel, lockDown) {
+		this.lockDown[channel] = lockDown;
+		if (lockDown) {
+			if (this.notes[channel].length === 0) {
+				this.noteOn(channel, 60);
+				this.isLockedDown[channel] = true;
+			}
+		} else if (this.isLockedDown[channel]) {
+			this.noteOff(channel, this.notes[channel][0]);
+			this.isLockedDown[channel] = false;
 		}
 	}
 
@@ -134,7 +147,7 @@ class Input extends EventTarget {
 			toChannel = fromChannel;
 		}
 
-		let synthChannel = 0;
+		let synthChannel;
 
 		switch (command) {
 
@@ -146,6 +159,12 @@ class Input extends EventTarget {
 					const notes = this.notes[inputChannel];
 					const numNotes = notes.length;
 
+					if (this.isLockedDown[inputChannel] && notes[0] !== note) {
+						synthChannel = this.notesToChannels[inputChannel][0];
+						notes.splice(0, 1);
+						this.notesToChannels[inputChannel] = [];
+					}
+
 					let changeType;
 					if (this.legato[inputChannel]) {
 						changeType = Synth.ChangeType.SET;
@@ -154,7 +173,9 @@ class Input extends EventTarget {
 					}
 
 					if (this.arpeggio[inputChannel]) {
-						synthChannel = fromChannel;
+						if (synthChannel === undefined) {
+							synthChannel = fromChannel;
+						}
 						let noteIndex = numNotes;
 						while (noteIndex > 0 && notes[noteIndex - 1] > note) {
 							noteIndex--;
@@ -168,10 +189,13 @@ class Input extends EventTarget {
 						const numChannels = toChannel - fromChannel + 1;
 						const synthChannels = this.notesToChannels[inputChannel];
 						let noteIndex = notes.indexOf(note);
-						synthChannel = undefined;
+						let existingChannel;
 						if (noteIndex !== -1) {
 							// Check if note is already on.
-							synthChannel = synthChannels[noteIndex];
+							existingChannel = synthChannels[noteIndex];
+							if (existingChannel !== undefined) {
+								synthChannel = existingChannel;
+							}
 							notes.splice(noteIndex, 1);
 							synthChannels.splice(noteIndex, 1);
 						}
@@ -204,6 +228,8 @@ class Input extends EventTarget {
 									}
 								}
 							}
+						}
+						if (existingChannel === undefined) {
 							const chord = calculateChord(this.chord[inputChannel], note);
 							parameterMap.set(Synth.Param.NOTES, new Synth.Change(changeType, chord));
 						}
@@ -212,7 +238,11 @@ class Input extends EventTarget {
 					}
 
 					parameterMap.set(Synth.Param.VELOCITY, new Synth.Change(Synth.ChangeType.SET, velocity));
-					const gate = this.lockedOn ? Synth.Gate.REOPEN : this.gate[inputChannel];
+					let gate = this.gate[inputChannel];
+					if (this.lockDown[inputChannel]) {
+						gate = gate & Synth.Gate.REOPEN;
+						this.isLockedDown[inputChannel] = false;
+					}
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, gate));
 					break;
 				} // else fall through if velocity == 0
@@ -222,8 +252,8 @@ class Input extends EventTarget {
 				const note = bytes[1];
 				const notes = this.notes[inputChannel];
 				const numNotes = notes.length;
-				const lockedOn = this.lockedOn;
-				if (numNotes === 1 && lockedOn) {
+				if (numNotes === 1 && this.lockDown[inputChannel]) {
+					this.isLockedDown[inputChannel] = true;
 					return [[], parameterMap];
 				}
 				const noteIndex = notes.indexOf(note);
@@ -274,7 +304,7 @@ class Input extends EventTarget {
 						}
 					}
 					if (closeGate &&
-						(lockedOn || (this.gate[inputChannel] & Synth.Gate.TRIGGER) !== Synth.Gate.TRIGGER)
+						(this.isLockedDown[inputChannel] || (this.gate[inputChannel] & Synth.Gate.TRIGGER) !== Synth.Gate.TRIGGER)
 					) {
 						parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CLOSED));
 					}
@@ -284,7 +314,6 @@ class Input extends EventTarget {
 
 			case 0xb0: {
 				if (bytes[1] === 120) { // All sound off
-					this.lockedOn = false;
 					parameterMap.set(Synth.Param.GATE, new Synth.Change(Synth.ChangeType.SET, Synth.Gate.CUT));
 					const synthChannels = new Array(toChannel - fromChannel + 1);
 					for (let i = fromChannel; i <= toChannel; i++) {
@@ -292,10 +321,14 @@ class Input extends EventTarget {
 					}
 					this.notes[inputChannel] = [];
 					this.notesToChannels[inputChannel] = [];
+					this.isLockedDown[inputChannel] = false;
 					return [synthChannels, parameterMap];
 				}
 				break;
 			}
+		}
+		if (synthChannel === undefined) {
+			synthChannel = 0;
 		}
 		return [[synthChannel], parameterMap];
 	}
@@ -590,9 +623,6 @@ window.addEventListener('keydown', function (event) {
 		if (note < 0) {
 			return;
 		}
-		if (keyboard.notes[channel].includes(note)) {
-			return;
-		}
 		keyboard.noteOn(channel, note, keyboard.velocity);
 	}
 });
@@ -616,7 +646,7 @@ window.addEventListener('keyup', function (event) {
 
 
 window.addEventListener('blur', function (event) {
-	if (!keyboard.lockedOn && (typeof(debug) !== 'object' || !debug.input)) {
+	if (typeof(debug) !== 'object' || !debug.input) {
 		keyboard.allSoundOff();
 	}
 });

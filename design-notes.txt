@@ -39,11 +39,9 @@ Make Wiki complete and up to date
 
 MIDI/Input
 ----------
-Ability to change the locked on note
 New modes:
 	unison
 	combinations with phrase trigger in lower octaves
-	chord transpose mode should lock the notes down
 Metronome UI
 
 UI
