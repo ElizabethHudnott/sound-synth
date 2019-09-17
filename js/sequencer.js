@@ -1137,7 +1137,8 @@ class Phrase {
 		}
 	}
 
-	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, from, to, reverse) {
+	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, replaceMin, replaceMax, from, to, reverse) {
+		const scale = (replaceMax - replaceMin) / (maxValue - minValue);
 		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
@@ -1153,7 +1154,9 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				rowChanges.delete(oldParam);
-				rowChanges.set(newParam, occurrence[1]);
+				const oldValue = occurrence[1];
+				const newValue = replaceMin + (oldValue - minValue) * scale;
+				rowChanges.set(newParam, newValue);
 				modified.add(rowChanges);
 			}
 			result = search.next(reverse);

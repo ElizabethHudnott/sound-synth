@@ -1,11 +1,12 @@
 Sequencer
 ---------
+* Add starting row parameter to find().
 * copyParameter and swapParameters should work between two columns (or the same column) of a pattern rather than (limited to) within a phrase (+turn into generators)
 option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
-	Use retriggering to compact multiple triggers
+	How to handle multiple triggers? (Equal spacing?)
 	How to handle pattern/phrase delay?
-	Complementary method to randomize
+	Complementary method to randomize/humanize
 * Phrase.transpose needs to transpose phrases not currently transposed
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
