@@ -1,6 +1,9 @@
+General
+-------
+* Firefox compatibility
+
 Sequencer
 ---------
-* Add starting row parameter to find().
 * copyParameter and swapParameters should work between two columns (or the same column) of a pattern rather than (limited to) within a phrase (+turn into generators)
 option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
@@ -157,18 +160,3 @@ insertSilence	x
 mix				x
 separateStereo	x			x
 mixToMono		x			x
-
------
-
-0	1	2	3	4
-5	6	7	8	9
-
-0	5	1	6	2
-7	3	8	4	9
-
-0-4:	n -> 2n
-5-9:	2(n - L) + 1
-
-2,4,8,7,5,1,2
-
------------

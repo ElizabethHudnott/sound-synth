@@ -830,44 +830,43 @@ class Phrase {
 		}
 	}
 
-	stepRange(from, to, reverse) {
+	stepRange(from, to) {
 		const length = this.length;
-		if (from === undefined) {
-			from = 0;
-		}
 		if (to === undefined) {
 			to = from + length - 1;
 		} else if (to < from) {
 			to += length;
 		}
-		let numRows;
-		if (reverse) {
-			from += length;
-			to += length;
-			numRows = from - to + 1
-		} else {
-			numRows = to - from + 1;
-		}
-		if (numRows <= 0) {
-			numRows += length;
-		}
-		return [from, numRows];
+		const numRows = to - from + 1;
+		return numRows;
 	}
 
-	*find(param, minValue, maxValue, changeTypes, from, to, reverse) {
-		const increment = reverse ? -1 : 1;
-		let i = -1;
-		let revisedFrom, numRows;
+	*find(param, minValue, maxValue, changeTypes, begin, from, to, reverse) {
+		if (from === undefined) {
+			from = 0;
+		}
+		let relativeBegin;
+		if (begin >= from) {
+			relativeBegin = begin - from;
+		} else {
+			relativeBegin = this.length - from + begin;
+		}
 
+		let i = reverse ? 1 : -1; // opposite
 		while (true) {
-			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
-			i++;
-			if (i >= numRows) {
+			i += reverse ? -1 : 1;
+			const numRows = this.stepRange(from, to);
+			if (i === numRows || i === -numRows) {
 				break;
 			}
 
-			const rowNumber = (revisedFrom + increment * i) % this.length;
+			let relativeRow = (relativeBegin + i) % numRows;
+			if (relativeRow < 0) {
+				relativeRow += numRows;
+			}
+			const rowNumber = (from + relativeRow) % this.length;
 			const changes = this.rows[rowNumber];
+
 			if (changes === undefined) {
 				continue;
 			}
@@ -890,7 +889,7 @@ class Phrase {
 	}
 
 	findAll(param, minValue, maxValue, changeTypes) {
-		const search = this.find(param, minValue, maxValue, changeTypes, 0, this.rows.length - 1, false);
+		const search = this.find(param, minValue, maxValue, changeTypes, 0, 0, this.length - 1, false);
 		const results = [];
 		let result = search.next();
 		while (!result.done) {
@@ -900,9 +899,9 @@ class Phrase {
 		return results;
 	}
 
-	*mirrorValues(param, minValue, maxValue, changeTypes, from, to, reverse) {
+	*mirrorValues(param, minValue, maxValue, changeTypes, begin, from, to, reverse) {
 		const midPoint = (maxValue + minValue) / 2;
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -941,8 +940,8 @@ class Phrase {
 		}
 	}
 
-	*multiplyValues(param, minValue, maxValue, changeTypes, multiplier, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+	*multiplyValues(param, minValue, maxValue, changeTypes, multiplier, begin, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -973,8 +972,8 @@ class Phrase {
 		}
 	}
 
-	*quantizeValues(param, minValue, maxValue, changeTypes, multiple, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+	*quantizeValues(param, minValue, maxValue, changeTypes, multiple, begin, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -1005,8 +1004,8 @@ class Phrase {
 		}
 	}
 
-	*randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+	*randomizeValues(param, minValue, maxValue, changeTypes, amount, allowNegative, begin, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -1037,8 +1036,8 @@ class Phrase {
 		}
 	}
 
-	*replaceValues(param, minValue, maxValue, changeTypes, replacement, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+	*replaceValues(param, minValue, maxValue, changeTypes, replacement, begin, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -1061,8 +1060,8 @@ class Phrase {
 		}
 	}
 
-	*transposeValues(param, minValue, maxValue, changeTypes, amount, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+	*transposeValues(param, minValue, maxValue, changeTypes, amount, begin, from, to, reverse) {
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
@@ -1093,20 +1092,34 @@ class Phrase {
 		}
 	}
 
-	*swapValues(param, value1, value2, changeTypes, from, to, reverse) {
+	*swapValues(param, value1, value2, changeTypes, begin, from, to, reverse) {
+		if (from === undefined) {
+			from = 0;
+		}
+		let relativeBegin;
+		if (begin >= from) {
+			relativeBegin = begin - from;
+		} else {
+			relativeBegin = this.length - from + begin;
+		}
+
 		const modified = new Set();
-		const increment = reverse ? -1 : 1;
-		let i = -1;
-		let revisedFrom, numRows, doReplace;
+		let i = reverse ? 1 : -1; // opposite
+		let doReplace;
 		while (true) {
-			[revisedFrom, numRows] = this.stepRange(from, to, reverse);
-			i++;
-			if (i >= numRows) {
+			i += reverse ? -1 : 1;
+			const numRows = this.stepRange(from, to);
+			if (i === numRows || i === -numRows) {
 				break;
 			}
 
-			const rowNumber = (revisedFrom + increment * i) % this.length;
+			let relativeRow = (relativeBegin + i) % numRows;
+			if (relativeRow < 0) {
+				relativeRow += numRows;
+			}
+			const rowNumber = (from + relativeRow) % this.length;
 			const changes = this.rows[rowNumber];
+
 			if (changes === undefined || modified.has(changes)) {
 				continue;
 			}
@@ -1137,9 +1150,9 @@ class Phrase {
 		}
 	}
 
-	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, replaceMin, replaceMax, from, to, reverse) {
+	*changeParameter(oldParam, minValue, maxValue, changeTypes, newParam, replaceMin, replaceMax, begin, from, to, reverse) {
 		const scale = (replaceMax - replaceMin) / (maxValue - minValue);
-		const search = this.find(param, minValue, maxValue, changeTypes, from, to, reverse);
+		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
 		let doReplace;
