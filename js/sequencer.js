@@ -475,30 +475,14 @@ class Phrase {
 		}
 		const newPhrase = new Phrase(this.name, this.length);
 		newPhrase.rows = newRows;
+		newPhrase.rowsPerBeat = this.rowsPerBeat;
+		newPhrase.rowsPerBar = this.rowsPerBar;
 		return newPhrase;
 	}
 
-	equals(phrase) {
-		if (this.length !== phrase.length) {
-			return false;
-		}
-		const thisRows = this.rows;
-		const phraseRows = phrase.rows;
-		const minLength = Math.min(thisRows.length, phraseRows.length);
-		for (let i = 0; i < minLength; i++) {
-			if (!equalChanges(thisRows[i], phraseRows[i])) {
-				return false;
-			}
-		}
-		const longerPhrase = thisRows.length >= minLength ? this : phrase;
-		const longerRows = longerPhrase.rows;
-		const maxLength = longerRows.length;
-		for (let i = minLength; i < maxLength; i++) {
-			if (longerRows[i] !== undefined) {
-				return false;
-			}
-		}
-		return true;
+	setLength(newLength) {
+		this.rows.splice(newLength);
+		this.length = newLength;
 	}
 
 	generateName(from, to) {
@@ -539,6 +523,8 @@ class Phrase {
 		}
 		this.rows = newRows;
 		this.length = newLength;
+		this.rowsPerBeat *= multiple;
+		this.rowsPerBar *= multiple;
 	}
 
 	compact(multiple) {
@@ -555,6 +541,9 @@ class Phrase {
 		}
 		this.rows = newRows;
 		this.length = Math.floor(this.length / multiple);
+		const beatsPerBar = this.rowsPerBar / this.rowsPerBeat;
+		this.rowsPerBeat = Math.round(this.rowsPerBeat / multiple);
+		this.rowsPerBar = this.rowsPerBeat * beatsPerBar;
 	}
 
 	copyAndCompact(multiple, from, to) {
@@ -581,6 +570,9 @@ class Phrase {
 		const newName = this.generateName(from, to);
 		const newPhrase = newPhrase(newName, newRows.length);
 		newPhrase.rows = newRows;
+		const beatsPerBar = this.rowsPerBar / this.rowsPerBeat;
+		newPhrase.rowsPerBeat = Math.round(this.rowsPerBeat / multiple);
+		newPhrase.rowsPerBar = newPhrase.rowsPerBeat * beatsPerBar;
 		return newPhrase;
 	}
 
@@ -899,8 +891,7 @@ class Phrase {
 		return results;
 	}
 
-	*mirrorValues(param, minValue, maxValue, changeTypes, begin, from, to, reverse) {
-		const midPoint = (maxValue + minValue) / 2;
+	*mirrorValues(param, minValue, maxValue, changeTypes, centreValue, begin, from, to, reverse) {
 		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
 		const modified = new Set();
 		let result = search.next();
@@ -921,17 +912,17 @@ class Phrase {
 				const value = newChange.value;
 				if (Array.isArray(value)) {
 					for (let i = 0; i < value.length; i++) {
-						if (value[i] < midPoint) {
-							value[i] = maxValue - (value[i] - minValue);
+						if (value[i] <= centreValue) {
+							value[i] = centreValue + (centreValue - value[i]);
 						} else {
-							value[i] = minValue + (maxValue - value[i]);
+							value[i] = centreValue - (value[i] - centreValue);
 						}
 					}
 				} else {
-					if (value < midPoint) {
-						newChange.value = maxValue - (value - minValue);
+					if (value <= centreValue) {
+						newChange.value = centreValue + (centreValue - value);
 					} else {
-						newChange.value = minValue + (maxValue - value);
+						newChange.value = centreValue - (value - centreValue);
 					}
 				}
 				modified.add(rowChanges);

@@ -306,8 +306,8 @@ function begin() {
 	document.getElementById('controls').style.display = 'block';
 	const patreonScript = document.createElement('SCRIPT');
 	patreonScript.async = true;
-	patreonScript.src = 'https://c6.patreon.com/becomePatronButton.bundle.js';
 	document.getElementById('patreon').appendChild(patreonScript);
+	patreonScript.src = 'https://c6.patreon.com/becomePatronButton.bundle.js';
 	resizeGraph();
 	window.addEventListener('resize', resizeGraph);
 }

@@ -4,16 +4,14 @@ General
 
 Sequencer
 ---------
+URGENT
 * copyParameter and swapParameters should work between two columns (or the same column) of a pattern rather than (limited to) within a phrase (+turn into generators)
 option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
-Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
-	How to handle multiple triggers? (Equal spacing?)
-	How to handle pattern/phrase delay?
-	Complementary method to randomize/humanize
 * Phrase.transpose needs to transpose phrases not currently transposed
+* Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
-* Change PATTERN_DELAY to PHRASE_DELAY
+* Change PATTERN_DELAY to COLUMN_DELAY
 * Allow each column to loop independently (remove pattern length property)
 	* Allow columns to move at different tempos
 	* Master column to move at the speed of the slowest column
@@ -25,17 +23,26 @@ Phrase:
 	* loop on/off (when not used as a column)
 	* loop start point
 	- "free running" on/off
-
-Changes that alternate/randomize between a fixed range of options on each pass
-Add PHRASE_VELOCITY parameter
-Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
-Loop start and end position incrementing (how to counter messing up fades?)
-Edit function to reverse a sequence of rows
-Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
-(Song playback shouldn't all be scheduled at once)
+* Song playback shouldn't all be scheduled at once
 	Actually a whole pattern should be scheduled at once so ChangeType.EXPONENTIAL works
-Initial song parameters for Channel 1,... Channel N
+
+NEXT FEATURES
+Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
+	If note is triggered more than once or twice per quantum then don't quantize it
+	How to handle pattern/column delay?
+	Complementary method to randomize/humanize
+Add PHRASE_VELOCITY parameter
 Song Loop From
+
+UNDESIGNED
+Area for scratch, unused patterns and/or phrases
+Edit function to reverse a sequence of rows
+Initial song parameters for Channel 1,... Channel N
+
+MAYBES
+Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
+Changes that alternate/randomize between a fixed range of options on each pass
+Loop start and end position incrementing (how to counter messing up fades?)
 
 Documentation
 -------------
