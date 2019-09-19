@@ -31,7 +31,16 @@
 				</ul>
 			</nav>
 			<div id="sample-editor">
+				<input type="file" id="sample-upload-input" accept="audio/*,.8svx,.iff,.raw" hidden>
 				<div class="btn-toolbar bg-secondary p-1" role="toolbar" aria-label="Sample editing toolbar">
+					<div class="btn-group mr-2" role="group" aria-label="File">
+						<button id="btn-upload-sample" type="button" class="btn btn-light" title="Open">
+							<img src="img/open.png">
+						</button>
+						<button id="btn-download-sample" type="button" class="btn btn-light" title="Save">
+							<img src="img/save.png">
+						</button>
+					</div>
 					<div class="btn-group mr-2" role="group" aria-label="Playback">
 						<button id="btn-play-sample" type="button" class="btn btn-light" title="Play sample">
 							<img src="img/play.png">

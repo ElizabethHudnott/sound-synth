@@ -440,12 +440,6 @@ function zoomShowAll() {
 	resizeWaveform();
 }
 
-document.getElementById('btn-play-sample').addEventListener('click', function (event) {
-	if (sample !== undefined) {
-		gate(Synth.Gate.TRIGGER, sample.sampledNote);
-	}
-});
-
 document.getElementById('btn-zoom-sample-in').addEventListener('click', zoomIn);
 document.getElementById('btn-zoom-sample-out').addEventListener('click', zoomOut);
 document.getElementById('btn-zoom-sample-all').addEventListener('click', zoomShowAll);
@@ -455,6 +449,39 @@ document.getElementById('btn-zoom-sample-selection').addEventListener('click', f
 	}
 });
 
+document.getElementById('btn-upload-sample').addEventListener('click', function (event) {
+	document.getElementById('sample-upload-input').click();
+});
+
+document.getElementById('sample-upload-input').addEventListener('input', function (event) {
+	const file = this.files[0];
+	instrument.loadSampleFromFile(audioContext, 0, file)
+	.then(function (resource) {
+		instrument.guessOctave();
+		MusicInput.keyboard.octave = instrument.defaultOctave;
+		SampleEditor.editSample(instrument, 0);
+	});
+});
+
+document.getElementById('btn-download-sample').addEventListener('click', function (event) {
+	if (sample !== undefined) {
+		const blob = sample.exportToWav();
+		const linkElement = document.createElement('A');
+		linkElement.style.display = 'none';
+		document.body.appendChild(linkElement);
+		linkElement.href = URL.createObjectURL(blob);
+		linkElement.setAttribute('download', 'export.wav');
+		linkElement.click();
+		URL.revokeObjectURL(linkElement.href);
+		document.body.removeChild(linkElement);
+	}
+});
+
+document.getElementById('btn-play-sample').addEventListener('click', function (event) {
+	if (sample !== undefined) {
+		gate(Synth.Gate.TRIGGER, sample.sampledNote);
+	}
+});
 
 function cut() {
 	if (sample !== undefined) {
@@ -1195,7 +1222,7 @@ function queryChecked(ancestor, name) {
 	return ancestor.querySelector(`:checked[type=radio][name=${name}]`);
 }
 
-const instrument = new Synth.SampledInstrument('Instrument 1');
+let instrument = new Synth.SampledInstrument('Instrument 1');
 instrument.loadSampleFromURL(audioContext, 0, 'samples/acoustic-grand-piano.wav')
 .then(function (resource) {
 	instrument.guessOctave();

@@ -28,10 +28,12 @@ Phrase:
 
 NEXT FEATURES
 Method to quantize to every x lines (also reduce delays for x<1, set to 0 otherwise)
-	If note is triggered more than once or twice per quantum then don't quantize it
+	If notes are triggered more than once or twice per quantum then quantize them to the 1/3, 1/2 & 2/3 waypoints or not at all (noteParameters)
+	Quantize the durations also
 	How to handle pattern/column delay?
-	Complementary method to randomize/humanize
-Add PHRASE_VELOCITY parameter
+Method to quantize relative to another track
+Method to randomize/humanize
+Add PHRASE_VELOCITY parameter (dynamics)
 Song Loop From
 
 UNDESIGNED
@@ -76,6 +78,7 @@ UI:
 	UI for Parameter.OFFSET? ruler and snap
 * crossFadeLoop() should use a sine curve
 * amplify() should support *exponential* fades
+samples need names
 smooth method (rectangle window)
 method to create a sample by crossfading one sample into another
 trim silence method
