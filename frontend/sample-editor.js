@@ -339,6 +339,12 @@ function setSample(newSample, resize) {
 	if (sample === undefined) {
 		bufferLength = 0;
 	} else {
+		const stereoButtons = document.getElementById('btns-stereo-sample');
+		if (sample.buffer.numberOfChannels === 1) {
+			stereoButtons.style.display = 'none';
+		} else {
+			stereoButtons.style.display = '';
+		}
 		const newLength = sample.buffer.length;
 		if (!resize && bufferLength > 0) {
 			const ratio = newLength / bufferLength;
