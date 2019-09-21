@@ -495,15 +495,42 @@ class Phrase {
 		return newName;
 	}
 
-	clear(from, to) {
-		if (from < 0) {
-			from = 0;
-		}
+	clearAll(from, to) {
 		const rows = this.rows;
 		if (to >= rows.length) {
 			to = rows.length - 1;
 		}
 		rows.fill(undefined, from, to + 1);
+	}
+
+	clearCommands(from, to) {
+		for (let i = from; i <= to; i++) {
+			const oldChanges = this.rows[i];
+			if (oldChanges !== undefined) {
+				const newChanges = new Map();
+				this.rows[i] = newChanges;
+				for (let [key, value] of oldChanges) {
+					if (noteParameters.has(key)) {
+						newChanges.set(key, value);
+					}
+				}
+			}
+		}
+	}
+
+	clearNotes(from, to) {
+		for (let i = from; i <= to; i++) {
+			const oldChanges = this.rows[i];
+			if (oldChanges !== undefined) {
+				const newChanges = new Map();
+				this.rows[i] = newChanges;
+				for (let [key, value] of oldChanges) {
+					if (!noteParameters.has(key)) {
+						newChanges.set(key, value);
+					}
+				}
+			}
+		}
 	}
 
 	copy(from, to) {
@@ -629,7 +656,7 @@ class Phrase {
 		return newPhrase;
 	}
 
-	insert(insertPhrase, position) {
+	insertAll(insertPhrase, position) {
 		const rows = this.rows;
 		const insertRows = insertPhrase.rows;
 		const insertLength = insertPhrase.length;
@@ -642,7 +669,45 @@ class Phrase {
 		this.length += insertLength;
 	}
 
-	insertEmptyRows(number, position) {
+	insertCommands(insertPhrase, position) {
+		const rows = this.rows;
+		const insertRows = insertPhrase.rows;
+		const insertLength = insertPhrase.length;
+		for (let i = rows.length - 1; i >= position; i--) {
+			rows[i + number] = rows[i];
+		}
+		for (let i = 0; i < insertLength; i++) {
+			const newRow = new Map();
+			rows[position + i] = newRow;
+			for (let [key, value] of insertRows[i]) {
+				if (!noteParameters.has(key)) {
+					newRow.set(key, cloneChange(value));
+				}
+			}
+		}
+		this.length += insertLength;
+	}
+
+	insertNotes(insertPhrase, position) {
+		const rows = this.rows;
+		const insertRows = insertPhrase.rows;
+		const insertLength = insertPhrase.length;
+		for (let i = rows.length - 1; i >= position; i--) {
+			rows[i + number] = rows[i];
+		}
+		for (let i = 0; i < insertLength; i++) {
+			const newRow = new Map();
+			rows[position + i] = newRow;
+			for (let [key, value] of insertRows[i]) {
+				if (noteParameters.has(key)) {
+					newRow.set(key, cloneChange(value));
+				}
+			}
+		}
+		this.length += insertLength;
+	}
+
+	insertEmpty(number, position) {
 		const rows = this.rows;
 		for (let i = rows.length - 1; i >= position; i--) {
 			rows[i + number] = rows[i];
@@ -652,18 +717,18 @@ class Phrase {
 	}
 
 	mergeAll(mergePhrase, position) {
-		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
+		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
 		const rows = this.rows;
-		const insertRows = mergePhrase.rows;
-		for (let i = 0; i < insertLength; i++) {
-			const insertRow = insertRows[i];
-			if (insertRow !== undefined) {
+		const mergeRows = mergePhrase.rows;
+		for (let i = 0; i < mergeLength; i++) {
+			const mergeRow = mergeRows[i];
+			if (mergeRow !== undefined) {
 				let row = rows[position + i];
 				if (row === undefined) {
-					row = new Map(insertRow);
+					row = new Map(mergeRow);
 					rows[position + i] = row;
 				}
-				for (let [key, value] of insertRow) {
+				for (let [key, value] of mergeRow) {
 					row.set(key, cloneChange(value));
 				}
 			}
@@ -671,18 +736,18 @@ class Phrase {
 	}
 
 	mergeCommands(mergePhrase, position) {
-		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
+		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
 		const rows = this.rows;
-		const insertRows = mergePhrase.rows;
-		for (let i = 0; i < insertLength; i++) {
-			const insertRow = insertRows[i];
-			if (insertRow !== undefined) {
+		const mergeRows = mergePhrase.rows;
+		for (let i = 0; i < mergeLength; i++) {
+			const mergeRow = mergeRows[i];
+			if (mergeRow !== undefined) {
 				let row = rows[position + i];
 				if (row === undefined) {
-					row = new Map(insertRow);
+					row = new Map(mergeRow);
 					rows[position + i] = row;
 				}
-				for (let [key, value] of insertRow) {
+				for (let [key, value] of mergeRow) {
 					if (!noteParameters.has(key)) {
 						row.set(key, cloneChange(value));
 					}
@@ -692,20 +757,20 @@ class Phrase {
 	}
 
 	mergeNotes(mergePhrase, position) {
-		const insertLength = Math.min(mergePhrase.rows.length, this.length - position);
+		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
 		const rows = this.rows;
-		const insertRows = mergePhrase.rows;
-		for (let i = 0; i < insertLength; i++) {
-			const insertRow = insertRows[i];
-			if (insertRow !== undefined) {
+		const mergeRows = mergePhrase.rows;
+		for (let i = 0; i < mergeLength; i++) {
+			const mergeRow = mergeRows[i];
+			if (mergeRow !== undefined) {
 				let row = rows[position + i];
 				if (row === undefined) {
-					row = new Map(insertRow);
+					row = new Map(mergeRow);
 					rows[position + i] = row;
 				}
-				for (let key of noteParameters) {
-					if (insertRow.has(key)) {
-						row.set(key, cloneChange(insertRow.get(value)));
+				for (let [key, value] of mergeRow) {
+					if (noteParameters.has(key)) {
+						row.set(key, cloneChange(value));
 					}
 				}
 			}
@@ -737,9 +802,9 @@ class Phrase {
 					}
 				}
 			}
-			const insertRow = insertRows[i];
-			if (insertRow !== undefined) {
-				for (let [key, value] of insertRow) {
+			const mergeRow = mergeRows[i];
+			if (mergeRow !== undefined) {
+				for (let [key, value] of mergeRow) {
 					if (!noteParameters.has(key)) {
 						row.set(key, cloneChange(value));
 					}
@@ -764,9 +829,9 @@ class Phrase {
 					}
 				}
 			}
-			const insertRow = insertRows[i];
-			if (insertRow !== undefined) {
-				for (let [key, value] of insertRow) {
+			const replacementRow = replacementRows[i];
+			if (replacementRow !== undefined) {
+				for (let [key, value] of replacementRow) {
 					if (noteParameters.has(key)) {
 						row.set(key, cloneChange(value));
 					}
@@ -1298,10 +1363,8 @@ class Phrase {
 
 }
 
-function replaceAll(iterator, currentResult) {
-	if (currentResult === undefined) {
-		currentResult = iterator.next();
-	}
+function replaceAll(iterator) {
+	let currentResult = iterator.next();
 	while (!currentResult.done) {
 		currentResult = iterator.next([true, false]);
 	}

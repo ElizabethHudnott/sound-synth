@@ -150,8 +150,12 @@ remove						X			x		x
 pause											x
 goto											x
 
-
-
+						Notes		Commands	All
+clear						X			X		X
+insert						X			X		X
+merge						X			X		X
+overwrite					X			X		X
+merge and overwrite need to accept an optional "to" row limit
 
 Method			Sample		Instrument
 clone			x
