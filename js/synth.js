@@ -1089,31 +1089,79 @@ class Sample {
 		if (from === 0 && to === length - 1) {
 			this.gain *= gain;
 		} else {
-			this.amplify(gain, gain, from, to);
+			this.amplify(gain, from, to);
 		}
 	}
 
-	amplify(startGain, endGain, from, to) {
+	amplify(gain, from, to) {
 		const buffer = this.buffer;
 		const length = buffer.length;
 		if (to === undefined) {
 			to = length - 1;
 			if (from === undefined) {
 				from = 0;
-				if (endGain === undefined) {
-					endGain = startGain;
-				}
 			}
 		}
-		const gainGradient = (endGain - startGain) / (to - from);
 
 		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
 			const data = buffer.getChannelData(channelNumber);
 			for (let i = from; i <= to; i++) {
-				const gain = startGain + (i - from) * gainGradient;
 				data[i] = data[i] * gain;
 			}
 		}
+	}
+
+	fade(changeType, startGain, endGain, from, to) {
+		const me = this;
+		const oldBuffer = this.buffer;
+		const bufferLength = oldBuffer.length;
+		const sampleRate = oldBuffer.sampleRate;
+		if (to === undefined) {
+			to = bufferLength - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+		const context = new OfflineAudioContext(
+			oldBuffer.numberOfChannels,
+			bufferLength,
+			sampleRate,
+		);
+		const bufferNode = context.createBufferSource();
+		bufferNode.buffer = oldBuffer;
+		bufferNode.start();
+		const fade = context.createGain();
+		bufferNode.connect(fade);
+		fade.connect(context.destination);
+
+		const startTime = from / sampleRate;
+		const endTime = to / sampleRate;
+		fade.gain.setValueAtTime(1, 0);
+		fade.gain.setValueAtTime(startGain, startTime);
+
+		switch (changeType) {
+		case ChangeType.SET:
+			fade.gain.setValueAtTime(endGain, endTime);
+			break;
+
+		case ChangeType.LINEAR:
+			fade.gain.linearRampToValueAtTime(endGain, endTime);
+			break;
+
+		case ChangeType.EXPONENTIAL:
+			const timeSpan = endTime - startTime - SHORTEST_TIME;
+			fade.gain.setTargetAtTime(endGain, startTime + SHORTEST_TIME, timeSpan / 5);
+			break;
+		}
+
+		return context.startRendering().then(function (newBuffer) {
+			const newSample = new Sample(newBuffer);
+			newSample.loopStart = me.loopStart;
+			newSample.loopEnd = me.loopEnd;
+			newSample.sampledNote = me.sampledNote;
+			newSample.gain = me.gain;
+			return newSample;
+		});
 	}
 
 	chord(intervals, instrumentNoteFreqs) {
@@ -1506,7 +1554,7 @@ class Sample {
 		});
 	}
 
-	crossFadeLoop(length, postLength, changeType) {
+	crossFadeLoop(changeType, length, postLength) {
 		if (length > this.loopStart) {
 			length = this.loopStart;
 		}
