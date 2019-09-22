@@ -472,6 +472,14 @@ function noteFromFrequency(frequency, a4Pitch) {
 	return Math.round(noteNumber) + 69;
 }
 
+const numberOfCurvePoints = 256;
+const sinFadeOut = new Array(numberOfCurvePoints);
+const sinFadeIn = new Array(numberOfCurvePoints);
+for (let i = 0; i < numberOfCurvePoints; i++) {
+	sinFadeOut[i] = 0.5 * Math.cos(Math.PI * i / (numberOfCurvePoints - 1)) + 0.5;
+	sinFadeIn[i] = 1 - sinFadeOut[i];
+}
+
 class MacroFunction {
 	static ID = new MacroFunction(0, 1, 1, 1);
 
@@ -1499,7 +1507,7 @@ class Sample {
 	}
 
 	crossFadeLoop(length, postLength, changeType) {
-		if (length >= this.loopStart) {
+		if (length > this.loopStart) {
 			length = this.loopStart;
 		}
 
@@ -1513,7 +1521,7 @@ class Sample {
 			sampleRate
 		);
 
-		const loopStartTime = (this.loopStart + 1) / sampleRate;
+		const loopStartTime = this.loopStart / sampleRate;
 		let loopEnd = this.loopEnd;
 		if (loopEnd >= bufferLength) {
 			loopEnd = bufferLength - 1;
@@ -1551,9 +1559,8 @@ class Sample {
 				fadeInGain.gain.setValueAtTime(0, begin);
 				fadeInGain.gain.linearRampToValueAtTime(1, loopEndTime);
 			} else {
-				const rate = fadeTime / 5;
-				fadeOutGain.gain.setTargetAtTime(0, begin, rate);
-				fadeInGain.gain.setTargetAtTime(1, begin, rate);
+				fadeOutGain.gain.setValueCurveAtTime(sinFadeOut, begin, fadeTime);
+				fadeInGain.gain.setValueCurveAtTime(sinFadeIn, begin, fadeTime);
 			}
 		}
 
@@ -1563,9 +1570,8 @@ class Sample {
 				fadeOutGain.gain.linearRampToValueAtTime(1, endTime);
 				fadeInGain.gain.linearRampToValueAtTime(0, endTime);
 			} else {
-				const rate = postFadeTime / 5;
-				fadeOutGain.gain.setTargetAtTime(1, loopEndTime, rate);
-				fadeInGain.gain.setTargetAtTime(0, loopEndTime, rate);
+				fadeOutGain.gain.setValueCurveAtTime(sinFadeIn, loopEndTime, postFadeTime);
+				fadeInGain.gain.setValueCurveAtTime(sinFadeOut, loopEndTime, postFadeTime);
 			}
 		} else {
 			fadeOutGain.gain.setValueAtTime(1, loopEndTime + SHORTEST_TIME);
