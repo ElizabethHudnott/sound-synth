@@ -716,8 +716,11 @@ class Phrase {
 		this.length += number;
 	}
 
-	mergeAll(mergePhrase, position) {
-		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+	mergeAll(mergePhrase, position, to) {
+		let mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			mergeLength = Math.min(mergeLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const mergeRows = mergePhrase.rows;
 		for (let i = 0; i < mergeLength; i++) {
@@ -735,8 +738,11 @@ class Phrase {
 		}
 	}
 
-	mergeCommands(mergePhrase, position) {
-		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+	mergeCommands(mergePhrase, position, to) {
+		let mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			mergeLength = Math.min(mergeLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const mergeRows = mergePhrase.rows;
 		for (let i = 0; i < mergeLength; i++) {
@@ -756,8 +762,11 @@ class Phrase {
 		}
 	}
 
-	mergeNotes(mergePhrase, position) {
-		const mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+	mergeNotes(mergePhrase, position, to) {
+		let mergeLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			mergeLength = Math.min(mergeLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const mergeRows = mergePhrase.rows;
 		for (let i = 0; i < mergeLength; i++) {
@@ -777,8 +786,11 @@ class Phrase {
 		}
 	}
 
-	overwriteAll(replacementPhrase, position) {
-		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+	overwriteAll(replacementPhrase, position, to) {
+		let replacementLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			replacementLength = Math.min(replacementLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const replacementRows = replacementPhrase.rows;
 		for (let i = 0; i < replacementLength; i++) {
@@ -786,8 +798,11 @@ class Phrase {
 		}
 	}
 
-	overwriteCommands(replacementPhrase, position) {
-		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+	overwriteCommands(replacementPhrase, position, to) {
+		let replacementLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			replacementLength = Math.min(replacementLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const replacementRows = replacementPhrase.rows;
 		for (let i = 0; i < replacementLength; i++) {
@@ -813,8 +828,11 @@ class Phrase {
 		}
 	}
 
-	overwriteNotes(replacementPhrase, position) {
-		const replacementLength = Math.min(replacementPhrase.length, this.length - position);
+	overwriteNotes(replacementPhrase, position, to) {
+		let replacementLength = Math.min(mergePhrase.rows.length, this.length - position);
+		if (to !== undefined) {
+			replacementLength = Math.min(replacementLength, to - position + 1);
+		}
 		const rows = this.rows;
 		const replacementRows = replacementPhrase.rows;
 		for (let i = 0; i < replacementLength; i++) {

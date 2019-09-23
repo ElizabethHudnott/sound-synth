@@ -664,7 +664,8 @@ document.getElementById('btn-silence-sample').addEventListener('click', function
 		if (selectionStart === selectionEnd) {
 			$('#insert-silence-modal').modal();
 		} else {
-
+			sample.amplify(0, selectionStart, selectionEnd);
+			setSample(sample, false);
 		}
 	}
 });

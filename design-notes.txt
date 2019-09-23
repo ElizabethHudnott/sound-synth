@@ -44,7 +44,10 @@ Initial song parameters for Channel 1,... Channel N
 MAYBES
 Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
 Changes that alternate/randomize between a fixed range of options on each pass
-Loop start and end position incrementing (how to counter messing up fades?)
+
+Sequencer UI
+------------
+ability to drag entire graph up or down, etc.
 
 Documentation
 -------------
@@ -76,7 +79,6 @@ UI:
 	Scroll bar not visible on mobile -> Draw a custom one
 	playback separately OR on a track
 	UI for Parameter.OFFSET? ruler and snap
-* amplify() should support *exponential* fades
 samples need names
 smooth method (rectangle window)
 method to create a sample by crossfading one sample into another
@@ -143,18 +145,11 @@ play						X			X		x
 ---------
 merge (all, commands, notes)X			x
 overwrite (all, commands, notes)X		x
-insert						X			x		x
-insertEmptyRows				X			x
+insert (all, commands, notes)X			x		x
+insertEmpty					X			x
 remove						X			x		x
 pause											x
 goto											x
-
-						Notes		Commands	All
-clear						X			X		X
-insert						X			X		X
-merge						X			X		X
-overwrite					X			X		X
-merge and overwrite need to accept an optional "to" row limit
 
 Method			Sample		Instrument
 clone			x
