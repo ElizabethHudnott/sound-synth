@@ -48,6 +48,7 @@ Changes that alternate/randomize between a fixed range of options on each pass
 Sequencer UI
 ------------
 ability to drag entire graph up or down, etc.
+ability to select multiple graph nodes
 
 Documentation
 -------------
@@ -80,7 +81,6 @@ UI:
 	playback separately OR on a track
 	UI for Parameter.OFFSET? ruler and snap
 samples need names
-smooth method (rectangle window)
 method to create a sample by crossfading one sample into another
 trim silence method
 Check Number.MAX_VALUE is being applied consistently

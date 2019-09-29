@@ -1635,6 +1635,51 @@ class Sample {
 		});
 	}
 
+	smooth(windowSize, from, to) {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		if (to === undefined) {
+			to = length - 1;
+			if (from === undefined) {
+				from = 0;
+			}
+		}
+
+		const windowData = new Float32Array(windowSize);
+		const halfWindowSize = Math.trunc((windowSize - 1) / 2);
+		for (let channelNumber = 0; channelNumber < buffer.numberOfChannels; channelNumber++) {
+			const channelData = buffer.getChannelData(channelNumber);
+			let minIndex = Math.max(from - halfWindowSize, 0);
+			let maxIndex = Math.min(from + halfWindowSize, length - 1);
+			let windowMinIndex = 0;
+			let windowMaxIndex = maxIndex - minIndex;
+			let sum = 0;
+			for (let i = 0; i <= windowMaxIndex; i++) {
+				windowData[i] = channelData[minIndex + i] / windowSize;
+				sum += windowData[i];
+			}
+			channelData[from] = sum * (windowSize / (maxIndex - minIndex + 1));
+
+			for (let i = from + 1; i <= to; i++) {
+				if (i - 1 - minIndex === halfWindowSize) {
+					minIndex++;
+					windowMinIndex = (windowMinIndex + 1) % windowSize;
+				}
+				if (maxIndex < length - 1) {
+					maxIndex++;
+					windowMaxIndex = (windowMaxIndex + 1) % windowSize;
+					windowData[windowMaxIndex] = channelData[maxIndex] / windowSize;
+				}
+				sum = 0;
+				let actualWindowSize = maxIndex - minIndex + 1;
+				for (let j = 0; j < actualWindowSize; j++) {
+					sum += windowData[(windowMinIndex + j) % windowSize];
+				}
+				channelData[i] = sum * (windowSize / actualWindowSize);
+			}
+		}
+	}
+
 	smoothResample(newSampleRate) {
 		const me = this;
 		const oldBuffer = this.buffer;
