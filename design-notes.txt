@@ -11,7 +11,7 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 * Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
-* Change PATTERN_DELAY to COLUMN_DELAY
+* Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except gate)
 * Allow each column to loop independently (remove pattern length property)
 	* Allow columns to move at different tempos
 	* Master column to move at the speed of the slowest column
@@ -35,6 +35,7 @@ Method to quantize relative to another track
 Method to randomize/humanize
 Add PHRASE_VELOCITY parameter (dynamics)
 Song Loop From
+Freeze/Unfreeze phrase (render to buffer for better performance)
 
 UNDESIGNED
 Area for scratch, unused patterns and/or phrases
@@ -44,6 +45,11 @@ Initial song parameters for Channel 1,... Channel N
 MAYBES
 Phrase/pattern forwards/backwards (step 1, -1, maybe more) (how to counter messing up fades?)
 Changes that alternate/randomize between a fixed range of options on each pass
+Probability / Aleatoric / Chance / Indeterminate music
+	Earle Brown, Twenty-Five Pages
+	Terry Riley, In C
+	Witold Lutosławski
+	Graphic notation: https://en.wikipedia.org/wiki/Graphic_notation_(music)
 
 Sequencer UI
 ------------
@@ -97,7 +103,6 @@ Reverb
 UI Rewrite
 Choice of New Note Action
 	(release, cut, continue until gate closed or cut, duplicate notes of the same instrument always cut)
-Probability
 Instruments
 Velocity & Pitch Automations
 	Add "Noise Type 2" to UI

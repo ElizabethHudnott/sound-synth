@@ -53,8 +53,6 @@ function expectedValue(distribution) {
 	return sum;
 }
 
-const DIATONIC_SCALE = [2, 2, 1, 2, 2, 2, 1];
-
 function generatePitchSpace(scale, baseNote, minNote, maxNote) {
 	const scaleLength = scale.length;
 	const highPitches = [];
@@ -396,7 +394,7 @@ class SongGenerator {
 		const mode = cdfLookup(this.modeDist) - 1;
 		const scale = new Array(7);
 		for (let i = 0; i < 7; i++) {
-			scale[i] = DIATONIC_SCALE[(i + mode) % 7];
+			scale[i] = Sequencer.DIATONIC_SCALE[(i + mode - 1) % 7];
 		}
 		return scale;
 	}
@@ -749,17 +747,25 @@ class SongGenerator {
 		const pitchSpace = generatePitchSpace(scale, rootNote, this.minNote, this.maxNote);
 
 		const conjunctPatterns = [];
-		for (let i = 0; i < this.numConjunctContours; i++) {
+		let numContours = 0;
+		while (numContours < this.numConjunctContours) {
 			const contour = this.generateContour(true);
 			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
-			conjunctPatterns.splice(conjunctPatterns.length, 0, ...newPatterns);
+			if (newPatterns.length > 0) {
+				conjunctPatterns.splice(conjunctPatterns.length, 0, ...newPatterns);
+				numContours++;
+			}
 		}
 
 		const disjunctPatterns = [];
-		for (let i = 0; i < this.numConjunctContours; i++) {
+		numContours = 0;
+		while (numContours < this.numDisjunctContours) {
 			const contour = this.generateContour(false);
 			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
-			disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
+			if (newPatterns.length > 0) {
+				disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
+				numContours++;
+			}
 		}
 
 		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 'mixed', rootNote, numNotes);

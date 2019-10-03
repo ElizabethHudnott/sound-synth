@@ -22,6 +22,26 @@ noteParameters.add(Synth.Param.PHRASE_OFFSET);
 noteParameters.add(Synth.Param.PHRASE_TRANSPOSE);
 noteParameters.add(Synth.Param.LOOP);
 
+const DIATONIC_SCALE = [2, 2, 1, 2, 2, 2, 1];
+const C_MAJOR = musicalScale(0, 1);
+
+/**
+ * @param {number} mode 1 = major, 6 = minor
+ */
+function musicalScale(baseNote, mode, intervals) {
+	if (intervals === undefined) {
+		intervals = DIATONIC_SCALE;
+	}
+	const numIntervals = intervals.length;
+	const notes = [];
+	let position = baseNote;
+	for (let i = 0; i < numIntervals; i++) {
+		notes.push(position);
+		position = position + intervals[(i + mode - 1) % numIntervals];
+	}
+	return notes;
+}
+
 function cloneChange(change) {
 	if (Array.isArray(change)) {
 		return change.map(x => x.clone());
@@ -461,9 +481,10 @@ class Phrase {
 		this.name = name;
 		this.rows = [];
 		this.length = length;
-		// These two properties are just for presentation purposes.
+		// The following properties are just for presentation purposes.
 		this.rowsPerBeat = 4;
 		this.rowsPerBar = 16;
+		this.scale = C_MAJOR;
 	}
 
 	clone() {
@@ -477,6 +498,7 @@ class Phrase {
 		newPhrase.rows = newRows;
 		newPhrase.rowsPerBeat = this.rowsPerBeat;
 		newPhrase.rowsPerBar = this.rowsPerBar;
+		newPhrase.scale = this.scale;
 		return newPhrase;
 	}
 
@@ -600,6 +622,7 @@ class Phrase {
 		const beatsPerBar = this.rowsPerBar / this.rowsPerBeat;
 		newPhrase.rowsPerBeat = Math.round(this.rowsPerBeat / multiple);
 		newPhrase.rowsPerBar = newPhrase.rowsPerBeat * beatsPerBar;
+		newPhrase.scale = this.scale;
 		return newPhrase;
 	}
 
@@ -1396,6 +1419,8 @@ global.Sequencer = {
 	cloneChanges: cloneChanges,
 	noteParameters: noteParameters,
 	replaceAll: replaceAll,
+	DIATONIC_SCALE: Object.freeze(DIATONIC_SCALE),
+	musicalScale: musicalScale,
 };
 
 })(window);

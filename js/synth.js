@@ -286,8 +286,8 @@ const Parameter = enumFromArray([
 	// Parameters below this line only affect the sequencer
 	'PHRASE',		// name of the phrase currently playing (If the name is not found then no phrase will be used.)
 	'PHRASE_OFFSET', // line number to begin playing the phrase from
-	'PHRASE_TRANSPOSE', // note that replaces the first note in the phrase
-	'PATTERN_DELAY', // amount of time to delay the pattern by (in multiples of the line time)
+	'PHRASE_TRANSPOSE', // note that replaces the current note in the phrase
+	'PATTERN_DELAY', // amount of time to delay the pattern by (in ticks)
 	'LOOP',			// a positive integer or zero to set loop start point
 ]);
 
