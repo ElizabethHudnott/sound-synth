@@ -11,17 +11,15 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 * Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
-* Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except gate)
-* Allow each column to loop independently (remove pattern length property)
-	* Allow columns to move at different tempos
-	* Master column to move at the speed of the slowest column
-Second kind of loop: column loop
+* Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except GATE, LINE_REPEAT and incrementing the phrase offset)
+* Allow columns to move at different tempos
+(Second kind of loop: column loop?)
 	* Columns that exhaust their rows before another column completes start looping
 	- Can designate one column to loop x times before moving onto the next pattern (otherwise the pattern ends when the longest column completes once (including normal loop parameters))
 	- If the same phrase is on the same channel in two consecutive patterns then have the option to continue playing without restarting ("free running", offset ignored) as a phrase property
 Phrase:
-	* loop on/off (when not used as a column)
-	* loop start point
+	* loop on/off (Reuse LOOPS parameter, any non-zero value)
+	* loop start point (Reuse LOOPS parameter)
 	- "free running" on/off
 * Song playback shouldn't all be scheduled at once
 	Actually a whole pattern should be scheduled at once so ChangeType.EXPONENTIAL works

@@ -176,6 +176,7 @@ class Pattern {
 		this.offsets = new Array(numColumns);
 		this.offsets.fill(0);
 		this.length = length;
+		this.terminatingColumn = 0;
 	}
 
 	clone() {
@@ -185,9 +186,13 @@ class Pattern {
 			newPattern.columns[i] = this.columns[i].clone();
 		}
 		newPattern.offsets = this.offsets.slice();
+		newPattern.terminatingColumn = this.terminatingColumn;
 	}
 
 	equals(pattern) {
+		if (this.terminatingColumn !== pattern.terminatingColumn) {
+			return false;
+		}
 		const length = this.length;
 		if (length !== pattern.length) {
 			return false;
@@ -332,50 +337,52 @@ class Pattern {
 
 		system.beginPattern(step);
 		const numColumns = this.columns.length;
+		const terminatingColumn = this.terminatingColumn;
 		const length = this.length;
 		const masterColumn = this.columns[0];
 		const masterRows = masterColumn === undefined ? [] : masterColumn.rows;
-		const masterOffset = this.offsets[0];
-		const highChannelParams = system.channels[numColumns - 2].parameters;
 
-		let lineTime, numTicks;
-		let loopStart = 0, loopIndex = 1;
+		let maxLineTime;
+		const rowNumbers = new Array(numColumns);
+		const loopStart = new Array(numColumns);
+		for (let i = 0; i < numColumns; i++) {
+			rowNumbers[i] = this.offsets[i];
+			loopStart[i] = rowNumbers[i];
+		}
+		const loopCounters = new Array(numColumns);
+		loopCounters.fill(1);
 		const activePhrases = [];
 		const phraseOffsets = [];
 		const transpositions = [];
 
-		let rowNum = 0;
-		while (rowNum < length) {
-			const masterChanges = masterRows[rowNum + masterOffset];
-			let nextRowNum = rowNum + 1;
-			let patternDelay = 0;
-
+		while (rowNumbers[terminatingColumn] < length) {
+			maxLineTime = 0;
+			const masterChanges = masterRows[rowNumbers[0]];
+			let nextMasterRow = rowNumbers[0] + 1;
 			if (masterChanges !== undefined) {
-				const patternDelayChange = masterChanges.get(Synth.Param.PATTERN_DELAY);
-				if (patternDelayChange !== undefined) {
-					patternDelay = patternDelayChange.value;
-				}
 				const loopChange = masterChanges.get(Synth.Param.LOOP);
 				if (loopChange !== undefined) {
 					const loopValue = loopChange.value;
 					if (loopValue === 0) {
-						loopStart = rowNum;
-					} else if (loopIndex < loopValue) {
-						nextRowNum = loopStart;
-						loopIndex++;
+						loopStart[0] = rowNumbers[0];
+					} else if (loopCounters[0] < loopValue) {
+						nextMasterRow = loopStart[0];
+						loopCounters[0]++;
 					} else {
-						loopIndex = 1;
+						loopCounters[0] = 1;
 					}
 				}
 			}
+			rowNumbers[0] = nextMasterRow;
 
 			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
+				const rowNum = rowNumbers[columnNumber];
 				const column = this.columns[columnNumber];
 				let changeSources = masterChanges === undefined ? 0 : 1;
 				let changes, phraseChanges, columnChanges;
 
 				if (column !== undefined) {
-					columnChanges = column.rows[rowNum + this.offsets[columnNumber]];
+					columnChanges = column.rows[rowNum];
 				}
 				if (columnChanges !== undefined) {
 					const phraseChange = columnChanges.get(Synth.Param.PHRASE);
@@ -463,12 +470,28 @@ class Pattern {
 						}
 					}
 				}
-				lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
-			}
 
-			numTicks = highChannelParams[Synth.Param.TICKS];
-			step += lineTime * (1 + patternDelay / numTicks);
-			rowNum = nextRowNum;
+				const lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
+				if (lineTime > maxLineTime) {
+					maxLineTime = lineTime;
+				}
+
+				let nextRowNum = rowNum + 1;
+				const loopChange = changes.get(Synth.Param.LOOP);
+				if (loopChange !== undefined) {
+					const loopValue = loopChange.value;
+					if (loopValue === 0) {
+						loopStart[columnNumber] = rowNum;
+					} else if (loopCounters[columnNumber] < loopValue) {
+						nextRowNum = loopStart[columnNumber];
+						loopCounters[columnNumber]++;
+					} else {
+						loopCounters[columnNumber] = 1;
+					}
+				}
+				rowNumbers[columnNumber] = nextRowNum;
+			} // end for each column
+			step += maxLineTime;
 		}
 		return step;
 	}
@@ -483,7 +506,7 @@ class Phrase {
 		this.length = length;
 		// The following properties are just for presentation purposes.
 		this.rowsPerBeat = 4;
-		this.rowsPerBar = 16;
+		this.rowsPerBar = Math.min(16, length);
 		this.scale = C_MAJOR;
 	}
 
@@ -1323,10 +1346,13 @@ class Phrase {
 		system.beginPattern(step);
 		const length = this.length;
 		const channel = system.channels[channelNumber];
+		let rowNum = 0;
+		let loopStart = 0;
+		let loopCounter = 1;
 		let transpose = 0;
 		let lineTime, subphrase, subphraseOffset;
 
-		for (let rowNum = 0; rowNum < length; rowNum++) {
+		while (rowNum < length) {
 			let changes, subphraseChanges;
 			let changeSources = 0;
 			let myChanges = this.rows[rowNum];
@@ -1398,6 +1424,22 @@ class Phrase {
 				}
 			}
 			lineTime = channel.setParameters(changes, step, true);
+
+			let nextRowNum = rowNum + 1;
+			const loopChange = changes.get(Synth.Param.LOOP);
+			if (loopChange !== undefined) {
+				const loopValue = loopChange.value;
+				if (loopValue === 0) {
+					loopStart = rowNum;
+				} else if (loopCounter < loopValue) {
+					nextRowNum = loopStart;
+					loopCounter++;
+				} else {
+					loopCounter = 1;
+				}
+			}
+			rowNum = nextRowNum;
+
 			step += lineTime;
 		}
 	}

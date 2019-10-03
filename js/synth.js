@@ -282,12 +282,12 @@ const Parameter = enumFromArray([
 	'GLISSANDO', // number of steps
 	'OFFSET', 		// instrument offset (0-256)
 	'SCALE_AHD',	// dimensionless (-1 or more)
+	'LINE_REPEAT',	// number of times to repeat each row
 	'MACHINE',
-	// Parameters below this line only affect the sequencer
+	// Parameters below this line only affect the sequencer and don't require defaults
 	'PHRASE',		// name of the phrase currently playing (If the name is not found then no phrase will be used.)
 	'PHRASE_OFFSET', // line number to begin playing the phrase from
 	'PHRASE_TRANSPOSE', // note that replaces the current note in the phrase
-	'PATTERN_DELAY', // amount of time to delay the pattern by (in ticks)
 	'LOOP',			// a positive integer or zero to set loop start point
 ]);
 
@@ -2753,6 +2753,7 @@ class Channel {
 			0,		// glissando length
 			0,		// no sample offset
 			1,		// envelope scaling for AHD portion of the envelope
+			1,		// line repeat
 		];
 		this.usingOscillator = true;
 		this.instrument = undefined;
