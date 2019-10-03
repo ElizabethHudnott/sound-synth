@@ -323,8 +323,11 @@ class Pattern {
 			}
 			numColumns++;
 		}
+		if (numColumns === 1) {
+			offsets[1] = 0;
+		}
 
-		const pattern = new Pattern(offsets.length - 1, length);
+		const pattern = new Pattern(Math.max(numColumns - 1, 1), length);
 		pattern.columns = columns;
 		pattern.offsets = offsets;
 		return pattern;
@@ -336,7 +339,7 @@ class Pattern {
 		}
 
 		system.beginPattern(step);
-		const numColumns = this.columns.length;
+		const numColumns = this.offsets.length;
 		const terminatingColumn = this.terminatingColumn;
 		const length = this.length;
 		const masterColumn = this.columns[0];
@@ -347,19 +350,40 @@ class Pattern {
 		const loopStart = new Array(numColumns);
 		for (let i = 0; i < numColumns; i++) {
 			rowNumbers[i] = this.offsets[i];
-			loopStart[i] = rowNumbers[i];
+			loopStart[i] = Math.max(rowNumbers[i], 0);
 		}
 		const loopCounters = new Array(numColumns);
 		loopCounters.fill(1);
+		const repetitions = new Array(numColumns); // Line repeat function
+		repetitions.fill(1);
+		let masterRepeatTimes = 1;
 		const activePhrases = [];
 		const phraseOffsets = [];
 		const transpositions = [];
+		let masterChanges;
 
 		while (rowNumbers[terminatingColumn] < length) {
 			maxLineTime = 0;
-			const masterChanges = masterRows[rowNumbers[0]];
-			let nextMasterRow = rowNumbers[0] + 1;
-			if (masterChanges !== undefined) {
+			const masterRepeatCount = repetitions[0];
+			if (masterRepeatCount === 1) {
+				masterChanges = masterRows[rowNumbers[0]];
+				if (masterChanges !== undefined) {
+					const repeatChange = masterChanges.get(Synth.Param.LINE_REPEAT);
+					if (repeatChange !== undefined) {
+						masterRepeatTimes = repeatChange.value;
+					}
+				}
+			}
+			let nextMasterRow = rowNumbers[0];
+
+			if (masterRepeatCount >= masterRepeatTimes) {
+				nextMasterRow++;
+				repetitions[0] = 1;
+				masterRepeatTimes = 1;
+			} else {
+				repetitions[0]++;
+			}
+			if (masterChanges !== undefined && masterRepeatCount === masterRepeatTimes) {
 				const loopChange = masterChanges.get(Synth.Param.LOOP);
 				if (loopChange !== undefined) {
 					const loopValue = loopChange.value;
@@ -377,6 +401,7 @@ class Pattern {
 
 			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
 				const rowNum = rowNumbers[columnNumber];
+				const repetition = repetitions[columnNumber];
 				const column = this.columns[columnNumber];
 				let changeSources = masterChanges === undefined ? 0 : 1;
 				let changes, phraseChanges, columnChanges;
@@ -471,12 +496,12 @@ class Pattern {
 					}
 				}
 
+				let nextRowNum = rowNum + 1;
 				const lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
 				if (lineTime > maxLineTime) {
 					maxLineTime = lineTime;
 				}
 
-				let nextRowNum = rowNum + 1;
 				const loopChange = changes.get(Synth.Param.LOOP);
 				if (loopChange !== undefined) {
 					const loopValue = loopChange.value;
@@ -491,7 +516,13 @@ class Pattern {
 				}
 				rowNumbers[columnNumber] = nextRowNum;
 			} // end for each column
+
 			step += maxLineTime;
+
+			if (masterRepeatCount === 1 && masterRepeatTimes > 1 && masterChanges !== undefined) {
+				masterChanges = new Map(masterChanges);
+				masterChanges.delete(Synth.Param.GATE);
+			}
 		}
 		return step;
 	}
