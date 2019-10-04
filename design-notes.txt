@@ -20,9 +20,9 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 	- Can designate one column to loop x times before moving onto the next pattern (otherwise the pattern ends when the longest column completes once (including normal loop parameters))
 	- If the same phrase is on the same channel in two consecutive patterns then have the option to continue playing without restarting ("free running", offset ignored) as a phrase property
 Phrase:
-	* loop on/off (Reuse LOOPS parameter, any non-zero value)
-	* loop start point (Reuse LOOPS parameter)
-	- "free running" on/off
+	* loop on/off (Reuse LOOP parameter, any non-zero value)
+	* loop start point (Reuse LOOP parameter)
+	- "free running" on/off (implement using an undefined offset?)
 * Song playback shouldn't all be scheduled at once
 	Actually a whole pattern should be scheduled at once so ChangeType.EXPONENTIAL works
 

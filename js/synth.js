@@ -1465,6 +1465,36 @@ class Sample {
 		return newSample;
 	}
 
+	detectSilence(position, threshold) {
+		const buffer = this.buffer;
+		const length = buffer.length;
+		const numberOfChannels = buffer.numberOfChannels;
+		let begin = 0;
+		let end = length - 1;
+		for (let channelNumber = 0; channelNumber < numberOfChannels; channelNumber++) {
+			const data = buffer.getChannelData(channelNumber);
+			let index = position + 1;
+			while (index > begin && Math.abs(data[index - 1]) < threshold) {
+				index--;
+			}
+			if (index > begin) {
+				begin = index;
+			}
+			index = position - 1;
+			while (index < end && Math.abs(data[index + 1]) < threshold) {
+				index++;
+			}
+			if (index < end) {
+				end = index;
+			}
+		}
+		if (begin > end) {
+			return undefined;
+		} else {
+			return [begin, end];
+		}
+	}
+
 	mix(mixSample, position, mixLength, loop) {
 		const me = this;
 		const oldBuffer = this.buffer;
