@@ -1465,9 +1465,12 @@ class Sample {
 		return newSample;
 	}
 
-	detectSilence(position, threshold) {
+	detectSilence(threshold, position) {
 		const buffer = this.buffer;
 		const length = buffer.length;
+		if (position === undefined) {
+			position = length - 1;
+		}
 		const numberOfChannels = buffer.numberOfChannels;
 		let begin = 0;
 		let end = length - 1;
@@ -1487,6 +1490,12 @@ class Sample {
 			if (index < end) {
 				end = index;
 			}
+		}
+		if (begin > 0) {
+			begin = this.findZero(begin, 0, Direction.UP) + 1;
+		}
+		if (end < length - 1) {
+			end = this.findZero(end, 0, Direction.DOWN) - 1;
 		}
 		if (begin > end) {
 			return undefined;

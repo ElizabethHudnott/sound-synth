@@ -12,6 +12,7 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
 * Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except GATE, LINE_REPEAT and incrementing the phrase offset)
+* Loop break statement
 * Review direct access to Change.value in playback routine
 * Support nested phrases in the master column
 * Allow columns to move at different tempos
