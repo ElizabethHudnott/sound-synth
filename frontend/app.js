@@ -188,6 +188,13 @@ function toggleSound() {
 	}
 }
 
+window.addEventListener('blur', function (event) {
+	const transposeMode = document.getElementById('input-mode-transpose-chord').checked;
+	if (!transposeMode) {
+		keyboard.lockDown[0] = false;
+	}
+});
+
 system.ondatarecorded = function (blob) {
 	const mediaElement = document.getElementById('recording');
 	if (mediaElement.src.startsWith('blob:')) {
@@ -317,7 +324,11 @@ function sendNewLine() {
 	const notesOn = (keyboard.notes[0].length > 0 ||
 		(inputPort !== undefined && inputPort.notes[inputChannel].length > 0)
 	);
-	if (notesOn) {
+	if (
+		notesOn ||
+		Math.abs(channels[0].glissandoStepsDone) < Math.abs(channels[0].parameters[Synth.Param.GLISSANDO]) ||
+		Math.abs(channels[1].glissandoStepsDone) < Math.abs(channels[1].parameters[Synth.Param.GLISSANDO])
+	) {
 		const now = system.nextStep();
 		let nextLine = Math.max(now, system.nextLine);
 		const bufferUntil = now + BUFFER_LENGTH;

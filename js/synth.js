@@ -279,7 +279,8 @@ const Parameter = enumFromArray([
 	'RETRIGGER_VOLUME', // percentage of original note volume
 	'CHORD_SPEED',	// number of ticks between notes of a broken chord
 	'CHORD_PATTERN', // A value from the Pattern enum
-	'GLISSANDO', // number of steps
+	'GLISSANDO',	// Number of semitones
+	'GLISSANDO_TICKS', // Number of ticks
 	'OFFSET', 		// instrument offset (0-256)
 	'SCALE_AHD',	// dimensionless (-1 or more)
 	'MACHINE',
@@ -2789,7 +2790,8 @@ class Channel {
 			100,	// retrigger volume same as initial volume
 			2,		// broken chord speed
 			Chord.TO_AND_FRO_2,	// chord pattern
-			0,		// glissando length
+			0,		// glissando length (in semitones)
+			system.ticksPerLine, // glissando time (in ticks)
 			0,		// no sample offset
 			1,		// envelope scaling for AHD portion of the envelope
 		];
@@ -2816,6 +2818,7 @@ class Channel {
 		this.chordDir = 1;
 		this.noteRepeated = false;
 		this.noteChangeType = ChangeType.SET;
+		this.glissandoStepsDone = 0;
 		this.tickCounter = 0;
 		this.tickModulus = 1;
 		this.scheduledUntil = 0;
@@ -3912,6 +3915,11 @@ class Channel {
 				}
 				break;
 
+			case Parameter.GLISSANDO:
+			case Parameter.GLISSANDO_TICKS:
+				dirtyTickEvents = true;
+				break;
+
 			case Parameter.RETRIGGER:
 				if (value === 0) {
 					endRetrigger = true;
@@ -4021,58 +4029,62 @@ class Channel {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time, now);
 		}
 
-		const gateOpen = (parameters[Parameter.GATE] & Gate.TRIGGER) === Gate.OPEN;
+		const gateParam = parameters[Parameter.GATE];
+		const gateOpening = (gate & Gate.OPEN) !== 0;
+		const gateOpen = (gateParam & Gate.TRIGGER) === Gate.OPEN;
+		const gateFullyClosed = gateParam === Gate.CUT;
 		let glissandoSteps = parameters[Parameter.GLISSANDO];
 		const retriggerTicks = parameters[Parameter.RETRIGGER];
-		let glissandoAmount, prevGlissandoAmount, chordDir, noteRepeated;
+		let glissandoAmount, chordDir, noteRepeated;
 
 		if (dirtyTickEvents) {
+			let modulus;
 			if (retriggerTicks === 0) {
-				this.tickModulus = chordTicks;
+				modulus = chordTicks;
 			} else {
-				this.tickModulus = lcm(retriggerTicks, chordTicks);
+				modulus = lcm(retriggerTicks, chordTicks);
 			}
+			if (glissandoSteps !== 0) {
+				modulus *= Math.ceil((parameters[Parameter.GLISSANDO_TICKS] + 1) / modulus);
+			}
+			this.tickModulus = modulus;
+		}
+
+		if (gateOpening) {
+			glissandoAmount = 0;
+			noteIndex = 0;
+			chordDir = 1;
+			noteRepeated = false;
+		} else {
+			glissandoAmount = this.glissandoStepsDone;
+			noteIndex = this.noteIndex;
+			chordDir = this.chordDir;
+			noteRepeated = this.noteRepeated;
 		}
 
 		if (gate !== undefined) {
 			this.gate(gate, notes[0], this.velocity, this.sustain, lineTime, time);
-			glissandoAmount = 0;
-			prevGlissandoAmount = 0;
-			noteIndex = 0;
-			chordDir = 1;
-			noteRepeated = false;
-		} else if (gateOpen) {
-			// Don't repeat glissando but keep the chords smooth.
-			glissandoAmount = glissandoSteps;
-			prevGlissandoAmount = glissandoAmount;
-			glissandoSteps = 0;
-			noteIndex = this.noteIndex;
-			chordDir = this.chordDir;
-			noteRepeated = this.noteRepeated;
-			if (endRetrigger) {
-				this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, lineTime, time);
-			}
+		} else if (endRetrigger && gateOpen) {
+			this.gate(Gate.REOPEN, notes[noteIndex] + glissandoAmount, this.velocity, this.sustain, lineTime, time);
 		}
 
-		if ((gate & Gate.OPEN) > 0 || (gateOpen && newLine)) {
-			// The gate's just been triggered or it's open.
-			// TODO handle gate triggered in a previous step but not yet closed.
+		if (newLine) {
+			// TODO optimize the case when the gate was triggered or closed in a previous step and has now fully closed.
 			this.system.nextLine = Math.max(this.system.nextLine, step + lineTime);
 
-			if (glissandoSteps !== 0 || numNotes > 1 || retriggerTicks > 0) {
+			if (
+				((Math.abs(glissandoAmount) < Math.abs(glissandoSteps) || numNotes > 1) && !gateFullyClosed) ||
+				(retriggerTicks > 0 && (gateOpening || gateOpen))
+			) {
 				numTicks = numTicks - (delay % numTicks);
 				const roundedNumTicks = Math.ceil(numTicks);
 
-				let glissandoPerTick;
-				if (glissandoSteps === 0) {
-					glissandoPerTick = 0;
-				} else if (glissandoSteps > 0) {
-				 	glissandoPerTick = (glissandoSteps + 1) / roundedNumTicks;
-				} else {
-					glissandoPerTick = (glissandoSteps - 1) / roundedNumTicks;
-				}
+				let glissandoFractionalAmt = glissandoAmount;
+				glissandoAmount = Math.trunc(glissandoAmount);
+				let prevGlissandoAmount = glissandoAmount;
+				const glissandoPerTick = glissandoSteps / parameters[Parameter.GLISSANDO_TICKS];
 
-				let tick = gate === undefined ? 0 : 1;
+				let tick = gateOpening ? 1 : 0;
 				tickOffset = this.tickCounter;
 				let volume = this.velocity;
 				let endVolume = expCurve(volume * parameters[Parameter.RETRIGGER_VOLUME], 1);
@@ -4101,8 +4113,9 @@ class Channel {
 				while (tick < roundedNumTicks) {
 					const timeOfTick = time + tick * tickTime;
 
-					if (glissandoSteps !== 0) {
-						glissandoAmount = Math.trunc(tick * glissandoPerTick);
+					if (Math.abs(glissandoAmount) < Math.abs(glissandoSteps)) {
+						glissandoFractionalAmt = (tick + tickOffset) * glissandoPerTick;
+						glissandoAmount = Math.trunc(glissandoFractionalAmt);
 					}
 					let newFrequency = glissandoAmount !== prevGlissandoAmount;
 					if (numNotes > 1 && (tick + tickOffset) % chordTicks === 0) {
@@ -4175,7 +4188,7 @@ class Channel {
 						scheduledUntil = timeOfTick;
 					}
 
-					if ((tick + tickOffset) % retriggerTicks === 0) {
+					if ((gateOpen || gateOpening) && (tick + tickOffset) % retriggerTicks === 0) {
 						volume = calculateParameterValue(retriggerVolumeChange, volume, false)[1];
 						const sustain = this.sustain * volume / this.velocity;
 						this.gate(retriggerGate, notes[noteIndex] + glissandoAmount, volume, sustain, lineTime, timeOfTick);
@@ -4187,6 +4200,7 @@ class Channel {
 				this.noteIndex = noteIndex;
 				this.chordDir = chordDir;
 				this.noteRepeated = noteRepeated;
+				this.glissandoStepsDone = glissandoFractionalAmt;
 				this.scheduledUntil = scheduledUntil;
 				this.tickCounter = (tickOffset + numTicks) % this.tickModulus;
 			}

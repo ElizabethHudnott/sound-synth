@@ -22,6 +22,7 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 	- If the same phrase is on the same channel in two consecutive patterns then have the option to continue playing without restarting ("free running", offset ignored) as a phrase property
 Phrase:
 	* loop on/off (Reuse LOOP parameter, any non-zero value)
+	* LOOP parameter inside a phrase should be independent
 	* loop start point (Reuse LOOP parameter)
 	- "free running" on/off (implement using an undefined offset?)
 * Song playback shouldn't all be scheduled at once

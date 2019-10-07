@@ -330,7 +330,11 @@
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GLISSANDO, value); document.getElementById('glissando-readout').innerHTML = value;}" min="-15" max="15" value="0">
 					<span id="glissando-readout" class="readout">0</span>
-					Glissando
+					Glissando Amount
+					<br>
+					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.GLISSANDO_TICKS, value); document.getElementById('glissando-time-readout').innerHTML = value;}" min="1" max="100" value="6">
+					<span id="glissando-time-readout" class="readout">6</span>
+					Glissando Time
 					<br>
 					<input type="range" oninput="{let value = parseInt(this.value); set(Synth.Param.RETRIGGER, value); document.getElementById('retrigger-readout').innerHTML = value;}" min="0" max="16" value="0">
 					<span id="retrigger-readout" class="readout">0</span>
