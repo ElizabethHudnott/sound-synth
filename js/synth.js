@@ -274,6 +274,7 @@ const Parameter = enumFromArray([
 	'RING_MOD',		// 0 to 100
 	'TICKS',		// maximum number of events during a LINE_TIME
 	'DELAY_TICKS',	// amount of time to delay the channel by (in ticks)
+	'IDLE_TIME',	// time spent idle after rendering a line (proportion of the line time)
 	'RETRIGGER',	// number of ticks between retriggers
 	'LEGATO_RETRIGGER', // 0 or 1 (for chords)
 	'RETRIGGER_VOLUME', // percentage of original note volume
@@ -2785,6 +2786,7 @@ class Channel {
 			0,		// ring modulation
 			system.ticksPerLine, // number of ticks for broken chords, glissando and retrigger
 			0,		// number of ticks to delay
+			0,		// no rest time afterwards
 			0,		// retrigger time (ticks)
 			0,		// don't use multi-trigger
 			100,	// retrigger volume same as initial volume
@@ -4217,7 +4219,7 @@ class Channel {
 			}, time, now);
 		}
 		this.prevLineTime = lineTime;
-		return lineTime;
+		return lineTime + Math.round(lineTime * parameters[Parameter.IDLE_TIME]);
 	}
 
 }

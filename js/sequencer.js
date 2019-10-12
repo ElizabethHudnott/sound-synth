@@ -10,14 +10,14 @@ noteParameters.add(Synth.Param.GATE);
 noteParameters.add(Synth.Param.INSTRUMENT);
 noteParameters.add(Synth.Param.NOTES);
 noteParameters.add(Synth.Param.VELOCITY);
-noteParameters.add(Synth.Param.TICKS);
-noteParameters.add(Synth.Param.DELAY_TICKS);
-noteParameters.add(Synth.Param.CHORD_SPEED);
 noteParameters.add(Synth.Param.CHORD_PATTERN);
 noteParameters.add(Synth.Param.PHRASE);
 noteParameters.add(Synth.Param.PHRASE_OFFSET);
 noteParameters.add(Synth.Param.PHRASE_TRANSPOSE);
 /*
+noteParameters.add(Synth.Param.TICKS);
+noteParameters.add(Synth.Param.DELAY_TICKS);
+noteParameters.add(Synth.Param.CHORD_SPEED);
 noteParameters.add(Synth.Param.RETRIGGER);
 noteParameters.add(Synth.Param.LEGATO_RETRIGGER);
 noteParameters.add(Synth.Param.RETRIGGER_VOLUME);
