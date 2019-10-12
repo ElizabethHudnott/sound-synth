@@ -3948,6 +3948,10 @@ class Channel {
 			} // end switch
 		} // end loop over each parameter
 
+		const gateParam = parameters[Parameter.GATE];
+		const gateOpening = (gate & Gate.OPEN) !== 0;
+		const gateOpen = (gateParam & Gate.TRIGGER) === Gate.OPEN;
+
 		const notes = parameters[Parameter.NOTES];
 		const numNotes = notes.length;
 		const noteChangeType = this.noteChangeType;
@@ -3956,7 +3960,7 @@ class Channel {
 		let arpGlideTime = parameters[Parameter.GLIDE] * chordTicks * tickTime;
 		let noteIndex;
 
-		if (dirtyNotes || gate !== undefined) {
+		if (dirtyNotes || gateOpening) {
 			const firstNote = notes[0];
 			const frequency = this.noteFrequencies[firstNote];
 			if (noteChangeType === ChangeType.SET) {
@@ -4029,9 +4033,6 @@ class Channel {
 			this.panMod.setMinMax(dirtyPan, parameters[Parameter.LEFTMOST_PAN] / 100, parameters[Parameter.RIGHTMOST_PAN] / 100, time, now);
 		}
 
-		const gateParam = parameters[Parameter.GATE];
-		const gateOpening = (gate & Gate.OPEN) !== 0;
-		const gateOpen = (gateParam & Gate.TRIGGER) === Gate.OPEN;
 		const gateFullyClosed = gateParam === Gate.CUT;
 		let glissandoSteps = parameters[Parameter.GLISSANDO];
 		const retriggerTicks = parameters[Parameter.RETRIGGER];

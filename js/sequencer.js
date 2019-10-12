@@ -12,15 +12,18 @@ noteParameters.add(Synth.Param.NOTES);
 noteParameters.add(Synth.Param.VELOCITY);
 noteParameters.add(Synth.Param.TICKS);
 noteParameters.add(Synth.Param.DELAY_TICKS);
-noteParameters.add(Synth.Param.RETRIGGER);
-noteParameters.add(Synth.Param.LEGATO_RETRIGGER);
-noteParameters.add(Synth.Param.RETRIGGER_VOLUME);
 noteParameters.add(Synth.Param.CHORD_SPEED);
 noteParameters.add(Synth.Param.CHORD_PATTERN);
 noteParameters.add(Synth.Param.PHRASE);
 noteParameters.add(Synth.Param.PHRASE_OFFSET);
 noteParameters.add(Synth.Param.PHRASE_TRANSPOSE);
-noteParameters.add(Synth.Param.LOOP);
+/*
+noteParameters.add(Synth.Param.RETRIGGER);
+noteParameters.add(Synth.Param.LEGATO_RETRIGGER);
+noteParameters.add(Synth.Param.RETRIGGER_VOLUME);
+noteParameters.add(Synth.Param.GLISSANDO);
+noteParameters.add(Synth.Param.GLISSANDO_TICKS);
+*/
 
 const DIATONIC_SCALE = [2, 2, 1, 2, 2, 2, 1];
 const C_MAJOR = musicalScale(0, 1);
