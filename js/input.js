@@ -514,11 +514,13 @@ function open() {
 			}
 			access.onstatechange = function (event) {
 				const port = event.port;
-				const id = port.id;
-				if (port.state === 'connected') {
-					addPort(id, port.name || id);
-				} else {
-					removePort(id);
+				if (port.type === 'input') {
+					const id = port.id;
+					if (port.state === 'connected') {
+						addPort(id, port.name || id);
+					} else {
+						removePort(id);
+					}
 				}
 			};
 		});

@@ -275,7 +275,7 @@ function initialize() {
 		}
 	}
 
-	MusicInput.open().then(initializeInput, initializeInput);
+	MusicInput.open().then(initializeInput);
 	keyboard.addEventListener('synthinput', processInput);
 	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.fromChannel[1] = 1;
