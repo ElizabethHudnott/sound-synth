@@ -14,7 +14,6 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 * Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except GATE, LINE_REPEAT and incrementing the phrase offset)
 * Old chord should continue playing for a bit when using DELAY_TICKS
 * Bug when glissando and glide are used together
-* Loop break statement
 * Review direct access to Change.value in playback routine
 * Support nested phrases in the master column
 * Allow columns to move at different tempos
@@ -24,7 +23,7 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 	- If the same phrase is on the same channel in two consecutive patterns then have the option to continue playing without restarting ("free running", offset ignored) as a phrase property
 Phrase:
 	* loop on/off (Reuse LOOP parameter, any non-zero value)
-	* LOOP parameter inside a phrase should be independent
+	* LOOP & BREAK parameters inside a phrase should be independent
 	* loop start point (Reuse LOOP parameter)
 	- "free running" on/off (implement using an undefined offset?)
 * Song playback shouldn't all be scheduled at once

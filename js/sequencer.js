@@ -355,8 +355,10 @@ class Pattern {
 			rowNumbers[i] = this.offsets[i];
 			loopStart[i] = Math.max(rowNumbers[i], 0);
 		}
+		const loopEnd = new Array(numColumns);
 		const loopCounters = new Array(numColumns);
 		loopCounters.fill(1);
+		const loopCount = new Array(numColumns); // number of iterations
 		const repetitions = new Array(numColumns); // Line repeat function
 		repetitions.fill(1);
 		let masterRepeatTimes = 1;
@@ -377,8 +379,8 @@ class Pattern {
 					}
 				}
 			}
-			let nextMasterRow = rowNumbers[0];
 
+			let nextMasterRow = rowNumbers[0];
 			if (masterRepeatCount >= masterRepeatTimes) {
 				nextMasterRow++;
 				repetitions[0] = 1;
@@ -393,11 +395,18 @@ class Pattern {
 					if (loopValue === 0) {
 						loopStart[0] = rowNumbers[0];
 					} else if (loopCounters[0] < loopValue) {
+						loopEnd[0] = rowNumbers[0];
+						loopCount[0] = loopValue;
 						nextMasterRow = loopStart[0];
 						loopCounters[0]++;
 					} else {
-						loopCounters[0] = 1;
+						loopCounters[0] = 1; // reset ready for a different loop
 					}
+				}
+				if (masterChanges.has(Synth.Param.BREAK) &&	loopCounters[0] === loopCount[0]) {
+					nextMasterRow = loopEnd[0] + 1;
+					loopCounters[0] = 1;
+					loopCount[0] = undefined;
 				}
 			}
 			rowNumbers[0] = nextMasterRow;
@@ -500,26 +509,35 @@ class Pattern {
 				}
 
 				let nextRowNum = rowNum + 1;
-				const channel = system.channels[columnNumber - 1];
-				let lineTime = channel.setParameters(changes, step, true);
-				lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
-				if (lineTime > maxLineTime) {
-					maxLineTime = lineTime;
-				}
-
 				const loopChange = changes.get(Synth.Param.LOOP);
 				if (loopChange !== undefined) {
 					const loopValue = loopChange.value;
 					if (loopValue === 0) {
 						loopStart[columnNumber] = rowNum;
 					} else if (loopCounters[columnNumber] < loopValue) {
+						loopEnd[columnNumber] = rowNumbers[columnNumber];
+						loopCount[columnNumber] = loopValue;
 						nextRowNum = loopStart[columnNumber];
 						loopCounters[columnNumber]++;
 					} else {
 						loopCounters[columnNumber] = 1;
 					}
 				}
+				if (changes.has(Synth.Param.BREAK) &&
+					loopCounters[columnNumber] === loopCount[columnNumber]
+				) {
+					nextRowNum = loopEnd[columnNumber] + 1;
+					loopCounters[columnNumber] = 1;
+					loopCount[columnNumber] = undefined;
+				}
 				rowNumbers[columnNumber] = nextRowNum;
+
+				const channel = system.channels[columnNumber - 1];
+				let lineTime = channel.setParameters(changes, step, true);
+				lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
+				if (lineTime > maxLineTime) {
+					maxLineTime = lineTime;
+				}
 			} // end for each column
 
 			step += maxLineTime;

@@ -291,6 +291,7 @@ const Parameter = enumFromArray([
 	'PHRASE_TRANSPOSE', // note that replaces the current note in the phrase
 	'LINE_REPEAT',	// number of times to repeat the current row
 	'LOOP',			// a positive integer or zero to set loop start point
+	'BREAK',		// breaks out of the last iteration of a loop early
 ]);
 
 const ChangeType = Object.freeze({
