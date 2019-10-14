@@ -500,7 +500,9 @@ class Pattern {
 				}
 
 				let nextRowNum = rowNum + 1;
-				const lineTime = system.channels[columnNumber - 1].setParameters(changes, step, true);
+				const channel = system.channels[columnNumber - 1];
+				let lineTime = channel.setParameters(changes, step, true);
+				lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
 				if (lineTime > maxLineTime) {
 					maxLineTime = lineTime;
 				}

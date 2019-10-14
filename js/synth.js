@@ -4219,7 +4219,7 @@ class Channel {
 			}, time, now);
 		}
 		this.prevLineTime = lineTime;
-		return lineTime + Math.round(lineTime * parameters[Parameter.IDLE_TIME]);
+		return lineTime;
 	}
 
 }
