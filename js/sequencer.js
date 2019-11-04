@@ -756,26 +756,18 @@ class Phrase {
 
 	static fromObject(obj) {
 		const rows = [];
-		let length;
 		for (let propertyName in obj) {
-			if (propertyName === 'length') {
-				length = obj[propertyName];
-			} else {
-				const changes = obj[propertyName];
-				const map = new Map();
-				const changesLength = changes.length;
-				for (let i = 0; i < changesLength; i+= 2) {
-					const name = changes[i];
-					const value = changes[i + 1];
-					map.set(name, new Synth.Change(Synth.ChangeType.SET, value));
-				}
-				rows[propertyName] = map;
+			const changes = obj[propertyName];
+			const map = new Map();
+			const changesLength = changes.length;
+			for (let i = 0; i < changesLength; i+= 2) {
+				const name = changes[i];
+				const value = changes[i + 1];
+				map.set(name, new Synth.Change(Synth.ChangeType.SET, value));
 			}
+			rows[propertyName] = map;
 		}
-		if (length === undefined) {
-			length = rows.length;
-		}
-		const newPhrase = new Phrase('Untitled', length);
+		const newPhrase = new Phrase('Untitled', rows.length);
 		newPhrase.rows = rows;
 		return newPhrase;
 	}
@@ -1427,105 +1419,132 @@ class Phrase {
 		let rowNum = 0;
 		let loopStart = 0;
 		let loopCounter = 1;
+		let repetition = 1, repeatTimes = 1;
 		let transpose = 0;
-		let loopEnd, loopCount, lineTime, subphrase, subphraseOffset;
+		let loopEnd, loopCount;
+		let subphrase, subphraseOffset, changeSources, changes;
 
 		while (rowNum < length) {
-			let changes, subphraseChanges;
-			let changeSources = 0;
-			let myChanges = this.rows[rowNum];
-			if (myChanges !== undefined) {
-				const subphraseChange = myChanges.get(Synth.Param.PHRASE);
-				if (subphraseChange !== undefined) {
-					subphrase = song.getPhrase(subphraseChange.value);
-					subphraseOffset = 0;
-					transpose = 0;
-					if (myChanges.size > 1) {
+			if (repetition === 1) {
+				let subphraseChanges;
+				changeSources = 0;
+				let myChanges = this.rows[rowNum];
+				if (myChanges !== undefined) {
+					const subphraseChange = myChanges.get(Synth.Param.PHRASE);
+					if (subphraseChange !== undefined) {
+						subphrase = song.getPhrase(subphraseChange.value);
+						subphraseOffset = 0;
+						transpose = 0;
+						if (myChanges.size > 1) {
+							changeSources += 4;
+						}
+					} else {
 						changeSources += 4;
 					}
-				} else {
-					changeSources += 4;
-				}
-				const subphraseOffsetChange = myChanges.get(Synth.Param.PHRASE_OFFSET);
-				if (subphraseOffsetChange !== undefined) {
-					subphraseOffset = subphraseOffsetChange.value;
-				}
-			}
-
-			if (subphrase !== undefined) {
-				if (subphraseOffset >= subphrase.rows.length) {
-					subphrase = undefined;
-				} else {
-					subphraseChanges = subphrase.rows[subphraseOffset];
-					subphraseOffset++;
-					if (subphraseChanges !== undefined) {
-						changeSources += 2;
+					const subphraseOffsetChange = myChanges.get(Synth.Param.PHRASE_OFFSET);
+					if (subphraseOffsetChange !== undefined) {
+						subphraseOffset = subphraseOffsetChange.value;
 					}
 				}
-			}
-			if ((changeSources & 6) === 6 && myChanges.has(Synth.Param.PHRASE_TRANSPOSE) &&
-				subphraseChanges.has(Synth.Param.NOTES)
-			) {
-				transpose = myChanges.get(Synth.Param.PHRASE_TRANSPOSE).value - subphraseChanges.get(Synth.Param.NOTES).value[0];
-			}
 
-			switch (changeSources) {
-			case 0:
-				changes = DEFAULT_CHANGES;
-				break;
-			case 2:
-				if (transpose === 0) {
-					changes = subphraseChanges;
+				if (subphrase !== undefined) {
+					if (subphraseOffset >= subphrase.rows.length) {
+						subphrase = undefined;
+					} else {
+						subphraseChanges = subphrase.rows[subphraseOffset];
+						subphraseOffset++;
+						if (subphraseChanges !== undefined) {
+							changeSources += 2;
+						}
+					}
+				}
+				if ((changeSources & 6) === 6 && myChanges.has(Synth.Param.PHRASE_TRANSPOSE) &&
+					subphraseChanges.has(Synth.Param.NOTES)
+				) {
+					transpose = myChanges.get(Synth.Param.PHRASE_TRANSPOSE).value - subphraseChanges.get(Synth.Param.NOTES).value[0];
+				}
+
+				switch (changeSources) {
+				case 0:
+					changes = DEFAULT_CHANGES;
 					break;
-				}
-			default:
-				changes = new Map(subphraseChanges);
-				if (transpose !== 0 && subphraseChanges !== undefined) {
-					const subphraseNoteChange = subphraseChanges.get(Synth.Param.NOTES);
-					if (subphraseNoteChange !== undefined) {
-						const transposedNoteChange = subphraseNoteChange.clone();
-						changes.set(Synth.Param.NOTES, transposedNoteChange);
-						const transposedNotes = transposedNoteChange.value;
-						for (let i = 0; i < transposedNotes.length; i++) {
-							transposedNotes[i] += transpose;
+				case 2:
+					if (transpose === 0) {
+						changes = subphraseChanges;
+						break;
+					}
+				default:
+					changes = new Map(subphraseChanges);
+					if (transpose !== 0 && subphraseChanges !== undefined) {
+						const subphraseNoteChange = subphraseChanges.get(Synth.Param.NOTES);
+						if (subphraseNoteChange !== undefined) {
+							const transposedNoteChange = subphraseNoteChange.clone();
+							changes.set(Synth.Param.NOTES, transposedNoteChange);
+							const transposedNotes = transposedNoteChange.value;
+							for (let i = 0; i < transposedNotes.length; i++) {
+								transposedNotes[i] += transpose;
+							}
+						}
+					}
+					if (myChanges !== undefined) {
+						for (let [key, change] of myChanges) {
+							if (change === Synth.Change.NONE) {
+								changes.delete(key);
+							} else if (change !== Synth.Change.MARK || !changes.has(key)) {
+								changes.set(key, change);
+							}
 						}
 					}
 				}
-				if (myChanges !== undefined) {
-					for (let [key, change] of myChanges) {
-						if (change === Synth.Change.NONE) {
-							changes.delete(key);
-						} else if (change !== Synth.Change.MARK || !changes.has(key)) {
-							changes.set(key, change);
-						}
-					}
+
+				const repeatChange = changes.get(Synth.Param.LINE_REPEAT);
+				if (repeatChange !== undefined) {
+					repeatTimes = repeatChange.value;
 				}
 			}
 
-			let nextRowNum = rowNum + 1;
-			const loopChange = changes.get(Synth.Param.LOOP);
-			if (loopChange !== undefined) {
-				const loopValue = loopChange.value;
-				if (loopValue === 0) {
-					loopStart = rowNum;
-				} else if (loopCounter < loopValue) {
-					loopEnd = rowNum;
-					loopCount = loopValue;
-					nextRowNum = loopStart;
-					loopCounter++;
-				} else {
-					loopCounter = 1;
-				}
+			let nextRowNum = rowNum;
+			if (repetition >= repeatTimes) {
+				nextRowNum++;
+				repetition = 1;
+				repeatTimes = 1;
+			} else {
+				repetition++;
 			}
-			if (changes.has(Synth.Param.BREAK) && loopCounter === loopCount) {
-				nextRowNum = loopEnd + 1;
-				loopCounter = 1;
-				loopCount = undefined;
+			if (repetition === repeatTimes) {
+				const loopChange = changes.get(Synth.Param.LOOP);
+				if (loopChange !== undefined) {
+					const loopValue = loopChange.value;
+					if (loopValue === 0) {
+						loopStart = rowNum;
+					} else if (loopCounter < loopValue) {
+						loopEnd = rowNum;
+						loopCount = loopValue;
+						nextRowNum = loopStart;
+						loopCounter++;
+					} else {
+						loopCounter = 1;
+					}
+				}
+				if (changes.has(Synth.Param.BREAK) && loopCounter === loopCount) {
+					nextRowNum = loopEnd + 1;
+					loopCounter = 1;
+					loopCount = undefined;
+				}
 			}
 			rowNum = nextRowNum;
 
-			lineTime = channel.setParameters(changes, step, true);
-			step += lineTime;
+			if (repeatTimes > 0) {
+				let lineTime = channel.setParameters(changes, step, true);
+				lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
+				step += lineTime;
+				if (repeatTimes > 1 && repetition === 2) { // already incremented
+					if (changeSources === 2 && changes.has(Synth.Param.GATE)) {
+						changes = new Map(changes);
+					}
+					changes.delete(Synth.Param.GATE);
+				}
+			}
 		}
 	}
 
