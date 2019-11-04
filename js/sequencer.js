@@ -362,15 +362,15 @@ class Pattern {
 		const repetitions = new Array(numColumns); // Line repeat function
 		repetitions.fill(1);
 		let masterRepeatTimes = 1;
-		const activePhrases = [];
-		const phraseOffsets = [];
-		const transpositions = [];
+		const activePhrases = new Array(numColumns);
+		const phraseOffsets = new Array(numColumns);
+		const transpositions = new Array(numColumns);
 		let masterChanges;
 
 		while (rowNumbers[terminatingColumn] < length) {
 			maxLineTime = 0;
-			const masterRepeatCount = repetitions[0];
-			if (masterRepeatCount === 1) {
+			const masterRepetition = repetitions[0];
+			if (masterRepetition === 1) {
 				masterChanges = masterRows[rowNumbers[0]];
 				if (masterChanges !== undefined) {
 					const repeatChange = masterChanges.get(Synth.Param.LINE_REPEAT);
@@ -381,14 +381,14 @@ class Pattern {
 			}
 
 			let nextMasterRow = rowNumbers[0];
-			if (masterRepeatCount >= masterRepeatTimes) {
+			if (masterRepetition >= masterRepeatTimes) {
 				nextMasterRow++;
 				repetitions[0] = 1;
 				masterRepeatTimes = 1;
 			} else {
 				repetitions[0]++;
 			}
-			if (masterChanges !== undefined && masterRepeatCount === masterRepeatTimes) {
+			if (masterChanges !== undefined && masterRepetition === masterRepeatTimes) {
 				const loopChange = masterChanges.get(Synth.Param.LOOP);
 				if (loopChange !== undefined) {
 					const loopValue = loopChange.value;
@@ -413,7 +413,6 @@ class Pattern {
 
 			for (let columnNumber = 1; columnNumber < numColumns; columnNumber++) {
 				const rowNum = rowNumbers[columnNumber];
-				const repetition = repetitions[columnNumber];
 				const column = this.columns[columnNumber];
 				let changeSources = masterChanges === undefined ? 0 : 1;
 				let changes, phraseChanges, columnChanges;
@@ -508,41 +507,66 @@ class Pattern {
 					}
 				}
 
-				let nextRowNum = rowNum + 1;
-				const loopChange = changes.get(Synth.Param.LOOP);
-				if (loopChange !== undefined) {
-					const loopValue = loopChange.value;
-					if (loopValue === 0) {
-						loopStart[columnNumber] = rowNum;
-					} else if (loopCounters[columnNumber] < loopValue) {
-						loopEnd[columnNumber] = rowNumbers[columnNumber];
-						loopCount[columnNumber] = loopValue;
-						nextRowNum = loopStart[columnNumber];
-						loopCounters[columnNumber]++;
-					} else {
-						loopCounters[columnNumber] = 1;
-					}
+				let nextRowNum = rowNum;
+				const repetition = repetitions[columnNumber];
+				const repeatChange = changes.get(Synth.Param.LINE_REPEAT);
+				let repeatTimes = 1;
+				if (repeatChange !== undefined) {
+					repeatTimes = repeatChange.value;
 				}
-				if (changes.has(Synth.Param.BREAK) &&
-					loopCounters[columnNumber] === loopCount[columnNumber]
-				) {
-					nextRowNum = loopEnd[columnNumber] + 1;
-					loopCounters[columnNumber] = 1;
-					loopCount[columnNumber] = undefined;
+
+				if (repetition >= repeatTimes) {
+					nextRowNum++;
+					repetitions[columnNumber] = 1;
+				} else {
+					repetitions[columnNumber]++;
+				}
+				if (repetition === repeatTimes) {
+					const loopChange = changes.get(Synth.Param.LOOP);
+					if (loopChange !== undefined) {
+						const loopValue = loopChange.value;
+						if (loopValue === 0) {
+							loopStart[columnNumber] = rowNum;
+						} else if (loopCounters[columnNumber] < loopValue) {
+							loopEnd[columnNumber] = rowNumbers[columnNumber];
+							loopCount[columnNumber] = loopValue;
+							nextRowNum = loopStart[columnNumber];
+							loopCounters[columnNumber]++;
+						} else {
+							loopCounters[columnNumber] = 1;
+						}
+					}
+					if (changes.has(Synth.Param.BREAK) &&
+						loopCounters[columnNumber] === loopCount[columnNumber]
+					) {
+						nextRowNum = loopEnd[columnNumber] + 1;
+						loopCounters[columnNumber] = 1;
+						loopCount[columnNumber] = undefined;
+					}
 				}
 				rowNumbers[columnNumber] = nextRowNum;
 
-				const channel = system.channels[columnNumber - 1];
-				let lineTime = channel.setParameters(changes, step, true);
-				lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
-				if (lineTime > maxLineTime) {
-					maxLineTime = lineTime;
+				if (masterRepeatTimes > 0 && repeatTimes > 0) {
+					if (repetition > 1) {
+						if (changeSources < 3 && changes.has(Synth.Param.GATE)) {
+							changes = new Map(changes);
+						}
+						changes.delete(Synth.Param.GATE);
+					}
+					const channel = system.channels[columnNumber - 1];
+					let lineTime = channel.setParameters(changes, step, true);
+					lineTime += Math.round(lineTime * channel.parameters[Synth.Param.IDLE_TIME]);
+					if (lineTime > maxLineTime) {
+						maxLineTime = lineTime;
+					}
 				}
 			} // end for each column
 
 			step += maxLineTime;
 
-			if (masterRepeatCount === 1 && masterRepeatTimes > 1 && masterChanges !== undefined) {
+			if (masterRepeatTimes > 1 && masterRepetition === 1 &&
+				masterChanges !== undefined && masterChanges.has(Synth.Param.GATE)
+			) {
 				masterChanges = new Map(masterChanges);
 				masterChanges.delete(Synth.Param.GATE);
 			}
@@ -1404,7 +1428,7 @@ class Phrase {
 		let loopStart = 0;
 		let loopCounter = 1;
 		let transpose = 0;
-		let lineTime, subphrase, subphraseOffset;
+		let loopEnd, loopCount, lineTime, subphrase, subphraseOffset;
 
 		while (rowNum < length) {
 			let changes, subphraseChanges;
@@ -1477,7 +1501,6 @@ class Phrase {
 					}
 				}
 			}
-			lineTime = channel.setParameters(changes, step, true);
 
 			let nextRowNum = rowNum + 1;
 			const loopChange = changes.get(Synth.Param.LOOP);
@@ -1486,14 +1509,22 @@ class Phrase {
 				if (loopValue === 0) {
 					loopStart = rowNum;
 				} else if (loopCounter < loopValue) {
+					loopEnd = rowNum;
+					loopCount = loopValue;
 					nextRowNum = loopStart;
 					loopCounter++;
 				} else {
 					loopCounter = 1;
 				}
 			}
+			if (changes.has(Synth.Param.BREAK) && loopCounter === loopCount) {
+				nextRowNum = loopEnd + 1;
+				loopCounter = 1;
+				loopCount = undefined;
+			}
 			rowNum = nextRowNum;
 
+			lineTime = channel.setParameters(changes, step, true);
 			step += lineTime;
 		}
 	}

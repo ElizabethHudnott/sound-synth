@@ -11,7 +11,6 @@ option to alter LINE_TIME changes inside expand(), compact() and copyAndCompact
 * Handle when a pattern with nested phrases is expanded or compacted: Add a PHRASE_SPEED parameter?
 
 * Let PHRASE_TRANSPOSE work when rows are not aligned
-* Change PATTERN_DELAY to LINE_REPEAT (in lines rather than ticks, repeat everything except GATE, LINE_REPEAT and incrementing the phrase offset)
 * Old chord should continue playing for a bit when using DELAY_TICKS
 * Bug when glissando and glide are used together
 * Review direct access to Change.value in playback routine
@@ -91,7 +90,6 @@ UI:
 	UI for Parameter.OFFSET? ruler and snap
 samples need names
 method to create a sample by crossfading one sample into another
-trim silence method
 Check Number.MAX_VALUE is being applied consistently
 editing stereo sample channels separately
 Time stretching
