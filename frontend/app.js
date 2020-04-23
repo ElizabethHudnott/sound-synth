@@ -105,7 +105,7 @@ function applyGateSetting() {
 		gate = gate + Synth.Gate.LEGATO;
 	}
 
-	if (!keyboard.split) {
+	if (keyboard.split === 128) {
 		keyboard.gate[0] = gate;
 	} else {
 		keyboard.gate[0] = gate & Synth.Gate.REOPEN;
@@ -131,7 +131,7 @@ document.getElementById('input-channel').addEventListener('input', function (eve
 });
 
 document.getElementById('input-mode-mono').addEventListener('input', function (event) {
-	keyboard.split = false;
+	keyboard.split = 128;
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -140,7 +140,7 @@ document.getElementById('input-mode-mono').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-poly').addEventListener('input', function (event) {
-	keyboard.split = false;
+	keyboard.split = 128;
 	keyboard.toChannel[0] = channels.length - 1;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = [0];
@@ -149,14 +149,14 @@ document.getElementById('input-mode-poly').addEventListener('input', function (e
 });
 
 document.getElementById('input-mode-arp').addEventListener('input', function (event) {
-	keyboard.split = false;
+	keyboard.split = 128;
 	keyboard.enableArpeggio(0, true);
 	keyboard.setLockDown(0, false);
 	applyInputMode();
 });
 
 document.getElementById('input-mode-transpose-chord').addEventListener('input', function (event) {
-	keyboard.split = true;
+	keyboard.split = 60;
 	keyboard.toChannel[0] = 0;
 	keyboard.enableArpeggio(0, false);
 	keyboard.chord[0] = chord;

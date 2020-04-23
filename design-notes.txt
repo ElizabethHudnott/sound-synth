@@ -175,3 +175,54 @@ insertSilence	x
 mix				x
 separateStereo	x			x
 mixToMono		x			x
+
+------------------------------
+
+* BPM
+* Groove
+Broken Chord
+*Number of Notes
+Chord Pattern
+* Glissando
+* Number of Triggers
+Legato
+Retrigger Volume
+
+events = lcm(numberOfNotes, numberOfTriggers)
+	(multiply by an integer if needed to be at least as many as the glissando)
+
+ticks = events / noteValue (in sixteenths)
+	(multiply by an integer if needed to be at least 1)
+
+totalTicks = noteValue * ticks
+
+retrigger = totalTicks / numberOfTriggers	if numberOfTriggers > 0
+			0								otherwise
+chordSpeed = totalTicks / numberOfNotes
+
+glideTime = glidePercentage 			if there are chords
+			glidePercentage * noteValue	otherwise
+
+
+------------------------------
+
+Sample
+------
+slices
+
+Slice
+-----
+startOffset
+endOffset
+duration
+triggerNote
+gain
+
+
+SamplePlayer / SlicePlayer
+--------------------------
+bufferNode
+-duration (remove, move into start() method)
+samplePeriod
+gain
+*start()

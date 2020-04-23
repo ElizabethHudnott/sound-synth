@@ -1090,11 +1090,11 @@ class Phrase {
 		return results;
 	}
 
-	*mirrorValues(param, minValue, maxValue, changeTypes, centreValue, begin, from, to, reverse) {
-		const search = this.find(param, minValue, maxValue, changeTypes, begin, from, to, reverse);
+	mirrorValues(param, changeTypes, centreValue, from, to) {
+		const search = this.find(param, undefined, undefined, Synth.CHangeTypes.ALL, from, from, to, false);
 		const modified = new Set();
 		let result = search.next();
-		let doReplace;
+		let madeChanges = false;
 		while (!result.done) {
 			const occurrence = result.value;
 			const rowNumber = occurrence[0];
@@ -1103,12 +1103,27 @@ class Phrase {
 				continue;
 			}
 
-			[doReplace, reverse] = yield occurrence;
-			if (doReplace)  {
-				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+			const newChange = occurrence[1].clone();
+			rowChanges.set(param, newChange);
 
-				const value = newChange.value;
+			let changeType = newChange.type;
+			const changeMode = changeType & Synth.CHANGE_TYPE_MASK;
+			changeType = changeType & (~Synth.CHANGE_TYPE_MASK);
+			value = newChange.value;
+			switch (changeMode) {
+			case Synth.ChangeType.MARK:
+				break;
+			case Synth.ChangeType.DELTA:
+				value = -value;
+				madeChanges = true;
+				break;
+			case Synth.ChangeType.MULTIPLY:
+				if (!madeChanges && centreValue === 0) {
+					value = -value;
+				}
+				madeChanges = true;
+				break;
+			default:
 				if (Array.isArray(value)) {
 					for (let i = 0; i < value.length; i++) {
 						if (value[i] <= centreValue) {
@@ -1119,14 +1134,16 @@ class Phrase {
 					}
 				} else {
 					if (value <= centreValue) {
-						newChange.value = centreValue + (centreValue - value);
+						value = centreValue + (centreValue - value);
 					} else {
-						newChange.value = centreValue - (value - centreValue);
+						value = centreValue - (value - centreValue);
 					}
 				}
-				modified.add(rowChanges);
+				madeChanges = true;
 			}
-			result = search.next(reverse);
+			newChange.value = value;
+			modified.add(rowChanges);
+			result = search.next(false);
 		}
 	}
 
@@ -1146,7 +1163,7 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+				rowChanges.set(param, newChange);
 
 				const value = newChange.value;
 				if (Array.isArray(value)) {
@@ -1178,7 +1195,7 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+				rowChanges.set(param, newChange);
 
 				const value = newChange.value;
 				if (Array.isArray(value)) {
@@ -1210,7 +1227,7 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+				rowChanges.set(param, newChange);
 
 				const value = newChange.value;
 				if (Array.isArray(value)) {
@@ -1242,7 +1259,7 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+				rowChanges.set(param, newChange);
 				newChange.value = replacement;
 				modified.add(rowChanges);
 			}
@@ -1266,7 +1283,7 @@ class Phrase {
 			[doReplace, reverse] = yield occurrence;
 			if (doReplace)  {
 				const newChange = occurrence[1].clone();
-				this.rows[rowNumber].set(param, newChange);
+				rowChanges.set(param, newChange);
 
 				const value = newChange.value;
 				if (Array.isArray(value)) {

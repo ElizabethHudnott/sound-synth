@@ -500,7 +500,7 @@ if (window.parent !== window || window.opener !== null) {
 const keyboard = new Input('Computer Keyboard', 2);
 inputs.set('ComputerKeyboard', keyboard);
 keyboard.octave = 4;
-keyboard.split = false;
+keyboard.split = 128;
 keyboard.velocity = 127;
 
 let access;
@@ -591,7 +591,7 @@ function trapKeyboardEvent(event) {
 }
 
 function keyboardChannel(note) {
-	if (keyboard.split && note >= 60) {
+	if (note >= keyboard.split) {
 		return 1;
 	} else {
 		return 0;
