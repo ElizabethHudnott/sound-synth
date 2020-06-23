@@ -85,10 +85,10 @@ function downloadArrayBuffer(url) {
 		request.timeout = 60000;
 
 		request.addEventListener('load', function (event) {
-	  		if (request.status < 400) {
-	  			resolve(new Resource(url, request.response));
+	  		if (this.status < 400) {
+	  			resolve(new Resource(url, this.response));
 		  	} else {
-		  		reject(new ResourceLoadError(url, request.status + ' - ' + request.statusText));
+		  		reject(new ResourceLoadError(url, this.status + ' - ' + this.statusText));
 		  	}
 	  	});
 

@@ -33,6 +33,16 @@ td {
 	vertical-align: top;
 }
 
+#navbar {
+	align-items: center;
+	display: flex;
+	margin-bottom: 3px;
+}
+
+#navbar>* {
+	margin-right: 10px;
+}
+
 #controls {
 	display: none;
 	margin-left: 2vw;
