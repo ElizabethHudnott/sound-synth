@@ -124,12 +124,12 @@ class SongGenerator {
 
 		this.conjunctLength = uniformCDF(2, 5);
 		this.conjunctIntervals = makeCDF(new Map([
-			[1, 18], [2, 64], [3, 18],
+			[1, 67], [2, 33],
 		]));
 
 		this.disjunctLength = uniformCDF(2, 3);
 		this.disjunctIntervals = makeCDF(new Map([
-			[3, 3], [4, 3], [5, 3], [6, 3],
+			[4, 1], [5, 1], [6, 1],
 		]));
 
 		this.numConjunctContours = 3;
@@ -172,7 +172,7 @@ class SongGenerator {
 
 	generateTimeSignature(type) {
 		let length = cdfLookup(this.lengthDist);
-		let beatLength, lengths;
+		let beatLength = 1, lengths;
 		if (type === undefined) {
 			type = Math.trunc(Math.random() * 3) + 1;
 		}
@@ -188,14 +188,12 @@ class SongGenerator {
 			break;
 
 		case TimeSignatureType.COMPOUND:
-			beatLength = 3;
-			length = Math.min(Math.round(length / 3) * 3, 3);
+			length = Math.min(Math.round(length / 3) * 3, 6);
 			lengths = new Array(length / 3);
 			lengths.fill(3);
 			break;
 
 		case TimeSignatureType.COMPLEX:
-			beatLength = 1;
 			lengths = [];
 			let lengthSoFar = 0;
 			while (lengthSoFar < length - 1 || lengths.length < 2) {
@@ -234,7 +232,6 @@ class SongGenerator {
 		let noteValues = [];
 
 		if (timeSignatureType === TimeSignatureType.SIMPLE) {
-			console.log('Beat length: ' + mainBeatLength);
 			let i = 0, offset = 0, owed = 0;
 			let beatLength;
 			while (i < numBlocks) {
@@ -242,7 +239,7 @@ class SongGenerator {
 					owed = 0;
 				}
 				if (owed === 0) {
-					beatLength = cdfLookup(this.beatDist), numBlocks - i, numBlocks - 1;
+					beatLength = cdfLookup(this.beatDist);
 				} else {
 					beatLength = owed;
 				}
@@ -287,12 +284,6 @@ class SongGenerator {
 			lengths.push(numEighths);
 			noteValues = newValues;
 			numBlocks = lengths.length;
-
-		} else if (numBlocks === 1) {
-
-			const beats = new Array(lengths[0]);
-			beats.fill(1);
-			noteValues[0] = beats;
 
 		} else {
 
@@ -342,34 +333,38 @@ class SongGenerator {
 		// Use negative "beat lengths" to indicate rests.
 		let restsToAllocate = Math.round(cdfLookup(this.restTimeDist) * length / 16);
 		let attempts = 0;
-		while (restsToAllocate > 0 && attempts < 100) {
+		while (restsToAllocate !== 0 && attempts < 100) {
 			const index = Math.trunc(Math.random() * length);
 			let currentIndex = 0;
 			for (let i = 0; i < numBlocks; i++) {
 				const blockLength = lengths[i];
 				if (index < currentIndex + blockLength) {
-					let indexWithinBlock = index - currentIndex;
 					const beats = noteValues[i];
-					const beatLength = beats[indexWithinBlock];
-					if ((indexWithinBlock !== 0 || beats.length === 1) && beatLength > 0) {
-						beats[indexWithinBlock] = -beatLength;
-						restsToAllocate -= beatLength;
+					const blockLength = beats.length;
+					if (restsToAllocate > 0) {
+						for (let indexWithinBlock = blockLength - 1; indexWithinBlock >= 0; indexWithinBlock--) {
+							const beatLength = beats[indexWithinBlock];
+							if (beatLength > 0) {
+								beats[indexWithinBlock] = -beatLength;
+								restsToAllocate -= beatLength;
+								break;
+							}
+						}
+					} else {
+						for (let indexWithinBlock = 0; indexWithinBlock < blockLength; indexWithinBlock++) {
+							const beatLength = beats[indexWithinBlock];
+							if (beatLength < 0) {
+								beats[indexWithinBlock] = -beatLength;
+								restsToAllocate -= beatLength;
+								break;
+							}
+						}
 					}
 					break;
 				}
 				currentIndex += blockLength;
 			}
 			attempts++;
-		}
-		for (let i = 0; i < numBlocks && restsToAllocate < 0; i++) {
-			const beatGroup = noteValues[i];
-			for (let j = 0; j < beatGroup.length && restsToAllocate < 0; j++) {
-				const beat = beatGroup[j];
-				if (beat < 0 && -beat <= -restsToAllocate) {
-					beatGroup[j] = -beat;
-					restsToAllocate += -beat;
-				}
-			}
 		}
 
 		// Make the longest note be on the beat (no syncopation for now)
@@ -382,6 +377,65 @@ class SongGenerator {
 				block[index] = first;
 				block[0] = max;
 			}
+		}
+
+		let maxRestLength = 0;
+		let maxLastNoteLength = 0;
+		let maxRestBlock;
+		let maxNoteLength = 0;
+		let maxNoteBlock = 0;
+		for (let i = 0; i < numBlocks; i++) {
+			let block = noteValues[i];
+			let blockLength = block.length;
+			let restLength = 0;
+			let lastNoteLength = 0;
+			for (let j = 0; j < blockLength; j++) {
+				if (block[j] < 0) {
+					restLength += -block[j];
+				} else {
+					lastNoteLength = block[j];
+				}
+			}
+			if (lastNoteLength > maxNoteLength) {
+				maxNoteLength = lastNoteLength;
+				maxNoteBlock = i;
+			}
+
+			let blockNum = (i + 1) % numBlocks;
+			while (blockNum !== i) {
+				block = noteValues[blockNum];
+				blockLength = block.length;
+				if (block[0] > 0) {
+					break;
+				}
+				for (let j = 0; j < blockLength; j++) {
+					restLength += -block[j];
+				}
+				blockNum = (blockNum + 1) % numBlocks;
+			}
+			if (restLength > maxRestLength || (restLength === maxRestLength && lastNoteLength > maxLastNoteLength)) {
+				maxRestLength = restLength;
+				maxRestBlock = blockNum;
+				maxLastNoteLength = lastNoteLength;
+			}
+		}
+
+		let startBlock;
+		if (maxRestBlock !== undefined) {
+			startBlock = maxRestBlock;
+		} else {
+			debugger;
+			startBlock = maxNoteBlock;
+		}
+
+		if (startBlock > 0) {
+			const newValues = [];
+			let i = startBlock;
+			do {
+				newValues.push(noteValues[i]);
+				i = (i + 1) % numBlocks;
+			} while (i !== startBlock);
+			noteValues = newValues;
 		}
 
 		console.log('Blocks: ' + lengths);
@@ -727,6 +781,11 @@ class SongGenerator {
 
 	generatePhrase(timeSignatureType) {
 		const timeSignature = this.generateTimeSignature(timeSignatureType);
+		console.log('Time signature: ' + timeSignature.length + '/' + String(8 / timeSignature.beatLength));
+		if (timeSignature.type !== TimeSignatureType.SIMPLE) {
+			console.log('Beat: ' + timeSignature.groupings);
+		}
+
 		const noteValues = this.generateRhythm(timeSignature);
 
 		const numBlocks = noteValues.length;
