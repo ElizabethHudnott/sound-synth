@@ -96,10 +96,16 @@ class TimeSigature {
 	}
 }
 
+const RhythmType = Object.freeze({
+	UNCONSTRAINED: 0,
+	FIRST_BAR: 1,
+	REPEATED: 2,
+});
+
 class SongGenerator {
 	constructor() {
 		// Approximate length in quavers.
-		this.lengthDist = uniformCDF(3, 12);
+		this.lengthDist = uniformCDF(3, 10);
 
 		/* Frequency distribution of duplets and triplets for complex time signatures
 		 * (and maybe quintuplets or septuplets).
@@ -223,7 +229,7 @@ class SongGenerator {
 		return new TimeSigature(type, length, beatLength, lengths);
 	}
 
-	generateRhythm(timeSignature) {
+	generateRhythm(timeSignature, rhythmType) {
 		const timeSignatureType = timeSignature.type;
 		const length = timeSignature.length;
 		const mainBeatLength = timeSignature.beatLength;
@@ -379,53 +385,71 @@ class SongGenerator {
 			}
 		}
 
-		let maxRestLength = 0;
-		let maxLastNoteLength = 0;
-		let maxRestBlock;
-		let maxNoteLength = 0;
-		let maxNoteBlock = 0;
-		for (let i = 0; i < numBlocks; i++) {
-			let block = noteValues[i];
-			let blockLength = block.length;
-			let restLength = 0;
-			let lastNoteLength = 0;
-			for (let j = 0; j < blockLength; j++) {
-				if (block[j] < 0) {
-					restLength += -block[j];
+		let startBlock = 0;
+
+		switch (rhythmType) {
+		case RhythmType.FIRST_BAR:
+			{
+				while (noteValues[startBlock][0] < 0 && startBlock < numBlocks - 1) {
+					startBlock++;
+				}
+				if (noteValues[startBlock][0] < 0) {
+					startBlock = 0;
+					noteValues[0][0] = -noteValues[0][0];
+				}
+				break;
+			}
+
+		case RhythmType.REPEATED:
+			{
+				let maxRestLength = 0;
+				let maxLastNoteLength = 0;
+				let maxRestBlock;
+				let maxNoteLength = 0;
+				let maxNoteBlock = 0;
+				for (let i = 0; i < numBlocks; i++) {
+					let block = noteValues[i];
+					let blockLength = block.length;
+					let restLength = 0;
+					let lastNoteLength = 0;
+					for (let j = 0; j < blockLength; j++) {
+						if (block[j] < 0) {
+							restLength += -block[j];
+						} else {
+							lastNoteLength = block[j];
+						}
+					}
+					if (lastNoteLength > maxNoteLength) {
+						maxNoteLength = lastNoteLength;
+						maxNoteBlock = i;
+					}
+
+					let blockNum = (i + 1) % numBlocks;
+					while (blockNum !== i) {
+						block = noteValues[blockNum];
+						blockLength = block.length;
+						if (block[0] > 0) {
+							break;
+						}
+						for (let j = 0; j < blockLength; j++) {
+							restLength += -block[j];
+						}
+						blockNum = (blockNum + 1) % numBlocks;
+					}
+					if (restLength > maxRestLength || (restLength === maxRestLength && lastNoteLength > maxLastNoteLength)) {
+						maxRestLength = restLength;
+						maxRestBlock = blockNum;
+						maxLastNoteLength = lastNoteLength;
+					}
+				}
+
+				if (maxRestBlock !== undefined) {
+					startBlock = maxRestBlock;
 				} else {
-					lastNoteLength = block[j];
+					startBlock = maxNoteBlock;
 				}
+				break;
 			}
-			if (lastNoteLength > maxNoteLength) {
-				maxNoteLength = lastNoteLength;
-				maxNoteBlock = i;
-			}
-
-			let blockNum = (i + 1) % numBlocks;
-			while (blockNum !== i) {
-				block = noteValues[blockNum];
-				blockLength = block.length;
-				if (block[0] > 0) {
-					break;
-				}
-				for (let j = 0; j < blockLength; j++) {
-					restLength += -block[j];
-				}
-				blockNum = (blockNum + 1) % numBlocks;
-			}
-			if (restLength > maxRestLength || (restLength === maxRestLength && lastNoteLength > maxLastNoteLength)) {
-				maxRestLength = restLength;
-				maxRestBlock = blockNum;
-				maxLastNoteLength = lastNoteLength;
-			}
-		}
-
-		let startBlock;
-		if (maxRestBlock !== undefined) {
-			startBlock = maxRestBlock;
-		} else {
-			debugger;
-			startBlock = maxNoteBlock;
 		}
 
 		if (startBlock > 0) {
@@ -786,7 +810,11 @@ class SongGenerator {
 			console.log('Beat: ' + timeSignature.groupings);
 		}
 
-		const noteValues = this.generateRhythm(timeSignature);
+		const numBars = Math.max(Math.round(16 / timeSignature.length), 2);
+		let noteValues = this.generateRhythm(timeSignature, RhythmType.FIRST_BAR);
+		for (let i = 1; i < numBars; i++) {
+			noteValues = noteValues.concat(this.generateRhythm(timeSignature, RhythmType.UNCONSTRAINED));
+		}
 
 		const numBlocks = noteValues.length;
 		let numNotes = 0;
@@ -799,7 +827,6 @@ class SongGenerator {
 				}
 			}
 		}
-		numNotes *= 4; // Generate 4 bars
 
 		const scale = this.generateScale()
 		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
@@ -829,7 +856,7 @@ class SongGenerator {
 
 		const melody = this.generateMelody(pitchSpace, conjunctPatterns, disjunctPatterns, 'mixed', rootNote, numNotes);
 
-		const phrase = this.generateOutput(noteValues, melody, timeSignature.length * 8);
+		const phrase = this.generateOutput(noteValues, melody, timeSignature.length * numBars * 2);
 		return phrase;
 	}
 
