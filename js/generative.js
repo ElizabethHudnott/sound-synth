@@ -390,6 +390,7 @@ class SongGenerator {
 		switch (rhythmType) {
 		case RhythmType.FIRST_BAR:
 			{
+				// First bar cannot begin with a rest.
 				while (noteValues[startBlock][0] < 0 && startBlock < numBlocks - 1) {
 					startBlock++;
 				}
@@ -402,6 +403,9 @@ class SongGenerator {
 
 		case RhythmType.REPEATED:
 			{
+				/* For a repeating rhythm the longest pause or the longest note is
+				 * perceived as the final element.
+				 */
 				let maxRestLength = 0;
 				let maxLastNoteLength = 0;
 				let maxRestBlock;
@@ -472,7 +476,7 @@ class SongGenerator {
 		const mode = cdfLookup(this.modeDist) - 1;
 		const scale = new Array(7);
 		for (let i = 0; i < 7; i++) {
-			scale[i] = Sequencer.DIATONIC_SCALE[(i + mode - 1) % 7];
+			scale[i] = Sequencer.DIATONIC_SCALE[(i + mode) % 7];
 		}
 		return scale;
 	}
@@ -681,7 +685,7 @@ class SongGenerator {
 			} else if (finalPitch > maxPitch) {
 				finalPitch = maxPitch;
 			}
-			if (finalPitch - notes[currentLength - 1] === 0 && finalPitch !== minPitch && finalPitch !== maxPitch) {
+			if (finalPitch - notes[currentLength - 1] === 0 && finalPitch > minPitch) {
 				finalPitch--;
 			}
 			notes.push(finalPitch);
@@ -810,7 +814,7 @@ class SongGenerator {
 			console.log('Beat: ' + timeSignature.groupings);
 		}
 
-		const numBars = Math.max(Math.round(16 / timeSignature.length), 2);
+		const numBars = 4;
 		let noteValues = this.generateRhythm(timeSignature, RhythmType.FIRST_BAR);
 		for (let i = 1; i < numBars; i++) {
 			noteValues = noteValues.concat(this.generateRhythm(timeSignature, RhythmType.UNCONSTRAINED));
@@ -829,13 +833,17 @@ class SongGenerator {
 		}
 
 		const scale = this.generateScale()
+		console.log('Scale: ' + scale);
 		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
+		console.log('Root Note: ' + rootNote);
 		const pitchSpace = generatePitchSpace(scale, rootNote, this.minNote, this.maxNote);
 
 		const conjunctPatterns = [];
 		let numContours = 0;
+		console.log('Contours:');
 		while (numContours < this.numConjunctContours) {
 			const contour = this.generateContour(true);
+			console.log(contour);
 			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
 			if (newPatterns.length > 0) {
 				conjunctPatterns.splice(conjunctPatterns.length, 0, ...newPatterns);
@@ -847,6 +855,7 @@ class SongGenerator {
 		numContours = 0;
 		while (numContours < this.numDisjunctContours) {
 			const contour = this.generateContour(false);
+			console.log(contour);
 			const newPatterns = SongGenerator.putContourInPitchSpace(contour, pitchSpace);
 			if (newPatterns.length > 0) {
 				disjunctPatterns.splice(disjunctPatterns.length, 0, ...newPatterns);
