@@ -1,5 +1,8 @@
 'use strict';
 
+const WHOLE_TONE_SCALE = [2, 2, 2, 2, 2, 2];
+const OCTATONIC_SCALE = [2, 1, 2, 1, 2, 1, 2, 1];
+
 function makeCDF(map) {
 	const keys = [];
 	const cumulativeProbabilities = [];
@@ -274,7 +277,7 @@ class SongGenerator {
 			lengths = [];
 			const newValues = [];
 			let currentBlock = noteValues[0];
-			let numEighths = noteValues[0][0];
+			let numEighths = currentBlock[0];
 			for (let i = 1; i < numBlocks; i++) {
 				if (numEighths % mainBeatLength === 0) {
 					newValues.push(currentBlock);
@@ -472,11 +475,12 @@ class SongGenerator {
 		return noteValues;
 	}
 
-	generateScale() {
-		const mode = cdfLookup(this.modeDist) - 1;
-		const scale = new Array(7);
-		for (let i = 0; i < 7; i++) {
-			scale[i] = Sequencer.DIATONIC_SCALE[(i + mode) % 7];
+	generateScale(intervals) {
+		const numNotes = intervals.length;
+		const mode = (cdfLookup(this.modeDist) - 1) % numNotes;
+		const scale = new Array(numNotes);
+		for (let i = 0; i < numNotes; i++) {
+			scale[i] = intervals[(i + mode) % numNotes];
 		}
 		return scale;
 	}
@@ -832,7 +836,7 @@ class SongGenerator {
 			}
 		}
 
-		const scale = this.generateScale()
+		const scale = this.generateScale(Sequencer.DIATONIC_SCALE);
 		console.log('Scale: ' + scale);
 		const rootNote = this.minNote + Math.trunc((this.maxNote - this.minNote + 1) / 2 - 6 + Math.random() * 12);
 		console.log('Root Note: ' + rootNote);

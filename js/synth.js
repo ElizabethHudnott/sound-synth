@@ -3248,6 +3248,7 @@ class Channel {
 				if (usingSamples) {
 					gain.setValueAtTime(volume, start);
 				} else {
+					//TODO shorten attack time based on existing volume to do proper legato
 					gain.setTargetAtTime(volume, start, (endAttack - start) / parameters[Parameter.ATTACK_CURVE]);
 				}
 			}

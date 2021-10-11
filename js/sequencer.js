@@ -31,10 +31,7 @@ const C_MAJOR = musicalScale(0, 1);
 /**
  * @param {number} mode 1 = major, 6 = minor
  */
-function musicalScale(baseNote, mode, intervals) {
-	if (intervals === undefined) {
-		intervals = DIATONIC_SCALE;
-	}
+function musicalScale(baseNote, mode, intervals = DIATONIC_SCALE) {
 	const numIntervals = intervals.length;
 	const notes = [];
 	let position = baseNote;
